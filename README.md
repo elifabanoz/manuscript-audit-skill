@@ -34,6 +34,8 @@ After adding `journal-profile.json`, `coverage-ledger.json`, `findings.json`, an
 
 For a journal profile with Markdown abstract, main-text word, or keyword-count limits, `python skills/manuscript-audit/tools/check_deterministic.py <run-directory> --article-type original_research --main-start Introduction --main-end References` records provisional measurements in the private run. Unclear section boundaries or unsupported formatting stay unresolved.
 
+To inventory DOI mentions in the supplied manuscript and text supplements, run `python skills/manuscript-audit/tools/list_dois.py <run-directory>`. It writes a private `doi-inventory.json` with file and line references. DOI mentions do not establish that the reference list is complete or that a citation is correct.
+
 Create a pending compliance ledger from the selected article type with `python skills/manuscript-audit/tools/build_coverage.py <run-directory> --article-type original_research`. The tool refuses to overwrite an existing ledger; each unit carries a fingerprint of the supplied manuscript files.
 
 For explicit review coverage, add `--review-section Methods --review-class statistics` (repeat either flag for more sections or review lenses). This creates pending section/class pairs. The validator marks their fingerprints stale when supplied manuscript files change.
