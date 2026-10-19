@@ -1,0 +1,336 @@
+{
+  "issn": "1076-9757",
+  "title": "Journal of Artificial Intelligence Research",
+  "publisher": "AI Access Foundation",
+  "article_types": [
+    "original_research",
+    "research_note",
+    "survey",
+    "special_track"
+  ],
+  "scope": {
+    "quote": "JAIR invites submissions in all areas of AI.",
+    "source_ref": "src_ca641e03c6abf2dc"
+  },
+  "ai_policy": {
+    "quote": "Authors are fully responsible for the originality, accuracy, and integrity of all submitted content.",
+    "source_ref": "src_ca641e03c6abf2dc"
+  },
+  "rules": [
+    {
+      "rule_id": "advance_and_importance",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "it should be clear how the work advances the current state of understanding and why the advance matters.",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "Explain how the work advances understanding and why that matters."
+    },
+    {
+      "rule_id": "ai_authorship",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "AI systems do not meet the criteria for authorship and cannot be credited as authors",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "Do not list AI systems as authors."
+    },
+    {
+      "rule_id": "ai_content_review",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Any use of AI in the paper, the references, or in its associated metadata should be carefully reviewed to ensure accuracy, proper attribution, and compliance with ethical and scholarly standards.",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "If AI was used, review its contributions for accuracy and proper attribution."
+    },
+    {
+      "rule_id": "ai_source_citation",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "cannot be credited as authors or cited as independent sources.",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "Do not cite AI systems as independent sources."
+    },
+    {
+      "rule_id": "checklist_appendix",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "compiled to PDF and submitted as one of the appendices.",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "Submit the compiled reproducibility checklist as an appendix."
+    },
+    {
+      "rule_id": "claims_supported",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "All claims should be clearly articulated and supported either by empirical experiments or theoretical analyses.",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "Support substantive claims with empirical experiments or theoretical analysis."
+    },
+    {
+      "rule_id": "color_accessibility",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "all figures should be understandable by readers viewing or printing via monochrome devices.",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "Make color figures understandable in monochrome."
+    },
+    {
+      "rule_id": "conference_extension_notice",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "must notify the editor at the time of submission to JAIR.",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "Notify the editor when extending a published or accepted conference paper."
+    },
+    {
+      "rule_id": "correct_section",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "You have chosen the correct Section (i.e., track) for the paper",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "Select the correct submission section or track."
+    },
+    {
+      "rule_id": "exclusive_submission",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "nor can it be under review or be sent for review in any other forum.",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "Do not submit work simultaneously under review elsewhere."
+    },
+    {
+      "rule_id": "experiments_reproducible",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "any experiments reported should be reproducible.",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "Supply information needed to reproduce reported experiments."
+    },
+    {
+      "rule_id": "extended_conference_novelty",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "the JAIR submission should contain additional, unpublished, information, and provide a more complete presentation of the work.",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "If extending a conference paper, provide additional unpublished information and a fuller presentation."
+    },
+    {
+      "rule_id": "jair_format",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "The submitted article must adhere to the JAIR publication format.",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "Use the JAIR publication format for review submission."
+    },
+    {
+      "rule_id": "new_terminology_rationale",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "If a paper introduces new terminology or techniques, it should also explain why current terminology or techniques are insufficient.",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "If new terminology or techniques are introduced, explain why existing ones are insufficient."
+    },
+    {
+      "rule_id": "original_contribution",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "new methods, results or insights that will be considered important by the global artificial intelligence (AI) community",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "Explain the new contribution and its importance to the AI community."
+    },
+    {
+      "rule_id": "original_unpublished",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Submissions must be original.",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "Submit original work that has not already been published."
+    },
+    {
+      "rule_id": "prior_work_acknowledgement",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Authors must clearly acknowledge the contributions of their predecessors.",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "Acknowledge relevant prior contributions."
+    },
+    {
+      "rule_id": "proofreading",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Authors should submit only papers that have been carefully proofread and polished.",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "Proofread and polish the submission."
+    },
+    {
+      "rule_id": "reproducibility_checklist",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "All authors submitting articles to JAIR must fill out the reproducibility checklist that is appended at the end of the JAIR Latex template.",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "Complete the reproducibility checklist in the JAIR LaTeX template."
+    },
+    {
+      "rule_id": "research_learnings",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Papers should report on what was learned in doing the work",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "Report insights learned from the work."
+    },
+    {
+      "rule_id": "research_note_scope",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Research notes are very brief papers that extend or evaluate previous work.",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "A research note should be brief and extend or evaluate previous work.",
+      "applies_to": [
+        "research_note"
+      ]
+    },
+    {
+      "rule_id": "resubmission_details",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "please also provide here the original submission number and the name of the Associate Editor",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "For resubmission, provide the original submission number and handling Associate Editor."
+    },
+    {
+      "rule_id": "resubmission_response",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "you should upload a PDF file (choose the type \"Responses to Reviews\") with a detailed description of the changes you made in response to the editor's and reviewers' comments.",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "For a resubmission, upload a detailed response-to-reviewers PDF."
+    },
+    {
+      "rule_id": "special_track_identification",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Each paper should clearly identify the special track it is submitted for",
+      "source_ref": "src_ba47cb4ce5afa295",
+      "requirement": "Identify the special track in the submission form.",
+      "applies_to": [
+        "special_track"
+      ]
+    },
+    {
+      "rule_id": "submission_pdf",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "authors should submit a PDF file for review.",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "Submit the review manuscript as a PDF."
+    },
+    {
+      "rule_id": "submission_question_importance",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Please state in no more than 150 words why your work is important",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "Answer the submission-form importance question in at most 150 words."
+    },
+    {
+      "rule_id": "submission_question_prior_publication",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "If any part of this paper has been previously published or is under review, please state where",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "Declare prior publication or concurrent review, or answer No."
+    },
+    {
+      "rule_id": "submission_question_related_jair",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Please list 1 - 3 papers previously published in JAIR that are closest to your work",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "List one to three closest JAIR papers or explain why none are close."
+    },
+    {
+      "rule_id": "survey_accessibility",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "clarity, organization and accessibility are particularly important for survey papers.",
+      "source_ref": "src_ba47cb4ce5afa295",
+      "applies_to": [
+        "survey"
+      ],
+      "requirement": "A survey should be clearly organized and accessible."
+    },
+    {
+      "rule_id": "survey_analysis",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Survey articles are tutorials or literature reviews that contribute an analysis or perspective that advances our understanding of the subject matter.",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "applies_to": [
+        "survey"
+      ],
+      "requirement": "A survey must provide analysis or perspective that advances understanding."
+    },
+    {
+      "rule_id": "survey_perspective",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Surveys will be judged on their scope, clarity, and novelty of perspective",
+      "source_ref": "src_ba47cb4ce5afa295",
+      "requirement": "Assess survey scope, clarity, and novelty.",
+      "applies_to": [
+        "survey"
+      ]
+    },
+    {
+      "rule_id": "survey_prior_work",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Surveys that merely summarise a selection of existing literature without providing new insights or conceptual contributions",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "Avoid a survey limited to summary without new insight.",
+      "applies_to": [
+        "survey"
+      ]
+    },
+    {
+      "rule_id": "survey_scope",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "analyze a significant body of AI research and make it more accessible to a broader audience",
+      "source_ref": "src_ba47cb4ce5afa295",
+      "requirement": "A survey should analyze significant AI research and make it accessible.",
+      "applies_to": [
+        "survey"
+      ]
+    },
+    {
+      "rule_id": "system_contribution",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Papers describing systems should clearly describe the contributions or the principles underlying the system.",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "Explain contributions or underlying principles for a system paper."
+    },
+    {
+      "rule_id": "theory_practical_utility",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Papers describing theoretical results should also discuss their practical utility.",
+      "source_ref": "src_ca641e03c6abf2dc",
+      "requirement": "If the paper presents theoretical results, discuss their practical utility."
+    }
+  ],
+  "sources": {
+    "src_ca641e03c6abf2dc": {
+      "url": "https://www.jair.org/index.php/jair/about/submissions",
+      "retrieved_at": "2026-10-19T12:39:38Z",
+      "sha256": "824be648ebb20d72cfdd5e2fa4c2ec61c26443e84453aacf403e6350acf25838",
+      "path": "sources/src_ca641e03c6abf2dc.txt"
+    },
+    "src_ba47cb4ce5afa295": {
+      "url": "https://www.jair.org/index.php/jair/about",
+      "retrieved_at": "2026-10-19T12:39:47Z",
+      "sha256": "bebc738a894a03d41fcea43f50094d888816bc47f2c8b5ae482471d729ad5cf7",
+      "path": "sources/src_ba47cb4ce5afa295.txt"
+    }
+  }
+}
