@@ -13,13 +13,15 @@ node skills/manuscript-audit/validators/validate-run-manifest.cjs /path/to/manus
 
 After adding `journal-profile.json`, `coverage-ledger.json`, and `findings.json` to that run, check the complete evidence chain with `node skills/manuscript-audit/validators/validate-run.cjs <run-directory>`. Use `--supplementary <file.md>` during preparation for each supplied text supplement; an absence claim must search all of them.
 
+For a journal profile with Markdown abstract or main-text word limits, `python skills/manuscript-audit/tools/check_deterministic.py <run-directory> --article-type original_research --main-start Introduction --main-end References` records provisional measurements in the private run. Unclear section boundaries or unsupported formatting stay unresolved.
+
 ## License
 
 This version is offered under the [PolyForm Noncommercial License 1.0.0](LICENSE). It does not grant commercial-use rights. Earlier commits were released under MIT and retain their original terms.
 
 Required Notice: Copyright (c) 2026 Elif Abanoz
 
-Run the validator tests with Node.js:
+Run the local tests with Node.js and Python 3.11 or newer:
 
 ```sh
 node --test skills/manuscript-audit/validators/validators.test.cjs
