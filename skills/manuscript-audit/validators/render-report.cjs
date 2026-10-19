@@ -88,6 +88,11 @@ function render(run, replace = false) {
     report.push(`- ${escapeMarkdown(unit.unit_id)} (${escapeMarkdown(unit.status)}): ${work}; section ${escapeMarkdown(unit.section)}`);
   }
   if (openUnits.length) report.push('');
+  const unverifiedRules = profile.rules.filter(rule => rule.status === 'needs_validation');
+  report.push('## Journal rules needing validation', '');
+  if (!unverifiedRules.length) report.push('None.', '');
+  for (const rule of unverifiedRules) report.push(`- ${escapeMarkdown(rule.rule_id)} (source ${escapeMarkdown(rule.source_ref)})`);
+  if (unverifiedRules.length) report.push('');
   const pendingReport = ['# Needs validation', '', `Journal: ${escapeMarkdown(profile.title)} (${escapeMarkdown(profile.issn)})`, ''];
   if (!unresolved.length) pendingReport.push('None.', '');
   for (const finding of unresolved) {

@@ -147,6 +147,8 @@ def check(run, article_type, main_start=None, main_end=None):
             raise ValueError(f"Rule quote is absent from its source: {rule['rule_id']}")
         if "applies_to" in rule and article_type not in rule["applies_to"]:
             item.update(status="not_applicable")
+        elif rule.get("status") == "needs_validation":
+            item.update(status="unresolved", reason="Journal rule requires validation")
         elif not manifest["manuscript"]["path"].lower().endswith(".md"):
             item.update(status="unresolved", reason="Markdown headings are required for this metric")
         elif rule["check"]["metric"] == "abstract_words":

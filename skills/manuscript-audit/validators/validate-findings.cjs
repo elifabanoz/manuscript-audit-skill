@@ -31,6 +31,9 @@ function validate(findings, profile) {
     } else if ('rule_id' in finding && profile && !rules.has(finding.rule_id)) {
       errors.push(`${at}.rule_id is absent from profile`);
     }
+    if (finding.verdict === 'confirmed' && rules.get(finding.rule_id)?.status === 'needs_validation') {
+      errors.push(`${at}.rule_id has not been validated`);
+    }
     if (finding.category === 'review') requiredString(finding, 'review_class', at, errors);
     if ('review_class' in finding && finding.category !== 'review') errors.push(`${at}.review_class requires review category`);
     if (finding.verdict === 'confirmed') {

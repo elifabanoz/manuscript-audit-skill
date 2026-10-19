@@ -130,7 +130,13 @@ function validate(run, manifest, profile, ledger, findings) {
     for (const [index, unit] of ledger.entries()) {
       if (!isObject(unit)) continue;
       if (unit?.target_issn !== profile.issn) errors.push(`ledger[${index}].target_issn differs from profile.issn`);
-      if (unit?.kind === 'compliance' && !profile.rules.some(rule => rule.rule_id === unit.rule_id)) errors.push(`ledger[${index}].rule_id is absent from the profile`);
+      if (unit?.kind === 'compliance') {
+        const rule = profile.rules.find(candidate => candidate.rule_id === unit.rule_id);
+        if (!rule) errors.push(`ledger[${index}].rule_id is absent from the profile`);
+        else if (unit.status === 'covered' && rule.status === 'needs_validation') {
+          errors.push(`ledger[${index}].rule_id has not been validated`);
+        }
+      }
       if ((unit?.section === 'all-supplied-files' || unit?.kind === 'review') && unit.source_hash !== corpusHash(manifest)) errors.push(`ledger[${index}].source_hash is stale for supplied files`);
       checkCoverage(run, unit, index, manifest, profile, errors);
     }

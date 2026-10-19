@@ -25,6 +25,7 @@
         "required": ["rule_id", "kind", "quote", "source_ref"],
         "properties": {
           "rule_id": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["verified", "needs_validation"] },
           "kind": { "enum": ["deterministic", "semantic"] },
           "quote": { "type": "string", "minLength": 1 },
           "source_ref": { "type": "string", "minLength": 1 },

@@ -44,13 +44,14 @@ function validate(profile) {
   const ids = new Set();
   for (const [index, rule] of profile.rules.entries()) {
     const at = `profile.rules[${index}]`;
-    if (!allowedKeys(rule, ['rule_id', 'kind', 'check', 'requirement', 'applies_to', 'quote', 'source_ref'], at, errors)) continue;
+    if (!allowedKeys(rule, ['rule_id', 'status', 'kind', 'check', 'requirement', 'applies_to', 'quote', 'source_ref'], at, errors)) continue;
     for (const key of ['rule_id', 'quote', 'source_ref']) requiredString(rule, key, at, errors);
     if (nonempty(rule.rule_id)) {
       if (ids.has(rule.rule_id)) errors.push(`${at}.rule_id is duplicated`);
       ids.add(rule.rule_id);
     }
     if (!['deterministic', 'semantic'].includes(rule.kind)) errors.push(`${at}.kind is invalid`);
+    if ('status' in rule && !['verified', 'needs_validation'].includes(rule.status)) errors.push(`${at}.status is invalid`);
     if (nonempty(rule.source_ref) && !Object.hasOwn(sources, rule.source_ref)) errors.push(`${at}.source_ref is absent from sources`);
     if ('applies_to' in rule) {
       stringArray(rule.applies_to, `${at}.applies_to`, errors, { min: 1, unique: true });

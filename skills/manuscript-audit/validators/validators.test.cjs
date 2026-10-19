@@ -161,6 +161,67 @@ test('profile disagreements stay private and block promotion', t => {
   assert.equal(JSON.parse(fs.readFileSync(result.output)).status, 'needs_validation');
 });
 
+test('partial promotion keeps disputed and one-sided rules unresolved', t => {
+  const data = fixture(t);
+  const { run, profile } = data;
+  fs.writeFileSync(path.join(run, 'run-manifest.json'), JSON.stringify(manifestFor(data)));
+  const first = structuredClone(profile);
+  first.scope = { quote: 'Example Journal guidelines.', source_ref: 'src_guideline' };
+  const second = structuredClone(profile);
+  second.scope = { quote: 'A data availability statement is required.', source_ref: 'src_guideline' };
+  second.rules[0].requirement = 'Provide the required statement';
+  second.rules.push({
+    rule_id: 'extra_rule', kind: 'semantic', requirement: 'Follow the example journal guidelines',
+    quote: 'Example Journal guidelines.', source_ref: 'src_guideline'
+  });
+  fs.writeFileSync(path.join(run, 'profile-a.json'), JSON.stringify(first));
+  fs.writeFileSync(path.join(run, 'profile-b.json'), JSON.stringify(second));
+  const blocked = compareProfiles(run, 'profile-a.json', 'profile-b.json', true);
+  assert.equal(blocked.promoted, false);
+  const result = compareProfiles(run, 'profile-a.json', 'profile-b.json', 'partial');
+  assert.equal(result.status, 'needs_validation');
+  assert.equal(result.promoted, true);
+  assert.equal(result.output, blocked.output);
+  const promoted = JSON.parse(fs.readFileSync(path.join(run, 'journal-profile.json'), 'utf8'));
+  assert.equal('scope' in promoted, false);
+  assert.deepEqual(promoted.rules.map(rule => [rule.rule_id, rule.status]), [
+    ['data_availability', 'needs_validation'], ['extra_rule', 'needs_validation']
+  ]);
+  assert.deepEqual(validateProfile(promoted), []);
+  assert.match(validateFindings(data.findings, promoted).join('\n'), /rule_id has not been validated/);
+  assert.throws(() => compareProfiles(run, 'profile-a.json', 'profile-b.json', 'partial'), /Final profile already exists/);
+});
+
+test('partial promotion rejects conflicting journal identity', t => {
+  const data = fixture(t);
+  const { run, profile } = data;
+  fs.writeFileSync(path.join(run, 'run-manifest.json'), JSON.stringify(manifestFor(data)));
+  fs.writeFileSync(path.join(run, 'profile-a.json'), JSON.stringify(profile));
+  fs.writeFileSync(path.join(run, 'profile-b.json'), JSON.stringify({ ...profile, title: 'Another Journal' }));
+  assert.throws(() => compareProfiles(run, 'profile-a.json', 'profile-b.json', 'partial'), /Profile identity differs: title/);
+  assert.equal(fs.existsSync(path.join(run, 'journal-profile.json')), false);
+});
+
+test('unresolved journal rules cannot be covered or used for confirmed findings', t => {
+  const data = fixture(t);
+  data.profile.rules[0].status = 'needs_validation';
+  const manifest = manifestFor(data);
+  refreshCoverageRecord(data, manifest);
+  assert.match(validateRun(data.run, manifest, data.profile, data.ledger, data.findings).join('\n'), /rule_id has not been validated/);
+  data.findings[0].category = 'review';
+  data.findings[0].review_class = 'methods';
+  assert.match(validateFindings(data.findings, data.profile).join('\n'), /rule_id has not been validated/);
+  const pending = [{ ...data.ledger[0], status: 'pending', checked_by: [] }];
+  fs.writeFileSync(path.join(data.run, 'run-manifest.json'), JSON.stringify(manifest));
+  fs.writeFileSync(path.join(data.run, 'journal-profile.json'), JSON.stringify(data.profile));
+  fs.writeFileSync(path.join(data.run, 'coverage-ledger.json'), JSON.stringify(pending));
+  fs.writeFileSync(path.join(data.run, 'findings.json'), '[]');
+  render(data.run);
+  const report = fs.readFileSync(path.join(data.run, 'REPORT.md'), 'utf8');
+  assert.match(report, /Journal rules needing validation/);
+  assert.match(report, /data\\_availability/);
+});
+
 test('profile comparison rejects invented quotes and source drift', t => {
   const { run, profile } = fixture(t);
   fs.writeFileSync(path.join(run, 'run-manifest.json'), JSON.stringify(manifestFor({ run, profile })));

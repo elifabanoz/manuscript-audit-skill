@@ -10,7 +10,7 @@ Each role record follows `schemas/agent-record.schema.json`: `role`, `finding_id
 
 ## Journal profile builders
 
-Use two fresh invocations that receive the same cached guideline sources and article-type scope, but neither receives the other's draft or reasoning. Each writes a full private profile under a distinct path. Compare them with `node validators/compare-profiles.cjs <run-directory> profile-a.json profile-b.json --promote`. The comparison checks structure, source identity, exact quoted text, and rule fields. It records differing field paths without declaring either draft correct. Resolve each difference against the guideline before another pair of drafts; the host must enforce independent invocations.
+Use two fresh invocations that receive the same cached guideline sources and article-type scope, but neither receives the other's draft or reasoning. Each writes a full private profile under a distinct path. Compare them with `node validators/compare-profiles.cjs <run-directory> profile-a.json profile-b.json --promote`. The comparison checks structure, source identity, exact quoted text, and rule fields. It records differing field paths without declaring either draft correct. If the journal identity and source set agree, `--promote-partial` can create a private working profile while keeping disputed and one-sided rules marked `needs_validation`; the profile remains incomplete. Resolve each difference against the guideline before treating it as verified; the host must enforce independent invocations.
 
 ## Compliance hunter
 

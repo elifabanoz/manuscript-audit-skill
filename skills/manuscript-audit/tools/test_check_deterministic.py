@@ -62,6 +62,14 @@ class DeterministicCheckTests(unittest.TestCase):
         output = check(self.run, "original_research")
         self.assertEqual(output["checks"][1]["status"], "unresolved")
 
+    def test_unvalidated_rule_is_not_measured(self):
+        self.profile["rules"][0]["status"] = "needs_validation"
+        self.save_profile()
+        output = check(self.run, "original_research")
+        self.assertEqual(output["checks"][0]["status"], "unresolved")
+        self.assertEqual(output["checks"][0]["reason"], "Journal rule requires validation")
+        self.assertNotIn("measured_value", output["checks"][0])
+
     def test_heading_count_is_provisional_and_ignores_fenced_code(self):
         self.assertEqual(measure_heading_count("# Methods\n```md\n# Data Availability\n```\n", "Data Availability"), 0)
         self.assertEqual(measure_heading_count("# Methods\n~~~\n# Methods\n~~~\n", "Methods"), 1)
