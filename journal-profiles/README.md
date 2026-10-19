@@ -6,6 +6,7 @@ The current fixtures cover:
 
 | ISSN | Journal |
 | --- | --- |
+| `0010-485X` | Computing |
 | `0098-5589` | IEEE Transactions on Software Engineering |
 | `0269-2821` | Artificial Intelligence Review |
 | `0885-6125` | Machine Learning |
