@@ -1,0 +1,21 @@
+name: Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validators:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - run: node --test skills/manuscript-audit/validators/validators.test.cjs
+      - run: node -e "const fs=require('node:fs'); for (const file of fs.readdirSync('skills/manuscript-audit/schemas')) JSON.parse(fs.readFileSync('skills/manuscript-audit/schemas/'+file, 'utf8'))"
