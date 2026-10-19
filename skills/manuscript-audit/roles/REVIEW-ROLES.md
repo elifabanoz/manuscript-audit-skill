@@ -14,11 +14,11 @@ Use two fresh invocations that receive the same cached guideline sources and art
 
 ## Compliance hunter
 
-Take one assigned compliance ledger unit and its exact quoted journal rule. Check whether the rule applies to the selected article type. Read every supplied file before asserting that a required item is absent. Quote the smallest source passage that states the rule and cite manuscript text by file and physical `line_id`. Record a candidate only when a specific claim can be supported by the allowed evidence types. Mark the ledger unit covered only after its actual check is recorded. The hunter record uses `role: "hunter"` and `decision: "candidate"`.
+Take one assigned compliance ledger unit and its exact quoted journal rule. Check whether the rule applies to the selected article type. Read every supplied file before asserting that a required item is absent. Quote the smallest source passage that states the rule and cite manuscript text by file and physical `line_id`. Record a candidate only when a specific claim can be supported by the allowed evidence types. After the actual check, compute `subject_sha256` with `node validators/hash-coverage.cjs <run-directory> <unit-id>` and save a separate check record matching `schemas/coverage-check.schema.json`. Mark the ledger unit covered only when `checked_by` names that record. A candidate finding also needs its hunter record with `role: "hunter"` and `decision: "candidate"`.
 
 ## Review hunter
 
-Take one assigned section and review class. Separate a methodological or presentation concern from a journal compliance rule. Cite the exact manuscript passage that supports the concern; an abstract or retrieved paper summary is insufficient to establish a novelty or citation-accuracy claim. Treat a local statistical or reference lookup flag as a lead requiring inspection, not as a confirmed defect. The hunter record uses `role: "hunter"` and `decision: "candidate"`.
+Take one assigned section and review class. Separate a methodological or presentation concern from a journal compliance rule. Cite the exact manuscript passage that supports the concern; an abstract or retrieved paper summary is insufficient to establish a novelty or citation-accuracy claim. Treat a local statistical or reference lookup flag as a lead requiring inspection, not as a confirmed defect. Record the completed check as described for compliance units, even when it finds nothing. A candidate finding also needs its hunter record with `role: "hunter"` and `decision: "candidate"`.
 
 ## Defense reviewer
 

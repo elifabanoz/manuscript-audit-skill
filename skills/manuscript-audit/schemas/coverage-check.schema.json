@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CoverageCheck",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["unit_id", "decision", "actor_id", "subject_sha256", "rationale"],
+  "properties": {
+    "unit_id": { "type": "string", "pattern": "^U-[0-9]+$" },
+    "decision": { "const": "checked" },
+    "actor_id": { "type": "string", "minLength": 1 },
+    "subject_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "rationale": { "type": "string", "minLength": 1 }
+  }
+}

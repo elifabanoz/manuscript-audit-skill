@@ -50,6 +50,8 @@ To check those DOI values against Crossref, run `python skills/manuscript-audit/
 
 Create a pending compliance ledger from the selected article type with `python skills/manuscript-audit/tools/build_coverage.py <run-directory> --article-type original_research`. The tool refuses to overwrite an existing ledger; each unit carries a fingerprint of the supplied manuscript files.
 
+After actually checking a unit, run `node skills/manuscript-audit/validators/hash-coverage.cjs <run-directory> U-1` and save a private check record under `agents/` using `schemas/coverage-check.schema.json`. Record the unit ID, `decision: "checked"`, the actual invocation ID as `actor_id`, the printed `subject_sha256`, and a concrete `rationale`. Set that unit to `covered` and add the record path to `checked_by`. The full run gate rejects missing, mismatched, or stale check records; a file path alone does not establish coverage.
+
 For explicit review coverage, add `--review-section Methods --review-class statistics` (repeat either flag for more sections or review lenses). This creates pending section/class pairs. The validator marks their fingerprints stale when supplied manuscript files change.
 
 Once the profile, ledger, findings, and agent records pass `validate-run.cjs`, generate private summaries with `node skills/manuscript-audit/validators/render-report.cjs <run-directory>`. `REPORT.md` lists confirmed records, names every pending or stale coverage unit, and quotes a verified journal AI policy when one is recorded; unresolved records go to `NEEDS-VALIDATION.md`. `REVISION-PLAN.md` orders only confirmed findings by recorded severity and repeats their recorded suggested changes.

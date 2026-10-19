@@ -38,6 +38,40 @@ function reviewSubjectHash(finding, manifest, profile) {
   return crypto.createHash('sha256').update(canonical({ finding: subjectHash(finding), corpus: corpusHash(manifest), sources, profile })).digest('hex');
 }
 
+function coverageSubjectHash(unit, manifest, profile) {
+  const subject = {
+    unit_id: unit.unit_id,
+    kind: unit.kind,
+    section: unit.section,
+    rule_id: unit.rule_id ?? null,
+    review_class: unit.review_class ?? null,
+    target_issn: unit.target_issn,
+    source_hash: unit.source_hash
+  };
+  return crypto.createHash('sha256').update(canonical({ subject, corpus: corpusHash(manifest), profile })).digest('hex');
+}
+
+function checkCoverage(run, unit, index, manifest, profile, errors) {
+  if (unit.status !== 'covered' || !Array.isArray(unit.checked_by)) return;
+  for (const file of unit.checked_by) {
+    const at = `ledger[${index}].checked_by.${file}`;
+    try {
+      const record = readJson(safeFile(run, file));
+      if (!isObject(record) || Object.keys(record).some(field => !['unit_id', 'decision', 'actor_id', 'subject_sha256', 'rationale'].includes(field))) {
+        errors.push(`${at} must be a coverage check record with known fields`);
+        continue;
+      }
+      if (record.unit_id !== unit.unit_id) errors.push(`${at}.unit_id differs from the coverage unit`);
+      if (record.decision !== 'checked') errors.push(`${at}.decision must be checked`);
+      if (!nonempty(record.actor_id)) errors.push(`${at}.actor_id must be nonempty`);
+      if (record.subject_sha256 !== coverageSubjectHash(unit, manifest, profile)) errors.push(`${at}.subject_sha256 differs from the current coverage inputs`);
+      if (!nonempty(record.rationale)) errors.push(`${at}.rationale must be nonempty`);
+    } catch (error) {
+      errors.push(`${at}: ${error.message}`);
+    }
+  }
+}
+
 function checkProvenance(run, finding, index, manifest, profile, errors) {
   if (!isObject(finding.provenance)) return;
   const roles = { hunter: 'hunter', validator: 'defense', record_verifier: 'record_verifier' };
@@ -94,9 +128,11 @@ function validate(run, manifest, profile, ledger, findings) {
   if (suppliedPaths.size !== supplied.length) errors.push('manifest manuscript paths must be distinct');
   if (Array.isArray(ledger)) {
     for (const [index, unit] of ledger.entries()) {
+      if (!isObject(unit)) continue;
       if (unit?.target_issn !== profile.issn) errors.push(`ledger[${index}].target_issn differs from profile.issn`);
       if (unit?.kind === 'compliance' && !profile.rules.some(rule => rule.rule_id === unit.rule_id)) errors.push(`ledger[${index}].rule_id is absent from the profile`);
       if ((unit?.section === 'all-supplied-files' || unit?.kind === 'review') && unit.source_hash !== corpusHash(manifest)) errors.push(`ledger[${index}].source_hash is stale for supplied files`);
+      checkCoverage(run, unit, index, manifest, profile, errors);
     }
   }
   if (Array.isArray(findings)) {
@@ -140,4 +176,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { corpusHash, reviewSubjectHash, subjectHash, validate };
+module.exports = { corpusHash, coverageSubjectHash, reviewSubjectHash, subjectHash, validate };

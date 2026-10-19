@@ -12,7 +12,7 @@ const { validate: validateLedger } = require('./validate-coverage-ledger.cjs');
 const { validate: validateFindings } = require('./validate-findings.cjs');
 const { verify } = require('./verify-quotes.cjs');
 const { validate: validateManifest } = require('./validate-run-manifest.cjs');
-const { corpusHash, reviewSubjectHash, validate: validateRun } = require('./validate-run.cjs');
+const { corpusHash, coverageSubjectHash, reviewSubjectHash, validate: validateRun } = require('./validate-run.cjs');
 const { escapeMarkdown, render } = require('./render-report.cjs');
 const { compare } = require('./compare-runs.cjs');
 const { compare: compareProfiles } = require('./compare-profiles.cjs');
@@ -88,9 +88,14 @@ function fixture(t) {
     section: 'sec-3',
     target_issn: '1234-567X',
     status: 'covered',
-    checked_by: ['agents/hunter.json'],
+    checked_by: ['agents/coverage-U-1.json'],
     source_hash: crypto.createHash('sha256').update('Methods and results').digest('hex')
   }];
+  fs.writeFileSync(path.join(run, ledger[0].checked_by[0]), JSON.stringify({
+    unit_id: 'U-1', decision: 'checked', actor_id: 'actor-coverage',
+    subject_sha256: coverageSubjectHash(ledger[0], manifest, profile),
+    rationale: 'Synthetic coverage check.'
+  }));
   return { run, profile, findings, ledger };
 }
 
@@ -113,6 +118,13 @@ function manifestFor(data) {
     supplementary: [],
     sources: structuredClone(data.profile.sources)
   };
+}
+
+function refreshCoverageRecord(data, manifest) {
+  const file = path.join(data.run, data.ledger[0].checked_by[0]);
+  const record = JSON.parse(fs.readFileSync(file, 'utf8'));
+  record.subject_sha256 = coverageSubjectHash(data.ledger[0], manifest, data.profile);
+  fs.writeFileSync(file, JSON.stringify(record));
 }
 
 test('valid records and local quotes pass', t => {
@@ -192,6 +204,24 @@ test('a covered ledger unit needs a check record and unique ID', t => {
   const errors = validateLedger(ledger).join('\n');
   assert.match(errors, /at least 1/);
   assert.match(errors, /duplicated/);
+});
+
+test('covered units reject missing, stale, and mismatched check records', t => {
+  const data = fixture(t);
+  const manifest = manifestFor(data);
+  const file = path.join(data.run, data.ledger[0].checked_by[0]);
+  assert.deepEqual(validateRun(data.run, manifest, data.profile, data.ledger, data.findings), []);
+  const record = JSON.parse(fs.readFileSync(file, 'utf8'));
+  record.unit_id = 'U-2';
+  fs.writeFileSync(file, JSON.stringify(record));
+  assert.match(validateRun(data.run, manifest, data.profile, data.ledger, data.findings).join('\n'), /unit_id differs/);
+  record.unit_id = 'U-1';
+  fs.writeFileSync(file, JSON.stringify(record));
+  fs.appendFileSync(path.join(data.run, 'manuscript.md'), 'A changed sentence.\n');
+  const changed = manifestFor(data);
+  assert.match(validateRun(data.run, changed, data.profile, data.ledger, data.findings).join('\n'), /coverage inputs/);
+  fs.rmSync(file);
+  assert.match(validateRun(data.run, manifest, data.profile, data.ledger, data.findings).join('\n'), /checked_by/);
 });
 
 test('confirmed findings require independent records and matching rule evidence', t => {
@@ -292,6 +322,7 @@ test('absence evidence must search every supplied manuscript file', t => {
     record.subject_sha256 = reviewSubjectHash(data.findings[0], manifest, data.profile);
     fs.writeFileSync(recordPath, JSON.stringify(record));
   }
+  refreshCoverageRecord(data, manifest);
   assert.deepEqual(validateRun(data.run, manifest, data.profile, data.ledger, data.findings), []);
   fs.writeFileSync(path.join(data.run, 'supplementary', 'supp-1.md'), 'Data availability: available on request.\n');
   assert.match(validateRun(data.run, manifest, data.profile, data.ledger, data.findings).join('\n'), /occurs in supplementary\/supp-1.md/);
@@ -330,6 +361,7 @@ test('whole-corpus coverage becomes stale when its fingerprint differs', t => {
   const manifest = manifestFor(data);
   data.ledger[0].section = 'all-supplied-files';
   data.ledger[0].source_hash = corpusHash(manifest);
+  refreshCoverageRecord(data, manifest);
   assert.deepEqual(validateRun(data.run, manifest, data.profile, data.ledger, data.findings), []);
   data.ledger[0].source_hash = crypto.createHash('sha256').update('old corpus').digest('hex');
   assert.match(validateRun(data.run, manifest, data.profile, data.ledger, data.findings).join('\n'), /source_hash is stale/);
@@ -365,6 +397,17 @@ test('the hash command identifies the exact finding under review', t => {
   const result = spawnSync(process.execPath, [path.join(__dirname, 'hash-finding.cjs'), data.run, 'F-1'], { encoding: 'utf8' });
   assert.equal(result.status, 0);
   assert.equal(result.stdout.trim(), reviewSubjectHash(data.findings[0], manifest, data.profile));
+});
+
+test('the coverage hash command identifies the current unit', t => {
+  const data = fixture(t);
+  const manifest = manifestFor(data);
+  fs.writeFileSync(path.join(data.run, 'run-manifest.json'), JSON.stringify(manifest));
+  fs.writeFileSync(path.join(data.run, 'journal-profile.json'), JSON.stringify(data.profile));
+  fs.writeFileSync(path.join(data.run, 'coverage-ledger.json'), JSON.stringify(data.ledger));
+  const result = spawnSync(process.execPath, [path.join(__dirname, 'hash-coverage.cjs'), data.run, 'U-1'], { encoding: 'utf8' });
+  assert.equal(result.status, 0);
+  assert.equal(result.stdout.trim(), coverageSubjectHash(data.ledger[0], manifest, data.profile));
 });
 
 test('report rendering uses validated findings and shows remaining coverage', t => {
