@@ -11,7 +11,7 @@ python skills/manuscript-audit/tools/prepare_run.py --manuscript /path/to/paper.
 node skills/manuscript-audit/validators/validate-run-manifest.cjs /path/to/manuscript-audit/paper/run-1
 ```
 
-After adding `journal-profile.json`, `coverage-ledger.json`, and `findings.json` to that run, check the complete evidence chain with `node skills/manuscript-audit/validators/validate-run.cjs <run-directory>`. Use `--supplementary <file.md>` during preparation for each supplied text supplement; an absence claim must search all of them.
+After adding `journal-profile.json`, `coverage-ledger.json`, `findings.json`, and the referenced agent records to that run, check the record and local evidence chain with `node skills/manuscript-audit/validators/validate-run.cjs <run-directory>`. Use `--supplementary <file.md>` during preparation for each supplied text supplement; an absence claim must search all of them. The validator checks records and hashes; it cannot prove that reviewers worked independently.
 
 For a journal profile with Markdown abstract or main-text word limits, `python skills/manuscript-audit/tools/check_deterministic.py <run-directory> --article-type original_research --main-start Introduction --main-end References` records provisional measurements in the private run. Unclear section boundaries or unsupported formatting stay unresolved.
 

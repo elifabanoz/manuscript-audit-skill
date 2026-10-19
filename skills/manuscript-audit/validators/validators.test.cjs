@@ -12,7 +12,7 @@ const { validate: validateLedger } = require('./validate-coverage-ledger.cjs');
 const { validate: validateFindings } = require('./validate-findings.cjs');
 const { verify } = require('./verify-quotes.cjs');
 const { validate: validateManifest } = require('./validate-run-manifest.cjs');
-const { validate: validateRun } = require('./validate-run.cjs');
+const { subjectHash, validate: validateRun } = require('./validate-run.cjs');
 
 function fixture(t) {
   const run = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-audit-'));
@@ -62,6 +62,21 @@ function fixture(t) {
       record_verifier: 'agents/record-verifier.json'
     }
   }];
+  fs.mkdirSync(path.join(run, 'agents'));
+  for (const [key, role, decision] of [
+    ['hunter', 'hunter', 'candidate'],
+    ['validator', 'defense', 'confirmed'],
+    ['record_verifier', 'record_verifier', 'confirmed']
+  ]) {
+    fs.writeFileSync(path.join(run, findings[0].provenance[key]), JSON.stringify({
+      role,
+      finding_id: findings[0].id,
+      decision,
+      actor_id: `actor-${role}`,
+      subject_sha256: subjectHash(findings[0]),
+      rationale: 'Synthetic check record.'
+    }));
+  }
   const ledger = [{
     unit_id: 'U-1',
     kind: 'compliance',
@@ -212,7 +227,42 @@ test('absence evidence must search every supplied manuscript file', t => {
   });
   assert.match(validateRun(data.run, manifest, data.profile, data.ledger, data.findings).join('\n'), /searched omits supplementary\/supp-1.md/);
   data.findings[0].evidence[1].searched.push('supplementary/supp-1.md');
+  for (const file of Object.values(data.findings[0].provenance)) {
+    const recordPath = path.join(data.run, file);
+    const record = JSON.parse(fs.readFileSync(recordPath, 'utf8'));
+    record.subject_sha256 = subjectHash(data.findings[0]);
+    fs.writeFileSync(recordPath, JSON.stringify(record));
+  }
   assert.deepEqual(validateRun(data.run, manifest, data.profile, data.ledger, data.findings), []);
   fs.writeFileSync(path.join(data.run, 'supplementary', 'supp-1.md'), 'Data availability: available on request.\n');
   assert.match(validateRun(data.run, manifest, data.profile, data.ledger, data.findings).join('\n'), /occurs in supplementary\/supp-1.md/);
+});
+
+test('the full run gate rejects missing or stale independent records', t => {
+  const data = fixture(t);
+  const manifest = manifestFor(data);
+  data.findings[0].claim = 'Changed claim after review.';
+  assert.match(validateRun(data.run, manifest, data.profile, data.ledger, data.findings).join('\n'), /subject_sha256 differs/);
+  data.findings[0].claim = 'The manuscript has no data availability statement.';
+  fs.rmSync(path.join(data.run, 'agents', 'defense.json'));
+  assert.match(validateRun(data.run, manifest, data.profile, data.ledger, data.findings).join('\n'), /provenance.validator/);
+});
+
+test('the full run gate rejects reused actor identities', t => {
+  const data = fixture(t);
+  const manifest = manifestFor(data);
+  const file = path.join(data.run, 'agents', 'defense.json');
+  const record = JSON.parse(fs.readFileSync(file, 'utf8'));
+  record.actor_id = 'actor-hunter';
+  fs.writeFileSync(file, JSON.stringify(record));
+  assert.match(validateRun(data.run, manifest, data.profile, data.ledger, data.findings).join('\n'), /actor_id must differ/);
+});
+
+test('the hash command identifies the exact finding under review', t => {
+  const data = fixture(t);
+  const file = path.join(data.run, 'findings.json');
+  fs.writeFileSync(file, JSON.stringify(data.findings));
+  const result = spawnSync(process.execPath, [path.join(__dirname, 'hash-finding.cjs'), file, 'F-1'], { encoding: 'utf8' });
+  assert.equal(result.status, 0);
+  assert.equal(result.stdout.trim(), subjectHash(data.findings[0]));
 });

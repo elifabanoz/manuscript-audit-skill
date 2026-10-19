@@ -1,10 +1,57 @@
 'use strict';
 
+const crypto = require('node:crypto');
 const path = require('node:path');
-const { isObject, printResult, readJson } = require('./common.cjs');
+const { isObject, nonempty, printResult, readJson, safeFile } = require('./common.cjs');
 const { validate: validateManifest } = require('./validate-run-manifest.cjs');
 const { validate: validateLedger } = require('./validate-coverage-ledger.cjs');
 const { verify } = require('./verify-quotes.cjs');
+
+function canonical(value) {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+  if (isObject(value)) return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}`;
+  return JSON.stringify(value);
+}
+
+function subjectHash(finding) {
+  const subject = {
+    target_issn: finding.target_issn,
+    rule_id: finding.rule_id ?? null,
+    review_class: finding.review_class ?? null,
+    claim: finding.claim,
+    evidence: finding.evidence
+  };
+  return crypto.createHash('sha256').update(canonical(subject)).digest('hex');
+}
+
+function checkProvenance(run, finding, index, errors) {
+  if (!isObject(finding.provenance)) return;
+  const roles = { hunter: 'hunter', validator: 'defense', record_verifier: 'record_verifier' };
+  const actors = new Set();
+  for (const [key, role] of Object.entries(roles)) {
+    const file = finding.provenance[key];
+    if (!nonempty(file)) continue;
+    const at = `findings[${index}].provenance.${key}`;
+    try {
+      const record = readJson(safeFile(run, file));
+      if (!isObject(record) || Object.keys(record).some(field => !['role', 'finding_id', 'decision', 'actor_id', 'subject_sha256', 'rationale'].includes(field))) {
+        errors.push(`${at} must be an agent record with known fields`);
+        continue;
+      }
+      if (record.role !== role) errors.push(`${at}.role must be ${role}`);
+      if (record.finding_id !== finding.id) errors.push(`${at}.finding_id differs from the finding`);
+      const decision = role === 'hunter' ? 'candidate' : finding.verdict;
+      if (record.decision !== decision) errors.push(`${at}.decision must be ${decision}`);
+      if (!nonempty(record.actor_id)) errors.push(`${at}.actor_id must be nonempty`);
+      else if (actors.has(record.actor_id)) errors.push(`${at}.actor_id must differ from other roles`);
+      else actors.add(record.actor_id);
+      if (record.subject_sha256 !== subjectHash(finding)) errors.push(`${at}.subject_sha256 differs from the finding`);
+      if (!nonempty(record.rationale)) errors.push(`${at}.rationale must be nonempty`);
+    } catch (error) {
+      errors.push(`${at}: ${error.message}`);
+    }
+  }
+}
 
 function validate(run, manifest, profile, ledger, findings) {
   const errors = [
@@ -38,6 +85,7 @@ function validate(run, manifest, profile, ledger, findings) {
   }
   if (Array.isArray(findings)) {
     for (const [index, finding] of findings.entries()) {
+      if (isObject(finding)) checkProvenance(run, finding, index, errors);
       if (!Array.isArray(finding?.evidence)) continue;
       for (const [eIndex, evidence] of finding.evidence.entries()) {
         const at = `findings[${index}].evidence[${eIndex}]`;
@@ -76,4 +124,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { validate };
+module.exports = { subjectHash, validate };
