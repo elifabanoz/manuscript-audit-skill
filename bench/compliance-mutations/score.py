@@ -34,6 +34,32 @@ def exact_keys(value, keys, label):
         raise ValueError(f"{label} must contain exactly: {', '.join(keys)}")
 
 
+def check_control_deterministic(run, manifest, profile, article_type, scored, case_id):
+    applicable = {rule["rule_id"] for rule in profile["rules"]
+                  if rule["kind"] == "deterministic"
+                  and article_type in rule.get("applies_to", [article_type])}
+    verified = applicable & scored
+    if not verified:
+        return
+    path = run / "deterministic-checks.json"
+    if not path.is_file():
+        raise ValueError(f"{case_id}: control needs deterministic checks for verified rules")
+    report = read_json(path)
+    checks = report.get("checks") if isinstance(report, dict) else None
+    if not isinstance(report, dict) \
+            or report.get("manuscript_sha256") != manifest["manuscript"]["sha256"] \
+            or report.get("article_type") != article_type \
+            or not isinstance(checks, list) \
+            or any(not isinstance(item, dict) or not isinstance(item.get("rule_id"), str) for item in checks) \
+            or len(checks) != len(applicable) \
+            or {item["rule_id"] for item in checks} != applicable:
+        raise ValueError(f"{case_id}: deterministic checks do not match the control inputs")
+    failed = sorted(item["rule_id"] for item in checks
+                    if item["rule_id"] in verified and item.get("status") != "met")
+    if failed:
+        raise ValueError(f"{case_id}: control has unmet deterministic rules: {', '.join(failed)}")
+
+
 def load_case(case, freeze, schema_version):
     common = ("case_id", "kind", "article_type", "run", "raw_findings")
     if not isinstance(case, dict) or case.get("kind") not in ("control", "mutation"):
@@ -97,6 +123,14 @@ def load_case(case, freeze, schema_version):
     if case["kind"] == "mutation" and (not isinstance(case["expected_rule_id"], str)
                                        or case["expected_rule_id"] not in known):
         raise ValueError(f"{case['case_id']}: expected_rule_id is absent from the profile")
+    if case["kind"] == "control":
+        check_control_deterministic(run, manifest, profile, case["article_type"], scored, case["case_id"])
+    input_files = {
+        "manifest": manifest_path, "profile": profile_path,
+        "coverage_ledger": ledger_path, "raw_findings": raw_path, "findings": findings_path,
+    }
+    if (run / "deterministic-checks.json").is_file():
+        input_files["deterministic_checks"] = run / "deterministic-checks.json"
     return {
         **case,
         "issn": profile["issn"],
@@ -106,9 +140,7 @@ def load_case(case, freeze, schema_version):
         "excluded_rule_ids": sorted(excluded),
         "raw_rules": raw_rules,
         "final_rules": final_rules,
-        "input_sha256": {name: sha256(file) for name, file in (
-            ("manifest", manifest_path), ("profile", profile_path),
-            ("coverage_ledger", ledger_path), ("raw_findings", raw_path), ("findings", findings_path))},
+        "input_sha256": {name: sha256(file) for name, file in input_files.items()},
     }
 
 

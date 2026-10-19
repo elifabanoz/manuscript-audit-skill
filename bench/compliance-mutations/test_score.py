@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from score import score
+from score import check_control_deterministic, score
 from prepare_label_review import make_packet
 
 
@@ -284,6 +284,30 @@ class ComplianceMutationScoreTests(unittest.TestCase):
         self.assertIn("Proposed mutation class (verify): `semantic`", packet)
         self.assertNotIn("Secret control text", packet)
         self.assertNotIn("Secret mutation text", packet)
+
+    def test_control_rejects_a_triggered_verified_deterministic_rule(self):
+        run = self.root / "control"
+        run.mkdir()
+        manuscript_hash = "a" * 64
+        manifest = {"manuscript": {"sha256": manuscript_hash}}
+        profile = {"rules": [
+            {"rule_id": "required_heading", "kind": "deterministic"},
+            {"rule_id": "unverified_heading", "kind": "deterministic", "status": "needs_validation"},
+        ]}
+        report = {"article_type": "original_research", "manuscript_sha256": manuscript_hash,
+                  "checks": [{"rule_id": "required_heading", "status": "triggered"},
+                             {"rule_id": "unverified_heading", "status": "unresolved"}]}
+        path = run / "deterministic-checks.json"
+        path.write_text(json.dumps(report), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "unmet deterministic rules: required_heading"):
+            check_control_deterministic(run, manifest, profile, "original_research", {"required_heading"}, "control")
+        report["checks"][0]["status"] = "met"
+        path.write_text(json.dumps(report), encoding="utf-8")
+        check_control_deterministic(run, manifest, profile, "original_research", {"required_heading"}, "control")
+        report["manuscript_sha256"] = "b" * 64
+        path.write_text(json.dumps(report), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "do not match the control inputs"):
+            check_control_deterministic(run, manifest, profile, "original_research", {"required_heading"}, "control")
 
 
 if __name__ == "__main__":
