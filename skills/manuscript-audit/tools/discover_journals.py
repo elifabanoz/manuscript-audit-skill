@@ -8,7 +8,7 @@ import os
 import re
 import sys
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -54,10 +54,12 @@ def shortlist(payload, limit):
     return candidates[:limit]
 
 
-def fetch_works(query, per_page, opener=urlopen, field_id=None):
+def fetch_works(query, per_page, opener=urlopen, field_id=None, published_after=None):
     filters = ["type:article"]
     if field_id is not None:
         filters.append(f"primary_topic.field.id:{field_id}")
+    if published_after is not None:
+        filters.append(f"from_publication_date:{published_after}")
     params = urlencode({"search.title_abstract_keywords": query, "filter": ",".join(filters),
                         "per_page": per_page, "select": "id,primary_location"})
     request = Request(f"{API_URL}?{params}", headers={"User-Agent": "manuscript-audit-skill/0.1", "Accept": "application/json"})
@@ -80,7 +82,7 @@ def fetch_works(query, per_page, opener=urlopen, field_id=None):
     return payload, hashlib.sha256(data).hexdigest()
 
 
-def discover(query, output_root, per_page=50, limit=10, opener=urlopen, field_id=None):
+def discover(query, output_root, per_page=50, limit=10, opener=urlopen, field_id=None, published_after=None):
     query = query.strip()
     if not query or len(query) > 200 or any(character in query for character in "\r\n\x00"):
         raise ValueError("--query must be a single topic phrase of 1 to 200 characters")
@@ -88,9 +90,16 @@ def discover(query, output_root, per_page=50, limit=10, opener=urlopen, field_id
         raise ValueError("--works and --limit must be between 1 and 100")
     if field_id is not None and (isinstance(field_id, bool) or not isinstance(field_id, int) or field_id <= 0):
         raise ValueError("--field-id must be a positive OpenAlex field ID")
+    if published_after is not None:
+        if not isinstance(published_after, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", published_after):
+            raise ValueError("--published-after must be a YYYY-MM-DD date")
+        try:
+            date.fromisoformat(published_after)
+        except ValueError as error:
+            raise ValueError("--published-after is not a valid date") from error
     root = output_root.expanduser()
     outside_git(root)
-    payload, response_hash = fetch_works(query, per_page, opener, field_id)
+    payload, response_hash = fetch_works(query, per_page, opener, field_id, published_after)
     candidates = shortlist(payload, limit)
     root.mkdir(parents=True, exist_ok=True)
     for number in range(1, 100000):
@@ -108,6 +117,7 @@ def discover(query, output_root, per_page=50, limit=10, opener=urlopen, field_id
         "provider": "OpenAlex",
         "query": query,
         "field_id": field_id,
+        "published_after": published_after,
         "work_filter": "article with matching primary field" if field_id is not None else "article",
         "works_requested": per_page,
         "response_sha256": response_hash,
@@ -125,9 +135,11 @@ def main():
     parser.add_argument("--works", type=int, default=50, help="Number of OpenAlex works to inspect (1-100)")
     parser.add_argument("--limit", type=int, default=10, help="Maximum journal candidates to retain (1-100)")
     parser.add_argument("--field-id", type=int, help="Optional OpenAlex primary field ID")
+    parser.add_argument("--published-after", help="Keep only works published on or after this YYYY-MM-DD date")
     args = parser.parse_args()
     try:
-        print(discover(args.query, args.output_root, args.works, args.limit, field_id=args.field_id))
+        print(discover(args.query, args.output_root, args.works, args.limit,
+                       field_id=args.field_id, published_after=args.published_after))
     except (OSError, ValueError) as error:
         parser.exit(1, f"Error: {error}\n")
 
