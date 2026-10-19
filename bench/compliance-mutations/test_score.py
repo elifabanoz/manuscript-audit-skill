@@ -144,6 +144,52 @@ class ComplianceMutationScoreTests(unittest.TestCase):
         self.assertNotEqual(subprocess.run([sys.executable, str(SCORER), str(case_file)],
                                            capture_output=True).returncode, 0)
 
+    def test_version_two_reports_each_class_against_its_paired_controls(self):
+        structural_control = self.make_run("structural-control", "# Title\nData availability: on request.\n")
+        structural_mutation = self.make_run("structural-mutation", "# Title\nNo statement here.\n",
+                                            raw_rules=("data_availability",), confirmed=True)
+        semantic_control = self.make_run("semantic-control", "# Title\nData availability: on request.\n",
+                                         raw_rules=("ethics_statement",))
+        semantic_mutation = self.make_run("semantic-mutation", "# Title\nStatement removed.\n",
+                                          raw_rules=("data_availability",))
+        cases = [
+            {"case_id": "structural-control", "kind": "control", "article_type": "original_research",
+             "run": str(structural_control), "raw_findings": str(structural_control / "raw-findings.json")},
+            {"case_id": "structural-mutation", "kind": "mutation", "article_type": "original_research",
+             "control_case_id": "structural-control", "expected_rule_id": "data_availability",
+             "mutation_class": "structural", "run": str(structural_mutation),
+             "raw_findings": str(structural_mutation / "raw-findings.json")},
+            {"case_id": "semantic-control", "kind": "control", "article_type": "original_research",
+             "run": str(semantic_control), "raw_findings": str(semantic_control / "raw-findings.json")},
+            {"case_id": "semantic-mutation", "kind": "mutation", "article_type": "original_research",
+             "control_case_id": "semantic-control", "expected_rule_id": "data_availability",
+             "mutation_class": "semantic", "run": str(semantic_mutation),
+             "raw_findings": str(semantic_mutation / "raw-findings.json")},
+        ]
+        benchmark = {"schema_version": 2, "data_freeze": "2026-10-19", "cases": cases}
+        result = score(benchmark)
+        self.assertEqual(result["schema_version"], 2)
+        self.assertEqual(result["mutations"]["raw_recall"], 1)
+        self.assertEqual(result["mutations"]["validated_recall"], 0.5)
+        self.assertEqual(result["by_mutation_class"]["structural"]["mutations"]["validated_recall"], 1)
+        self.assertEqual(result["by_mutation_class"]["semantic"]["mutations"]["validated_recall"], 0)
+        self.assertEqual(result["by_mutation_class"]["structural"]["paired_controls"]["raw_false_positive_rate"], 0)
+        self.assertEqual(result["by_mutation_class"]["semantic"]["paired_controls"]["raw_false_positive_rate"], 1)
+        self.assertEqual(result["by_mutation_class"]["semantic"]["paired_controls"]["validated_false_positive_rate"], 0)
+        self.assertEqual(result["cases"][1]["mutation_class"], "structural")
+        self.assertNotIn("Statement removed", json.dumps(result))
+
+        missing_class = dict(cases[1])
+        del missing_class["mutation_class"]
+        with self.assertRaisesRegex(ValueError, "mutation_class"):
+            score({**benchmark, "cases": [cases[0], missing_class, *cases[2:]]})
+        unknown_class = {**cases[1], "mutation_class": "other"}
+        with self.assertRaisesRegex(ValueError, "mutation_class must be"):
+            score({**benchmark, "cases": [cases[0], unknown_class, *cases[2:]]})
+        non_string_class = {**cases[1], "mutation_class": ["semantic"]}
+        with self.assertRaisesRegex(ValueError, "mutation_class must be"):
+            score({**benchmark, "cases": [cases[0], non_string_class, *cases[2:]]})
+
     def test_rejects_a_mutation_already_flagged_in_its_control(self):
         control = self.make_run("control", "# Title\nData availability: on request.\n",
                                 raw_rules=("data_availability",))

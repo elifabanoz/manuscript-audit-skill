@@ -12,7 +12,7 @@ Write a private case manifest outside Git:
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "data_freeze": "2026-10-19",
   "cases": [
     {
@@ -28,6 +28,7 @@ Write a private case manifest outside Git:
       "article_type": "original_research",
       "control_case_id": "control-1",
       "expected_rule_id": "data_availability",
+      "mutation_class": "semantic",
       "run": "/absolute/private/mutation-run",
       "raw_findings": "/absolute/private/mutation-run/raw-findings.json"
     }
@@ -36,5 +37,7 @@ Write a private case manifest outside Git:
 ```
 
 Run `python bench/compliance-mutations/score.py /absolute/private/cases.json`. It creates `compliance-mutation-scores.json` beside that manifest and refuses to overwrite it. Paths on Windows must be absolute Windows paths with JSON backslashes escaped. The output contains case IDs, rule IDs, input hashes, recall on injected violations, case-level false-positive rates on controls, and the difference between raw and validated false-positive rates. A mutation is refused when its target rule was already flagged in its paired control; investigate that baseline before scoring. The scorer also rejects changed journal profiles, source snapshots, and freeze dates.
+
+Version 2 requires each mutation to name its class: `structural` for document structure, `semantic` for the meaning or presence of a required statement, or `numerical_format` for limits and prescribed formats. The result reports recall and paired-control false-positive rates separately for each class. A control used by several mutations counts once within each class that uses it; class rates can therefore share a control and must not be treated as independent samples. The scorer accepts existing version 1 manifests without class rates. It checks the declared class and run records, but cannot establish that a mutation truly changed only the intended rule.
 
 The control label needs human review: publication in a journal does not prove the paper complies with every current instruction. A detected mutation does not establish that all other findings are correct. Keep the mutation recipe, license check, source identifiers, and independent adjudication notes with the private case manifest. Publish aggregate results only after those labels and the full case set have been checked; the output hashes allow the result to be tied to its exact private inputs without redistributing manuscripts.
