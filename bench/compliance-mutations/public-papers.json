@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "papers": [
+    {
+      "doi": "10.21105/joss.09737",
+      "journal": "Journal of Open Source Software",
+      "article_url": "https://joss.theoj.org/papers/10.21105/joss.09737",
+      "article_license": "CC BY 4.0",
+      "source_url": "https://raw.githubusercontent.com/taylanot/lcpp/v1.1/docs/paper/paper.md",
+      "source_ref": "v1.1",
+      "source_sha256": "8bf3011c587d8f77c7873e1116fd9a7294f97828e018603e48a402f19358ef63",
+      "output_name": "joss-09737-paper.md"
+    }
+  ]
+}
