@@ -34,6 +34,8 @@ Create a pending compliance ledger from the selected article type with `python s
 
 Once the profile, ledger, findings, and agent records pass `validate-run.cjs`, generate private summaries with `node skills/manuscript-audit/validators/render-report.cjs <run-directory>`. The report lists confirmed records and pending coverage; unresolved records go to `NEEDS-VALIDATION.md`.
 
+For a revised manuscript, prepare and validate a new run, then use `node skills/manuscript-audit/validators/compare-runs.cjs <previous-run> <current-run>`. The private comparison lists changed records and coverage states without treating a missing finding as resolved. Reviewer records from the prior run become stale when the manuscript files or guideline sources change.
+
 ## License
 
 This version is offered under the [PolyForm Noncommercial License 1.0.0](LICENSE). It does not grant commercial-use rights. Earlier commits were released under MIT and retain their original terms.

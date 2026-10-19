@@ -12,8 +12,9 @@ const { validate: validateLedger } = require('./validate-coverage-ledger.cjs');
 const { validate: validateFindings } = require('./validate-findings.cjs');
 const { verify } = require('./verify-quotes.cjs');
 const { validate: validateManifest } = require('./validate-run-manifest.cjs');
-const { corpusHash, subjectHash, validate: validateRun } = require('./validate-run.cjs');
+const { corpusHash, reviewSubjectHash, validate: validateRun } = require('./validate-run.cjs');
 const { escapeMarkdown, render } = require('./render-report.cjs');
+const { compare } = require('./compare-runs.cjs');
 
 function fixture(t) {
   const run = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-audit-'));
@@ -64,6 +65,7 @@ function fixture(t) {
     }
   }];
   fs.mkdirSync(path.join(run, 'agents'));
+  const manifest = manifestFor({ run, profile });
   for (const [key, role, decision] of [
     ['hunter', 'hunter', 'candidate'],
     ['validator', 'defense', 'confirmed'],
@@ -74,7 +76,7 @@ function fixture(t) {
       finding_id: findings[0].id,
       decision,
       actor_id: `actor-${role}`,
-      subject_sha256: subjectHash(findings[0]),
+      subject_sha256: reviewSubjectHash(findings[0], manifest, profile),
       rationale: 'Synthetic check record.'
     }));
   }
@@ -232,7 +234,7 @@ test('absence evidence must search every supplied manuscript file', t => {
   for (const file of Object.values(data.findings[0].provenance)) {
     const recordPath = path.join(data.run, file);
     const record = JSON.parse(fs.readFileSync(recordPath, 'utf8'));
-    record.subject_sha256 = subjectHash(data.findings[0]);
+    record.subject_sha256 = reviewSubjectHash(data.findings[0], manifest, data.profile);
     fs.writeFileSync(recordPath, JSON.stringify(record));
   }
   assert.deepEqual(validateRun(data.run, manifest, data.profile, data.ledger, data.findings), []);
@@ -248,6 +250,14 @@ test('the full run gate rejects missing or stale independent records', t => {
   data.findings[0].claim = 'The manuscript has no data availability statement.';
   fs.rmSync(path.join(data.run, 'agents', 'defense.json'));
   assert.match(validateRun(data.run, manifest, data.profile, data.ledger, data.findings).join('\n'), /provenance.validator/);
+});
+
+test('a revised manuscript makes earlier review records stale', t => {
+  const data = fixture(t);
+  const manifest = manifestFor(data);
+  fs.appendFileSync(path.join(data.run, 'manuscript.md'), 'Additional background.\n');
+  manifest.manuscript.sha256 = crypto.createHash('sha256').update(fs.readFileSync(path.join(data.run, 'manuscript.md'))).digest('hex');
+  assert.match(validateRun(data.run, manifest, data.profile, data.ledger, data.findings).join('\n'), /current review inputs/);
 });
 
 test('the full run gate rejects reused actor identities', t => {
@@ -272,11 +282,13 @@ test('whole-corpus coverage becomes stale when its fingerprint differs', t => {
 
 test('the hash command identifies the exact finding under review', t => {
   const data = fixture(t);
-  const file = path.join(data.run, 'findings.json');
-  fs.writeFileSync(file, JSON.stringify(data.findings));
-  const result = spawnSync(process.execPath, [path.join(__dirname, 'hash-finding.cjs'), file, 'F-1'], { encoding: 'utf8' });
+  const manifest = manifestFor(data);
+  fs.writeFileSync(path.join(data.run, 'run-manifest.json'), JSON.stringify(manifest));
+  fs.writeFileSync(path.join(data.run, 'journal-profile.json'), JSON.stringify(data.profile));
+  fs.writeFileSync(path.join(data.run, 'findings.json'), JSON.stringify(data.findings));
+  const result = spawnSync(process.execPath, [path.join(__dirname, 'hash-finding.cjs'), data.run, 'F-1'], { encoding: 'utf8' });
   assert.equal(result.status, 0);
-  assert.equal(result.stdout.trim(), subjectHash(data.findings[0]));
+  assert.equal(result.stdout.trim(), reviewSubjectHash(data.findings[0], manifest, data.profile));
 });
 
 test('report rendering uses validated findings and shows remaining coverage', t => {
@@ -306,4 +318,29 @@ test('report rendering refuses unverified records and escapes untrusted Markdown
   assert.throws(() => render(data.run), /Run validation failed/);
   assert.equal(fs.existsSync(path.join(data.run, 'REPORT.md')), false);
   assert.equal(escapeMarkdown('![image](https://example.org)'), '\\!\\[image\\]\\(https://example\\.org\\)');
+});
+
+test('revision comparison shows record and coverage changes without inferring resolution', t => {
+  const previous = fixture(t);
+  const current = fixture(t);
+  fs.appendFileSync(path.join(current.run, 'manuscript.md'), 'Additional background.\n');
+  const writeRun = (data, findings, ledger) => {
+    fs.writeFileSync(path.join(data.run, 'run-manifest.json'), JSON.stringify(manifestFor(data)));
+    fs.writeFileSync(path.join(data.run, 'journal-profile.json'), JSON.stringify(data.profile));
+    fs.writeFileSync(path.join(data.run, 'coverage-ledger.json'), JSON.stringify(ledger));
+    fs.writeFileSync(path.join(data.run, 'findings.json'), JSON.stringify(findings));
+  };
+  writeRun(previous, previous.findings, previous.ledger);
+  writeRun(current, [], [{ ...current.ledger[0], status: 'pending', checked_by: [] }]);
+  const result = compare(previous.run, current.run);
+  assert.equal(result.previousOnly, 1);
+  assert.equal(result.currentOnly, 0);
+  assert.equal(result.coverageChanges, 1);
+  assert.equal(result.manuscriptChanged, true);
+  const report = fs.readFileSync(path.join(current.run, 'REVISION-COMPARISON.md'), 'utf8');
+  assert.match(report, /not automatically resolved/);
+  assert.match(report, /covered → pending/);
+  assert.throws(() => compare(previous.run, current.run), /already exists/);
+  fs.writeFileSync(path.join(current.run, 'findings.json'), '{invalid');
+  assert.throws(() => compare(previous.run, current.run, true));
 });

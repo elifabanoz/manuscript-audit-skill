@@ -30,7 +30,13 @@ function corpusHash(manifest) {
   return crypto.createHash('sha256').update(canonical(entries)).digest('hex');
 }
 
-function checkProvenance(run, finding, index, errors) {
+function reviewSubjectHash(finding, manifest, profile) {
+  const sources = Object.entries(manifest.sources).map(([id, source]) => [id, source.url, source.retrieved_at, source.sha256]);
+  sources.sort((left, right) => left[0].localeCompare(right[0], 'en'));
+  return crypto.createHash('sha256').update(canonical({ finding: subjectHash(finding), corpus: corpusHash(manifest), sources, profile })).digest('hex');
+}
+
+function checkProvenance(run, finding, index, manifest, profile, errors) {
   if (!isObject(finding.provenance)) return;
   const roles = { hunter: 'hunter', validator: 'defense', record_verifier: 'record_verifier' };
   const actors = new Set();
@@ -51,7 +57,7 @@ function checkProvenance(run, finding, index, errors) {
       if (!nonempty(record.actor_id)) errors.push(`${at}.actor_id must be nonempty`);
       else if (actors.has(record.actor_id)) errors.push(`${at}.actor_id must differ from other roles`);
       else actors.add(record.actor_id);
-      if (record.subject_sha256 !== subjectHash(finding)) errors.push(`${at}.subject_sha256 differs from the finding`);
+      if (record.subject_sha256 !== reviewSubjectHash(finding, manifest, profile)) errors.push(`${at}.subject_sha256 differs from the current review inputs`);
       if (!nonempty(record.rationale)) errors.push(`${at}.rationale must be nonempty`);
     } catch (error) {
       errors.push(`${at}: ${error.message}`);
@@ -93,7 +99,7 @@ function validate(run, manifest, profile, ledger, findings) {
   }
   if (Array.isArray(findings)) {
     for (const [index, finding] of findings.entries()) {
-      if (isObject(finding)) checkProvenance(run, finding, index, errors);
+      if (isObject(finding)) checkProvenance(run, finding, index, manifest, profile, errors);
       if (!Array.isArray(finding?.evidence)) continue;
       for (const [eIndex, evidence] of finding.evidence.entries()) {
         const at = `findings[${index}].evidence[${eIndex}]`;
@@ -132,4 +138,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { corpusHash, subjectHash, validate };
+module.exports = { corpusHash, reviewSubjectHash, subjectHash, validate };

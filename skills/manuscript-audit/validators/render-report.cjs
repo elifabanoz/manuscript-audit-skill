@@ -91,4 +91,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { escapeMarkdown, render };
+module.exports = { escapeMarkdown, outsideGit, render };
