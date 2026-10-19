@@ -1,0 +1,353 @@
+{
+  "issn": "0098-5589",
+  "title": "IEEE Transactions on Software Engineering",
+  "publisher": "IEEE Computer Society",
+  "article_types": [
+    "regular_paper",
+    "survey",
+    "special_issue_paper"
+  ],
+  "scope": {
+    "quote": "interested in well-defined theoretical results and empirical studies that have potential impact on the construction, analysis, or management of software.",
+    "source_ref": "src_895c2f3cec178b54"
+  },
+  "rules": [
+    {
+      "rule_id": "abstract_at_head",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "An abstract must clearly state the nature and significance of the paper and is required at the head of the manuscript.",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Include an abstract at the start that states the paper's nature and significance."
+    },
+    {
+      "rule_id": "abstract_no_math_or_bibliography",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Abstracts must not include mathematical expressions or bibliographic references.",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Exclude mathematical expressions and bibliographic references from the abstract."
+    },
+    {
+      "rule_id": "coauthor_submission_approval",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Coauthor awareness and approval of submission (or any revised version)",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Confirm each coauthor is aware of and approves the submission or revision."
+    },
+    {
+      "rule_id": "copyright_clearances",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "responsible for obtaining copyright releases and corporate and security clearances prior to submitting material",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Obtain required rights and organizational clearances before submission."
+    },
+    {
+      "rule_id": "derivative_work_disclosure",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "We expect the authors to disclose any derivative works and their sources.",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Disclose related derivative works and their sources."
+    },
+    {
+      "rule_id": "figures_tables_placement",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "embed the figures and tables where they should appear in the article (as close as possible to the first callout)",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Embed figures and tables close to their first callouts in the journal template."
+    },
+    {
+      "rule_id": "full_reference_details",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Citations must include full publication information",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Include complete publication details for cited works."
+    },
+    {
+      "rule_id": "human_or_animal_approval_reference",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "original source and reference must be provided to the editor at submission and appear in the article itself.",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "If review board approval was obtained, provide its source and reference to the editor and in the paper."
+    },
+    {
+      "rule_id": "human_or_animal_review_disclosure",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "must indicate upon article submission whether an approval was obtained from a relevant review board",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "For human or animal research, indicate whether relevant review board approval was obtained."
+    },
+    {
+      "rule_id": "image_permissions",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "ensure permission to publish images is acquired from all owners and publishers",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Obtain permission to publish any third-party figures or images."
+    },
+    {
+      "rule_id": "image_resolution",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "minimum of 300 dpi at the intended display size.",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Provide images and graphs at 300 dpi or higher at display size."
+    },
+    {
+      "rule_id": "journal_appendices_supplemental",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "All appendices in journal articles are considered supplemental material.",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Designate each appendix as supplemental material and upload it separately."
+    },
+    {
+      "rule_id": "journal_article_template",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Using an article template is required for journal submissions.",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Use the IEEE article template for the TSE submission."
+    },
+    {
+      "rule_id": "keyword_taxonomy",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Keywords should be selected from the ACM taxonomy provided in ScholarOne",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Choose specific article keywords from the ACM taxonomy where appropriate."
+    },
+    {
+      "rule_id": "main_manuscript_first",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "keep your main manuscript as the first file in the list.",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Place the main manuscript first in the uploaded file list."
+    },
+    {
+      "rule_id": "no_concurrent_submission",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "We don’t accept articles under review by another publication, including conference proceedings.",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Do not submit work that is under review elsewhere."
+    },
+    {
+      "rule_id": "no_duplicate_publication",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "We don’t accept papers that have been published elsewhere",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Do not submit work already published elsewhere unless an applicable preliminary-version policy is satisfied and disclosed."
+    },
+    {
+      "rule_id": "numbered_references",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "all articles should have numbered references that are listed in the order in which they appear in the body of the paper.",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Number references in order of first appearance."
+    },
+    {
+      "rule_id": "orcid_required",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "ORCID), which is required by all IEEE publications.",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Provide an ORCID for the submitting author in the publication's submission system."
+    },
+    {
+      "rule_id": "planned_conference_version_disclosure",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "you must state your intention to submit in your cover letter",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Disclose in the cover letter any planned conference version of the paper."
+    },
+    {
+      "rule_id": "preliminary_version_difference",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "provide a brief description of the differences between the submitted manuscript and the preliminary version(s)",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Describe differences from preliminary versions or planned conference submissions."
+    },
+    {
+      "rule_id": "prior_work_citation",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "required to cite the previous work(s)",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Cite previously published work that forms the basis of the submission."
+    },
+    {
+      "rule_id": "prior_work_copies",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Copies of any previously published work affiliated with the new submission must also be included as supportive documentation upon submission.",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Provide copies of affiliated previously published work as supporting files."
+    },
+    {
+      "rule_id": "prior_work_novelty_explanation",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "clearly indicate how the new submission offers substantively novel or different contributions",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Explain substantive new or different contributions relative to prior work."
+    },
+    {
+      "rule_id": "references_separate_bibliography",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "References should appear in a separate bibliography at the end of the paper.",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Put references in a separate bibliography at the end."
+    },
+    {
+      "rule_id": "regular_abstract_max_words",
+      "status": "verified",
+      "kind": "deterministic",
+      "quote": "Regular/special-issue paper – 100 to 200 words",
+      "source_ref": "src_7779e37a82d7a30f",
+      "check": {
+        "metric": "abstract_words",
+        "op": "<=",
+        "value": 200
+      },
+      "applies_to": [
+        "regular_paper",
+        "special_issue_paper"
+      ]
+    },
+    {
+      "rule_id": "regular_abstract_min_words",
+      "status": "verified",
+      "kind": "deterministic",
+      "quote": "Regular/special-issue paper – 100 to 200 words",
+      "source_ref": "src_7779e37a82d7a30f",
+      "check": {
+        "metric": "abstract_words",
+        "op": ">=",
+        "value": 100
+      },
+      "applies_to": [
+        "regular_paper",
+        "special_issue_paper"
+      ]
+    },
+    {
+      "rule_id": "reviewer_conflict_avoidance",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "authors are cautioned to avoid suggesting any individual with whom they may have a real, perceived, or potential conflict of interest",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Do not recommend reviewers or editors with a real, perceived, or potential conflict of interest if recommendations are requested."
+    },
+    {
+      "rule_id": "software_engineering_scope",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "potential impact on the construction, analysis, or management of software.",
+      "source_ref": "src_895c2f3cec178b54",
+      "requirement": "Explain the paper's potential impact on software construction, analysis, or management."
+    },
+    {
+      "rule_id": "submission_file_format",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "We accept Microsoft Word, plain text, and LaTeX files.",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Submit manuscript source in an accepted file format."
+    },
+    {
+      "rule_id": "submission_file_size",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Files cannot exceed 350 MB.",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Keep each submitted manuscript file within the 350 MB limit."
+    },
+    {
+      "rule_id": "submission_type_selection",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "select the appropriate manuscript type (e.g., “regular paper”).",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Select the proper TSE manuscript type or special issue in the submission system."
+    },
+    {
+      "rule_id": "supplement_copyright",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "All supplemental materials must follow US copyright guidelines",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Ensure supplemental content has the necessary copyright clearance."
+    },
+    {
+      "rule_id": "supplement_file_designation",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "upload these files as “supplemental material.”",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Designate supplementary files as supplemental material in the submission system."
+    },
+    {
+      "rule_id": "supplement_separate_files",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "All supplemental material must be submitted as separate files and must not be included within the same PDF file as the main paper submission.",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "Submit supplementary material as separate files rather than within the main paper PDF."
+    },
+    {
+      "rule_id": "supplementary_description",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "please include a text file with a description of your supplemental material",
+      "source_ref": "src_7779e37a82d7a30f",
+      "requirement": "For video or audio supplements, include a text description."
+    },
+    {
+      "rule_id": "survey_synthesis",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "state-of-the-art surveys that provide a synthesis and comprehensive review",
+      "source_ref": "src_895c2f3cec178b54",
+      "requirement": "For a survey, synthesize and comprehensively review the area.",
+      "applies_to": [
+        "survey"
+      ]
+    },
+    {
+      "rule_id": "theory_or_empirical_focus",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "well-defined theoretical results and empirical studies",
+      "source_ref": "src_895c2f3cec178b54",
+      "requirement": "Present well-defined theoretical results or empirical studies relevant to software engineering."
+    }
+  ],
+  "sources": {
+    "src_7779e37a82d7a30f": {
+      "url": "https://www.computer.org/publications/author-resources",
+      "retrieved_at": "2026-10-19T13:37:54Z",
+      "sha256": "a221fd2d7f246fbd3450c204869a58f78e167c6a1d7bf69d404b0c0018d877d1",
+      "path": "sources/src_7779e37a82d7a30f.txt"
+    },
+    "src_895c2f3cec178b54": {
+      "url": "https://www.computer.org/digital-library/journals/ts/cfp-ieee-transactions-on-software-engineering",
+      "retrieved_at": "2026-10-19T13:37:55Z",
+      "sha256": "a5c1cd3f3c69985a28378c6bd62034770817fdab74b5bb264d52b5beb816f95a",
+      "path": "sources/src_895c2f3cec178b54.txt"
+    }
+  }
+}

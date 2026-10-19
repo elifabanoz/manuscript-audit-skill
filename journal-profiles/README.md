@@ -6,6 +6,7 @@ The current fixtures cover:
 
 | ISSN | Journal |
 | --- | --- |
+| `0098-5589` | IEEE Transactions on Software Engineering |
 | `1076-9757` | Journal of Artificial Intelligence Research |
 | `1382-3256` | Empirical Software Engineering |
 | `1471-0684` | Theory and Practice of Logic Programming |
