@@ -8,6 +8,7 @@ The current fixtures cover:
 | --- | --- |
 | `0098-5589` | IEEE Transactions on Software Engineering |
 | `0928-8910` | Automated Software Engineering |
+| `0947-3602` | Requirements Engineering |
 | `0963-9314` | Software Quality Journal |
 | `1076-9757` | Journal of Artificial Intelligence Research |
 | `1382-3256` | Empirical Software Engineering |

@@ -1,0 +1,432 @@
+{
+  "issn": "0947-3602",
+  "title": "Requirements Engineering",
+  "publisher": "Springer Nature",
+  "article_types": [
+    "research_article",
+    "systematic_review",
+    "research_commentary"
+  ],
+  "scope": {
+    "quote": "elicitation, representation and validation of requirements",
+    "source_ref": "src_3f0656045b097252"
+  },
+  "ai_policy": {
+    "quote": "Use of an LLM should be properly documented in the Methods section",
+    "source_ref": "src_dcebd02376dfa6d0"
+  },
+  "rules": [
+    {
+      "rule_id": "abbreviations_first_use",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Abbreviations should be defined at first mention",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Define abbreviations at first mention."
+    },
+    {
+      "rule_id": "acknowledgments_title_page",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "should be placed in a separate section on the title page.",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Place acknowledgments on the appropriate title page or submission field, pending system guidance."
+    },
+    {
+      "rule_id": "anonymized_manuscript",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "responsibility of the author to anonymize the manuscript and any associated materials.",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Anonymize the manuscript and accompanying materials."
+    },
+    {
+      "rule_id": "blind_self_citations",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "avoid citing their own work in a way that could reveal their identity.",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Avoid self citations that identify the authors."
+    },
+    {
+      "rule_id": "competing_interests",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "disclose interests that are directly or indirectly related to the work submitted",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Disclose relevant interests through the current submission channel."
+    },
+    {
+      "rule_id": "data_access_explanation",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "explain how to access data supporting the results and analysis",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Explain how supporting data can be accessed.",
+      "applies_to": [
+        "research_article"
+      ]
+    },
+    {
+      "rule_id": "data_anonymization_for_review",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "authorship in the data is also anonymised.",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Anonymize dataset metadata made available to reviewers where feasible.",
+      "applies_to": [
+        "research_article"
+      ]
+    },
+    {
+      "rule_id": "data_availability_statement",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "All original research must include a data availability statement.",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Include a data availability statement for original research.",
+      "applies_to": [
+        "research_article"
+      ]
+    },
+    {
+      "rule_id": "dataset_citation",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "cite any publicly available data on which the conclusions of the paper rely",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Cite public supporting datasets."
+    },
+    {
+      "rule_id": "doi_links",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "include DOIs as full DOI links in your reference list",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Use full DOI links where available."
+    },
+    {
+      "rule_id": "editable_sources",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "provide all relevant editable source files at every submission and revision",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Provide complete editable source files."
+    },
+    {
+      "rule_id": "ethics_approval_if_applicable",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "approval by the appropriate ethics committee for research involving humans and/or animals",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Disclose ethics approval when human or animal research is involved."
+    },
+    {
+      "rule_id": "figure_captions",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Each figure should have a concise caption",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Provide a concise caption for each figure."
+    },
+    {
+      "rule_id": "figures_cited",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Figures should always be cited in text in consecutive numerical order.",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Cite figures in consecutive order."
+    },
+    {
+      "rule_id": "figures_numbered",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "All figures are to be numbered using Arabic numerals.",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Number figures with Arabic numerals."
+    },
+    {
+      "rule_id": "footnotes_no_figures_tables",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "They should also not contain any figures or tables.",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Do not put figures or tables in footnotes."
+    },
+    {
+      "rule_id": "footnotes_over_endnotes",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Always use footnotes instead of endnotes.",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Use footnotes rather than endnotes."
+    },
+    {
+      "rule_id": "funding_declaration",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "information regarding sources of funding",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Disclose funding where applicable."
+    },
+    {
+      "rule_id": "headings_three_levels",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "decimal system of headings with no more than three levels",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Use up to three numbered heading levels."
+    },
+    {
+      "rule_id": "human_consent",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "informed consent if the research involved human participants",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Include informed consent information for human participant research."
+    },
+    {
+      "rule_id": "latex_template",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Authors are advised to use the Springer Nature LaTeX template",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "If using LaTeX, use the Springer Nature template; reconcile later Word guidance."
+    },
+    {
+      "rule_id": "latex_word_format_ambiguous",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "We encourage LaTeX as a submission format.",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Confirm accepted manuscript format; LaTeX is encouraged while Text Formatting also specifies Word."
+    },
+    {
+      "rule_id": "llm_no_authorship",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Large Language Models (LLMs), such as ChatGPT, do not currently satisfy our authorship criteria.",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Do not list an LLM as an author."
+    },
+    {
+      "rule_id": "llm_use_disclosure",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Use of an LLM should be properly documented in the Methods section",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Document substantive LLM use in Methods or a suitable alternative section."
+    },
+    {
+      "rule_id": "numeric_intext_citations",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "identified by numbers in square brackets.",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Use numeric in-text citations in square brackets."
+    },
+    {
+      "rule_id": "references_cited_only",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "only include works that are cited in the text",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "List only cited published or accepted works."
+    },
+    {
+      "rule_id": "references_numbered",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "The entries in the list should be numbered consecutively.",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Number references consecutively."
+    },
+    {
+      "rule_id": "requirements_engineering_scope",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "all papers must explicitly address:",
+      "source_ref": "src_3f0656045b097252",
+      "requirement": "Address practical design consequences and how a practitioner could evaluate the contribution."
+    },
+    {
+      "rule_id": "research_article_evaluation",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Research articles must include some scientific means for evaluating the validity of the subject.",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Include a scientific validity evaluation in a research article.",
+      "applies_to": [
+        "research_article"
+      ]
+    },
+    {
+      "rule_id": "research_comment_argument",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "provide compelling argumentation for any conclusions drawn",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Give convincing reasoning for research-comment conclusions.",
+      "applies_to": [
+        "research_commentary"
+      ]
+    },
+    {
+      "rule_id": "research_comment_evidence",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "must build on evidence (literature, trends, state-of-the-practice)",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Ground research commentaries in evidence.",
+      "applies_to": [
+        "research_commentary"
+      ]
+    },
+    {
+      "rule_id": "restricted_data_access",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "describe how data can be accessed and any conditions for reuse",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Describe access conditions if data cannot be public.",
+      "applies_to": [
+        "research_article"
+      ]
+    },
+    {
+      "rule_id": "reused_material_permissions",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "obtain permission from the copyright owner(s) for both the print and online format",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Obtain reuse permission for previously published material."
+    },
+    {
+      "rule_id": "separate_title_page",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "A separate Title Page should be submitted",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Prepare a separate title page if the current submission system requests it; the page also says some details belong in interface fields."
+    },
+    {
+      "rule_id": "sn_jnl_document_class",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "using the header \\documentclass{sn-jnl}",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "If using LaTeX, use the sn-jnl class; confirm applicability given the Word guidance."
+    },
+    {
+      "rule_id": "supplementary_captions",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "For each supplementary material, please supply a concise caption",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Provide a caption for each supplementary file."
+    },
+    {
+      "rule_id": "supplementary_citations",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "text must make specific mention of the material as a citation",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Cite supplementary files in the manuscript."
+    },
+    {
+      "rule_id": "systematic_review_evidence",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "structured and verifiable manner",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Report literature insights in a structured and verifiable manner.",
+      "applies_to": [
+        "systematic_review"
+      ]
+    },
+    {
+      "rule_id": "systematic_review_scope",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "pertinent to requirements engineering at large",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Keep a systematic review pertinent to requirements engineering.",
+      "applies_to": [
+        "systematic_review"
+      ]
+    },
+    {
+      "rule_id": "systematic_review_standard",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "We expect systematic reviews to fulfill the essential attributes listed by ACM SIGSOFT's standard.",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "For a systematic review, satisfy the cited ACM SIGSOFT standard; its attributes require separate source review.",
+      "applies_to": [
+        "systematic_review"
+      ]
+    },
+    {
+      "rule_id": "table_captions",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "For each table, please supply a table caption",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Provide a caption for each table."
+    },
+    {
+      "rule_id": "table_numbering",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "All tables are to be numbered using Arabic numerals.",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Number tables using Arabic numerals."
+    },
+    {
+      "rule_id": "tables_cited",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Tables should always be cited in text in consecutive numerical order.",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Cite tables in consecutive order."
+    },
+    {
+      "rule_id": "tables_numbered",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "All tables are to be numbered using Arabic numerals.",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Number tables with Arabic numerals."
+    },
+    {
+      "rule_id": "word_equations",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Use the equation editor or MathType for equations.",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Use Word equation tools for equations in Word submissions."
+    },
+    {
+      "rule_id": "word_page_numbers",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Use the automatic page numbering function to number the pages.",
+      "source_ref": "src_dcebd02376dfa6d0",
+      "requirement": "Use automatic page numbers in Word submissions."
+    }
+  ],
+  "sources": {
+    "src_dcebd02376dfa6d0": {
+      "url": "https://link.springer.com/journal/766/submission-guidelines",
+      "retrieved_at": "2026-10-19T13:50:53Z",
+      "sha256": "b491d458f58943e631de1fbc5f4187ef4db7fc94a80f9759aac96c7063a84c96",
+      "path": "sources/src_dcebd02376dfa6d0.txt"
+    },
+    "src_3f0656045b097252": {
+      "url": "https://link.springer.com/journal/766/aims-and-scope",
+      "retrieved_at": "2026-10-19T13:50:55Z",
+      "sha256": "dcf24922bf08af75e6039a9a8c606a59eb097e5ee65e0706e993462b1a026027",
+      "path": "sources/src_3f0656045b097252.txt"
+    }
+  }
+}
