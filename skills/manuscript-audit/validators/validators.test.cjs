@@ -13,6 +13,7 @@ const { validate: validateFindings } = require('./validate-findings.cjs');
 const { verify } = require('./verify-quotes.cjs');
 const { validate: validateManifest } = require('./validate-run-manifest.cjs');
 const { corpusHash, subjectHash, validate: validateRun } = require('./validate-run.cjs');
+const { escapeMarkdown, render } = require('./render-report.cjs');
 
 function fixture(t) {
   const run = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-audit-'));
@@ -276,4 +277,33 @@ test('the hash command identifies the exact finding under review', t => {
   const result = spawnSync(process.execPath, [path.join(__dirname, 'hash-finding.cjs'), file, 'F-1'], { encoding: 'utf8' });
   assert.equal(result.status, 0);
   assert.equal(result.stdout.trim(), subjectHash(data.findings[0]));
+});
+
+test('report rendering uses validated findings and shows remaining coverage', t => {
+  const data = fixture(t);
+  const manifest = manifestFor(data);
+  fs.writeFileSync(path.join(data.run, 'run-manifest.json'), JSON.stringify(manifest));
+  fs.writeFileSync(path.join(data.run, 'journal-profile.json'), JSON.stringify(data.profile));
+  fs.writeFileSync(path.join(data.run, 'coverage-ledger.json'), JSON.stringify([{ ...data.ledger[0], status: 'pending', checked_by: [] }]));
+  fs.writeFileSync(path.join(data.run, 'findings.json'), JSON.stringify(data.findings));
+  const counts = render(data.run);
+  assert.equal(counts.confirmed, 1);
+  assert.equal(counts.pending, 1);
+  const report = fs.readFileSync(path.join(data.run, 'REPORT.md'), 'utf8');
+  assert.match(report, /1 pending/);
+  assert.match(report, /data availability statement/);
+  assert.match(report, /does not predict an editorial decision/);
+  assert.throws(() => render(data.run), /already exists/);
+});
+
+test('report rendering refuses unverified records and escapes untrusted Markdown', t => {
+  const data = fixture(t);
+  fs.writeFileSync(path.join(data.run, 'run-manifest.json'), JSON.stringify(manifestFor(data)));
+  fs.writeFileSync(path.join(data.run, 'journal-profile.json'), JSON.stringify(data.profile));
+  fs.writeFileSync(path.join(data.run, 'coverage-ledger.json'), JSON.stringify(data.ledger));
+  fs.writeFileSync(path.join(data.run, 'findings.json'), JSON.stringify(data.findings));
+  fs.rmSync(path.join(data.run, 'agents', 'defense.json'));
+  assert.throws(() => render(data.run), /Run validation failed/);
+  assert.equal(fs.existsSync(path.join(data.run, 'REPORT.md')), false);
+  assert.equal(escapeMarkdown('![image](https://example.org)'), '\\!\\[image\\]\\(https://example\\.org\\)');
 });

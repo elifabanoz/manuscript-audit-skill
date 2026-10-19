@@ -17,6 +17,8 @@ For a journal profile with Markdown abstract or main-text word limits, `python s
 
 Create a pending compliance ledger from the selected article type with `python skills/manuscript-audit/tools/build_coverage.py <run-directory> --article-type original_research`. The tool refuses to overwrite an existing ledger; each unit carries a fingerprint of the supplied manuscript files.
 
+Once the profile, ledger, findings, and agent records pass `validate-run.cjs`, generate private summaries with `node skills/manuscript-audit/validators/render-report.cjs <run-directory>`. The report lists confirmed records and pending coverage; unresolved records go to `NEEDS-VALIDATION.md`.
+
 ## License
 
 This version is offered under the [PolyForm Noncommercial License 1.0.0](LICENSE). It does not grant commercial-use rights. Earlier commits were released under MIT and retain their original terms.
