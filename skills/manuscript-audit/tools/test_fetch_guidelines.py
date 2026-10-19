@@ -70,6 +70,33 @@ class GuidelineFetchTests(unittest.TestCase):
                     save_source("https://example.org/authors", root, lambda *_args, **_kwargs: response)
             self.assertFalse(root.exists())
 
+    def test_cookie_redirect_uses_stable_source_url(self):
+        requested = "https://link.springer.com/journal/10515/submission-guidelines"
+        redirected = requested + "?error=cookies_not_supported&code=temporary-token"
+        body = b"<p>Submit a synthetic manuscript.</p>"
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            path = save_source(requested, root / "sources", lambda *_args, **_kwargs: Response(body, redirected))
+            record = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(record["requested_url"], requested)
+            self.assertEqual(record["url"], requested)
+            manuscript = root / "paper.md"
+            manuscript.write_text("# Synthetic manuscript\n", encoding="utf-8")
+            args = argparse.Namespace(manuscript=manuscript, guideline_text=None, guideline_url=None,
+                                      retrieved_at=None, source_record=path, supplementary=[],
+                                      output_root=root / "runs", host="manual", model=[])
+            run = prepare(args)
+            source = next(iter(json.loads((run / "run-manifest.json").read_text())["sources"].values()))
+            self.assertEqual(source["url"], requested)
+
+    def test_other_redirect_query_is_preserved(self):
+        requested = "https://example.org/authors"
+        redirected = requested + "?version=2"
+        with tempfile.TemporaryDirectory() as temporary:
+            path = save_source(requested, Path(temporary) / "sources",
+                               lambda *_args, **_kwargs: Response(b"<p>Guide</p>", redirected))
+            self.assertEqual(json.loads(path.read_text())["url"], redirected)
+
     def test_rejects_repository_output_before_network(self):
         root = Path(__file__).resolve().parents[3]
 

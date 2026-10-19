@@ -10,7 +10,7 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 from urllib.request import Request, urlopen
 
 from prepare_run import outside_git
@@ -35,6 +35,21 @@ def https_url(value):
     else:
         raise ValueError("A public HTTPS URL without credentials is required")
     return value
+
+
+def stable_source_url(requested, received):
+    """Discard Springer's transient cookie-error token from an otherwise identical URL."""
+    expected = urlsplit(requested)
+    actual = urlsplit(received)
+    query = parse_qs(actual.query, keep_blank_values=True)
+    if (expected.scheme == actual.scheme and expected.netloc == actual.netloc
+            and expected.path == actual.path and not expected.query
+            and expected.fragment == actual.fragment
+            and set(query) == {"error", "code"}
+            and query["error"] == ["cookies_not_supported"]
+            and len(query["code"]) == 1 and query["code"][0]):
+        return requested
+    return received
 
 
 class VisibleText(html.parser.HTMLParser):
@@ -69,7 +84,7 @@ def fetch(url, opener=urlopen):
     request = Request(url, headers={"User-Agent": "manuscript-audit-skill/0.1", "Accept": "text/html,text/plain"})
     try:
         with opener(request, timeout=20) as response:
-            final_url = https_url(response.geturl())
+            final_url = stable_source_url(url, https_url(response.geturl()))
             media_type = response.headers.get_content_type()
             charset = response.headers.get_content_charset() or "utf-8"
             raw = response.read(MAX_BYTES + 1)
