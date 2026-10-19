@@ -13,6 +13,7 @@ from urllib.parse import urlsplit
 
 SKILL_FILE = Path(__file__).resolve().parents[1] / "SKILL.md"
 TIMESTAMP = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$")
+DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 def digest(data):
@@ -27,6 +28,18 @@ def timestamp(value):
     except ValueError as error:
         raise ValueError("--retrieved-at is not a valid date-time") from error
     return parsed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def data_freeze(value):
+    if value is None:
+        return None
+    if not isinstance(value, str) or not DATE.fullmatch(value):
+        raise ValueError("--data-freeze must be a YYYY-MM-DD date")
+    try:
+        datetime.strptime(value, "%Y-%m-%d")
+    except ValueError as error:
+        raise ValueError("--data-freeze is not a valid date") from error
+    return value
 
 
 def read_text(path, flag):
@@ -146,7 +159,7 @@ def prepare(args):
         "skill_sha256": digest(skill),
         "prompt_hashes": {"SKILL.md": digest(skill)},
         "config_hash": None,
-        "data_freeze": None,
+        "data_freeze": data_freeze(getattr(args, "data_freeze", None)),
         "cross_host": False,
         "manuscript": {"path": f"manuscript{args.manuscript.suffix.lower()}", "sha256": digest(manuscript)},
         "supplementary": supplement_records,
@@ -171,6 +184,7 @@ def main():
     parser.add_argument("--output-root", type=Path, default=Path.home() / "manuscript-audit")
     parser.add_argument("--host", choices=("codex", "claude-code", "manual"), default="manual")
     parser.add_argument("--model", action="append", default=[], help="Model actually used; repeat if needed")
+    parser.add_argument("--data-freeze", help="Fixed YYYY-MM-DD data date for a benchmark run")
     args = parser.parse_args()
     try:
         print(prepare(args))

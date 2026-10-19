@@ -16,7 +16,7 @@
       "additionalProperties": { "$ref": "#/$defs/sha256" }
     },
     "config_hash": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/sha256" }] },
-    "data_freeze": { "type": "null" },
+    "data_freeze": { "oneOf": [{ "type": "null" }, { "type": "string", "format": "date", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }] },
     "cross_host": { "const": false },
     "manuscript": { "$ref": "#/$defs/cachedFile" },
     "extraction": {

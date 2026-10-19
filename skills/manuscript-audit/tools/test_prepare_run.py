@@ -56,6 +56,18 @@ class PrepareRunTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "timezone"):
             prepare(self.args)
 
+    def test_benchmark_freeze_is_recorded_and_invalid_dates_are_rejected(self):
+        self.args.data_freeze = "2026-10-19"
+        run = prepare(self.args)
+        manifest = json.loads((run / "run-manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["data_freeze"], "2026-10-19")
+        validator = Path(__file__).resolve().parents[1] / "validators" / "validate-run-manifest.cjs"
+        self.assertEqual(subprocess.run(["node", str(validator), str(run)], capture_output=True).returncode, 0)
+        for invalid in ("2026-02-30", "2026-10-19T00:00:00Z", "yesterday"):
+            self.args.data_freeze = invalid
+            with self.subTest(invalid=invalid), self.assertRaisesRegex(ValueError, "data-freeze"):
+                prepare(self.args)
+
     def test_rejects_pdf_and_invalid_utf8(self):
         self.args.manuscript = self.root / "paper.pdf"
         self.args.manuscript.write_bytes(b"%PDF")

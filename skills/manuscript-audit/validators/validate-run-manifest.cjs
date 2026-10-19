@@ -40,7 +40,13 @@ function validate(run, manifest) {
   if (typeof manifest.skill_sha256 !== 'string' || !SHA256.test(manifest.skill_sha256)) errors.push('manifest.skill_sha256 must be a SHA-256 hex digest');
   if (!isObject(manifest.prompt_hashes) || manifest.prompt_hashes['SKILL.md'] !== manifest.skill_sha256) errors.push('manifest.prompt_hashes must include the skill hash');
   if (manifest.config_hash !== null && (typeof manifest.config_hash !== 'string' || !SHA256.test(manifest.config_hash))) errors.push('manifest.config_hash must be null or a SHA-256 hex digest');
-  if (manifest.data_freeze !== null) errors.push('manifest.data_freeze must be null for a local run');
+  if (manifest.data_freeze !== null) {
+    const value = manifest.data_freeze;
+    const parsed = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00Z`) : null;
+    if (!parsed || Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
+      errors.push('manifest.data_freeze must be null or a valid YYYY-MM-DD date');
+    }
+  }
   if (manifest.cross_host !== false) errors.push('manifest.cross_host must be false for a local run');
   checkCachedFile(run, manifest.manuscript, 'manifest.manuscript', errors);
   if (manifest.extraction !== undefined) {
