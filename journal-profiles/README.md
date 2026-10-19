@@ -20,6 +20,7 @@ The current fixtures cover:
 | `2073-4859` | The R Journal |
 | `2169-3536` | IEEE Access |
 | `2475-9066` | Journal of Open Source Software |
+| `2661-8907` | SN Computer Science |
 | `2835-8856` | Transactions on Machine Learning Research |
 
 These profiles were compared from separate drafts against official journal pages. Disputed or conditional rules remain `needs_validation`. Requirements about submission forms or supporting files need evidence outside the manuscript; record those checks in the private coverage ledger.
