@@ -11,6 +11,7 @@ const { validate: validateProfile } = require('./validate-journal-profile.cjs');
 const { validate: validateLedger } = require('./validate-coverage-ledger.cjs');
 const { validate: validateFindings } = require('./validate-findings.cjs');
 const { verify } = require('./verify-quotes.cjs');
+const { validate: validateManifest } = require('./validate-run-manifest.cjs');
 
 function fixture(t) {
   const run = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-audit-'));
@@ -157,4 +158,29 @@ test('the command line validator returns a failing status for invalid input', t 
   const result = spawnSync(process.execPath, [path.join(__dirname, 'validate-coverage-ledger.cjs'), file], { encoding: 'utf8' });
   assert.equal(result.status, 1);
   assert.match(result.stderr, /checked_by/);
+});
+
+test('a run manifest detects changed private files and escaped paths', t => {
+  const data = fixture(t);
+  const manuscript = fs.readFileSync(path.join(data.run, 'manuscript.md'));
+  const source = fs.readFileSync(path.join(data.run, 'sources', 'guideline.txt'));
+  const manifest = {
+    schema_version: 1,
+    created_at: '2026-10-19T09:12:00Z',
+    host: 'manual',
+    models: [],
+    skill_sha256: crypto.createHash('sha256').update('skill').digest('hex'),
+    prompt_hashes: {},
+    config_hash: null,
+    data_freeze: null,
+    cross_host: false,
+    manuscript: { path: 'manuscript.md', sha256: crypto.createHash('sha256').update(manuscript).digest('hex') },
+    sources: { src_guideline: { ...data.profile.sources.src_guideline } }
+  };
+  manifest.prompt_hashes['SKILL.md'] = manifest.skill_sha256;
+  assert.deepEqual(validateManifest(data.run, manifest), []);
+  fs.appendFileSync(path.join(data.run, 'manuscript.md'), 'Changed');
+  assert.match(validateManifest(data.run, manifest).join('\n'), /SHA-256 mismatch/);
+  manifest.manuscript.path = '../outside.txt';
+  assert.match(validateManifest(data.run, manifest).join('\n'), /traversal/);
 });

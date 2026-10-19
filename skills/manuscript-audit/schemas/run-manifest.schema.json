@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RunManifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "created_at", "host", "models", "skill_sha256", "prompt_hashes", "config_hash", "data_freeze", "cross_host", "manuscript", "sources"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "host": { "enum": ["codex", "claude-code", "manual"] },
+    "models": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "skill_sha256": { "$ref": "#/$defs/sha256" },
+    "prompt_hashes": {
+      "type": "object",
+      "required": ["SKILL.md"],
+      "additionalProperties": { "$ref": "#/$defs/sha256" }
+    },
+    "config_hash": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/sha256" }] },
+    "data_freeze": { "type": "null" },
+    "cross_host": { "const": false },
+    "manuscript": { "$ref": "#/$defs/cachedFile" },
+    "sources": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["url", "retrieved_at", "sha256", "path"],
+        "properties": {
+          "url": { "type": "string", "pattern": "^https://.+" },
+          "retrieved_at": { "type": "string", "format": "date-time" },
+          "sha256": { "$ref": "#/$defs/sha256" },
+          "path": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "cachedFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}

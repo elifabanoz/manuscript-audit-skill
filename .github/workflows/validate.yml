@@ -18,4 +18,5 @@ jobs:
           node-version: 22
           package-manager-cache: false
       - run: node --test skills/manuscript-audit/validators/validators.test.cjs
+      - run: python3 -m unittest discover -s skills/manuscript-audit/tools -p 'test_*.py'
       - run: node -e "const fs=require('node:fs'); for (const file of fs.readdirSync('skills/manuscript-audit/schemas')) JSON.parse(fs.readFileSync('skills/manuscript-audit/schemas/'+file, 'utf8'))"
