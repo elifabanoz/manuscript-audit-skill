@@ -1,0 +1,638 @@
+{
+  "issn": "2475-9066",
+  "title": "Journal of Open Source Software",
+  "publisher": "Open Journals",
+  "article_types": [
+    "Software paper"
+  ],
+  "scope": {
+    "quote": "JOSS publishes articles about research software.",
+    "source_ref": "src_3756504c45b84030"
+  },
+  "ai_policy": {
+    "quote": "all such use must be disclosed in an “AI usage disclosure” statement",
+    "source_ref": "src_3756504c45b84030"
+  },
+  "rules": [
+    {
+      "rule_id": "ai_assistance_scope",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "If AI was used, disclose the nature and scope of assistance.",
+      "quote": "The nature and scope of assistance: e.g., code generation, refactoring, test scaffolding, copy-editing, drafting.",
+      "source_ref": "src_3756504c45b84030"
+    },
+    {
+      "rule_id": "ai_author_editor_interaction",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Restrict AI in author/editor/reviewer conversation to translation.",
+      "quote": "AI is not allowed for conversational interactions between authors and editors or reviewers unless it is being used for translation purposes.",
+      "source_ref": "src_3756504c45b84030"
+    },
+    {
+      "rule_id": "ai_disclosure_verification",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "If AI tools were used, describe use and human verification.",
+      "quote": "describe how they were used and how the quality and correctness of AI-generated content was verified.",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "ai_human_review_assertion",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "If AI was used, affirm human review, editing, and validation of outputs.",
+      "quote": "Authors must assert that human authors reviewed, edited, validated all AI-assisted outputs",
+      "source_ref": "src_3756504c45b84030"
+    },
+    {
+      "rule_id": "ai_tools_models_versions",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "If AI was used, disclose tools, versions, and affected materials.",
+      "quote": "The tools/models used (and versions) and where they were used (code, paper text, docs).",
+      "source_ref": "src_3756504c45b84030"
+    },
+    {
+      "rule_id": "ai_use_disclosure",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "State explicitly if no AI tools were used; otherwise disclose their use.",
+      "quote": "If no AI tools were used, state this explicitly.",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "author_affiliations",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "List software authors and their affiliations.",
+      "quote": "A list of the authors of the software and their affiliations",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "authorship_agreement",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Coauthors must agree to be listed.",
+      "quote": "co-authors must always agree to be listed",
+      "source_ref": "src_3756504c45b84030"
+    },
+    {
+      "rule_id": "bibliography_file_format",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Use paper.bib with BibLaTeX or BibTeX.",
+      "quote": "Bibliographic data should be collected in a file paper.bib; it should be formatted in the BibLaTeX format, although plain BibTeX is acceptable as well.",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "build_vs_contribute_justification",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "If related tools exist, explain why building this software was warranted.",
+      "quote": "If related tools exist, provide a clear “build vs. contribute” justification",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "competing_interests",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Disclose potential conflicts.",
+      "quote": "All authors must disclose any potential conflicts of interest related to the research in their manuscript",
+      "source_ref": "src_3756504c45b84030"
+    },
+    {
+      "rule_id": "figure_caption_syntax",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "When using figures, put each captioned image in its own paragraph.",
+      "quote": "To create a figure, a captioned image must appear by itself in a paragraph.",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "funding_statement",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Acknowledge financial support and sponsor role.",
+      "quote": "Authors should acknowledge all sources of financial support for the work and include a statement indicating whether or not the sponsor had any involvement in it.",
+      "source_ref": "src_3756504c45b84030"
+    },
+    {
+      "rule_id": "heading_max_level",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "Do not use paper headings deeper than level five.",
+      "quote": "The maximum supported level is 5",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "heading_start_level",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "Start paper headings at level one.",
+      "quote": "Please start headings on the first level.",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "metadata_affiliation_fields",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "Give each affiliation an index and name.",
+      "quote": "Each affiliation requires an index and name.",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "metadata_date_format",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "Format the metadata date as day month year.",
+      "quote": "The date must be specified using the following format: %e %B %Y",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "paper_file_name",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Name the manuscript paper.md.",
+      "quote": "using paper.md as file name",
+      "source_ref": "src_3756504c45b84030"
+    },
+    {
+      "rule_id": "paper_git_repository",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Host paper and assets with the software in Git.",
+      "quote": "Your paper (paper.md and BibTeX files, plus any figures) must be hosted in a Git-based repository together with your software.",
+      "source_ref": "src_3756504c45b84030"
+    },
+    {
+      "rule_id": "paper_length_guidance",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Target 750–1750 words; editorial guidance, not an absolute limit.",
+      "quote": "The paper should be between 750-1750 words.",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "paper_markdown_format",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "Submit the paper in Markdown.",
+      "quote": "Submitted articles must use Markdown",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "paper_no_api_documentation",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "Keep API documentation out of the paper.",
+      "quote": "software documentation such as API (Application Programming Interface) functionality should not be in the paper",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "paper_no_new_results",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "Focus the paper on software rather than new research results.",
+      "quote": "Your paper must not focus on new research results accomplished with the software.",
+      "source_ref": "src_3756504c45b84030"
+    },
+    {
+      "rule_id": "paper_research_projects_if_applicable",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Mention representative projects if applicable.",
+      "quote": "Mention (if applicable) a representative set of past or ongoing research projects using the software",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "paper_yaml_metadata",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "Include YAML metadata at the start of the paper.",
+      "quote": "must provide a metadata section at the beginning of the article",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "reference_related_software",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "Include key references and relevant related software.",
+      "quote": "A list of key references, including to other software addressing related needs.",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "reference_venue_names",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "Use full venue names in references.",
+      "quote": "references should include full names of venues",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "related_publications_declaration",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Indicate related publications during submission, if any.",
+      "quote": "We ask that authors indicate whether related publications (published, in review, or nearing submission) exist",
+      "source_ref": "src_3756504c45b84030"
+    },
+    {
+      "rule_id": "release_archive_doi",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "After successful review, tag and archive a release with DOI.",
+      "quote": "Upon successful completion of the review, authors will make a tagged release of the software, and deposit a copy of the repository with a data-archiving service such as Zenodo or figshare, get a DOI for the archive",
+      "source_ref": "src_3756504c45b84030"
+    },
+    {
+      "rule_id": "repository_access",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Make software repository cloneable without registration.",
+      "quote": "Be stored in a repository that can be cloned without registration",
+      "source_ref": "src_3756504c45b84030"
+    },
+    {
+      "rule_id": "repository_browsable_source",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Make source browsable without registration.",
+      "quote": "Be stored in a repository where the software source files are browsable online without registration",
+      "source_ref": "src_3756504c45b84030"
+    },
+    {
+      "rule_id": "repository_contributions",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Allow proposed code changes without manual account approval or payment.",
+      "quote": "propose code changes without manual approval of (or payment for) accounts",
+      "source_ref": "src_3756504c45b84030"
+    },
+    {
+      "rule_id": "repository_issue_creation",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Allow outside users to file issues.",
+      "quote": "Permit individuals to create issues/file tickets against your repository",
+      "source_ref": "src_3756504c45b84030"
+    },
+    {
+      "rule_id": "repository_issue_tracker",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Provide a publicly readable issue tracker.",
+      "quote": "Have an issue tracker that is readable without registration",
+      "source_ref": "src_3756504c45b84030"
+    },
+    {
+      "rule_id": "required_section_acknowledgements",
+      "status": "needs_validation",
+      "kind": "deterministic",
+      "check": {
+        "metric": "heading_count",
+        "op": ">=",
+        "value": 1,
+        "heading": "Acknowledgements"
+      },
+      "quote": "sections for Summary, Statement of need, State of the field, Software design, Research impact statement, AI usage disclosure, Acknowledgements, and References.",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "required_section_ai_usage_disclosure",
+      "status": "verified",
+      "kind": "deterministic",
+      "check": {
+        "metric": "heading_count",
+        "op": ">=",
+        "value": 1,
+        "heading": "AI usage disclosure"
+      },
+      "quote": "sections for Summary, Statement of need, State of the field, Software design, Research impact statement, AI usage disclosure, Acknowledgements, and References.",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "required_section_references",
+      "status": "verified",
+      "kind": "deterministic",
+      "check": {
+        "metric": "heading_count",
+        "op": ">=",
+        "value": 1,
+        "heading": "References"
+      },
+      "quote": "sections for Summary, Statement of need, State of the field, Software design, Research impact statement, AI usage disclosure, Acknowledgements, and References.",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "required_section_research_impact_statement",
+      "status": "verified",
+      "kind": "deterministic",
+      "check": {
+        "metric": "heading_count",
+        "op": ">=",
+        "value": 1,
+        "heading": "Research impact statement"
+      },
+      "quote": "sections for Summary, Statement of need, State of the field, Software design, Research impact statement, AI usage disclosure, Acknowledgements, and References.",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "required_section_software_design",
+      "status": "verified",
+      "kind": "deterministic",
+      "check": {
+        "metric": "heading_count",
+        "op": ">=",
+        "value": 1,
+        "heading": "Software design"
+      },
+      "quote": "sections for Summary, Statement of need, State of the field, Software design, Research impact statement, AI usage disclosure, Acknowledgements, and References.",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "required_section_state_of_the_field",
+      "status": "verified",
+      "kind": "deterministic",
+      "check": {
+        "metric": "heading_count",
+        "op": ">=",
+        "value": 1,
+        "heading": "State of the field"
+      },
+      "quote": "sections for Summary, Statement of need, State of the field, Software design, Research impact statement, AI usage disclosure, Acknowledgements, and References.",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "required_section_statement_of_need",
+      "status": "verified",
+      "kind": "deterministic",
+      "check": {
+        "metric": "heading_count",
+        "op": ">=",
+        "value": 1,
+        "heading": "Statement of need"
+      },
+      "quote": "The paper must have a clearly labeled “Statement of need” section",
+      "source_ref": "src_7a68342f5f8e52f1"
+    },
+    {
+      "rule_id": "required_section_summary",
+      "status": "verified",
+      "kind": "deterministic",
+      "check": {
+        "metric": "heading_count",
+        "op": ">=",
+        "value": 1,
+        "heading": "Summary"
+      },
+      "quote": "sections for Summary, Statement of need, State of the field, Software design, Research impact statement, AI usage disclosure, Acknowledgements, and References.",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "research_application_explanation",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "Explain the software's research applications.",
+      "quote": "We also require that authors explain the research applications of the software.",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "research_impact_evidence",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Provide specific realized impact or credible near-term significance evidence.",
+      "quote": "The evidence should be compelling and specific, not aspirational.",
+      "source_ref": "src_7a68342f5f8e52f1"
+    },
+    {
+      "rule_id": "review_response",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Respond to review feedback promptly.",
+      "quote": "authors are expected to respond in a timely fashion.",
+      "source_ref": "src_3756504c45b84030"
+    },
+    {
+      "rule_id": "software_api_documentation",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Document API suitably.",
+      "quote": "Reviewers should check that the software API is documented to a suitable level.",
+      "source_ref": "src_7a68342f5f8e52f1"
+    },
+    {
+      "rule_id": "software_community_guidelines",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Explain how to contribute, report issues and get support.",
+      "quote": "There should be clear guidelines for third-parties wishing to:",
+      "source_ref": "src_7a68342f5f8e52f1"
+    },
+    {
+      "rule_id": "software_design_rationale",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Explain architecture, trade-offs and research relevance.",
+      "quote": "An explanation of the trade-offs you weighed, the design/architecture you chose, and why it matters for your research application.",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "software_documentation",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Document core functionality.",
+      "quote": "There should be sufficient documentation for you, the reviewer to understand the core functionality of the software under review.",
+      "source_ref": "src_7a68342f5f8e52f1"
+    },
+    {
+      "rule_id": "software_examples",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Provide usage examples.",
+      "quote": "The authors should include examples of how to use the software",
+      "source_ref": "src_7a68342f5f8e52f1"
+    },
+    {
+      "rule_id": "software_feature_complete",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Submit feature-complete software.",
+      "quote": "software should be feature-complete",
+      "source_ref": "src_3756504c45b84030"
+    },
+    {
+      "rule_id": "software_functionality_review",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Keep the software installable and core functions verifiable by reviewers.",
+      "quote": "Reviewers are expected to install the software they are reviewing and to verify the core functionality",
+      "source_ref": "src_7a68342f5f8e52f1"
+    },
+    {
+      "rule_id": "software_installation",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Document dependencies and automate installation where appropriate.",
+      "quote": "Software dependencies should be clearly documented and their installation handled by an automated procedure.",
+      "source_ref": "src_7a68342f5f8e52f1"
+    },
+    {
+      "rule_id": "software_iterative_development",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Show iterative development.",
+      "quote": "The development history must show ongoing iteration, not a single burst of commits.",
+      "source_ref": "src_3756504c45b84030"
+    },
+    {
+      "rule_id": "software_license",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Include an OSI-approved license file in the software repository.",
+      "quote": "There should be an OSI approved license included in the repository.",
+      "source_ref": "src_7a68342f5f8e52f1"
+    },
+    {
+      "rule_id": "software_maintainable_extension",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Design the software for maintainable extension.",
+      "quote": "designed for maintainable extension",
+      "source_ref": "src_3756504c45b84030"
+    },
+    {
+      "rule_id": "software_open_source_practices",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Show open-source workflows appropriate to the project.",
+      "quote": "The repository must show active use of open-source workflows.",
+      "source_ref": "src_3756504c45b84030"
+    },
+    {
+      "rule_id": "software_packaging",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Package software to the standards of its language community.",
+      "quote": "packaged appropriately according to common community standards for the programming language being used",
+      "source_ref": "src_3756504c45b84030"
+    },
+    {
+      "rule_id": "software_public_development_history",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Verify more than six months of public active development.",
+      "quote": "The repository must have been public for more than six months prior to submission, with active development spanning that period.",
+      "source_ref": "src_3756504c45b84030"
+    },
+    {
+      "rule_id": "software_research_application",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Demonstrate an obvious research application.",
+      "quote": "The software must have an obvious research application.",
+      "source_ref": "src_3756504c45b84030"
+    },
+    {
+      "rule_id": "software_scope",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Ensure the submission is in scope as research software.",
+      "quote": "pre-trained machine learning models and notebooks are not in-scope for JOSS.",
+      "source_ref": "src_3756504c45b84030"
+    },
+    {
+      "rule_id": "software_scope_significance",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Demonstrate meaningful research contribution beyond one analysis.",
+      "quote": "Your software should represent a meaningful contribution to the research community rather than being a one-off tool for a single analysis.",
+      "source_ref": "src_3756504c45b84030"
+    },
+    {
+      "rule_id": "software_verifiability",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Provide tests or documented objective verification steps.",
+      "quote": "No way for you, the reviewer, to objectively assess whether the software works",
+      "source_ref": "src_7a68342f5f8e52f1"
+    },
+    {
+      "rule_id": "state_of_field_comparison",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Compare common alternatives and justify building rather than contributing if related tools exist.",
+      "quote": "Authors must describe how their software compares to other commonly-used packages in the research area.",
+      "source_ref": "src_7a68342f5f8e52f1"
+    },
+    {
+      "rule_id": "statement_of_need_audience",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "State the target audience and relation to other work.",
+      "quote": "who the target audience is, and its relation to other work.",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "statement_of_need_content",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Explain problem, audience and relation to other work.",
+      "quote": "This should clearly state what problems the software is designed to solve, who the target audience is, and its relation to other work.",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "submission_major_contributor",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Submitting author must be major contributor with GitHub account.",
+      "quote": "You must be a major contributor to the software you are submitting, and have a GitHub account to participate in the review process.",
+      "source_ref": "src_3756504c45b84030"
+    },
+    {
+      "rule_id": "summary_non_specialist",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "Write the opening summary for non-specialists and avoid jargon.",
+      "quote": "for a non-specialist reader. Avoid jargon in this section.",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "summary_position",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "Begin the paper body with a high-level software summary.",
+      "quote": "Begin your paper with a summary of the high-level functionality of your software",
+      "source_ref": "src_96f8bb316be295d4"
+    },
+    {
+      "rule_id": "title_plain_text",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "Write software names as plain text in YAML title.",
+      "quote": "Use software names as plain text in the YAML title field.",
+      "source_ref": "src_96f8bb316be295d4"
+    }
+  ],
+  "sources": {
+    "src_3756504c45b84030": {
+      "url": "https://joss.readthedocs.io/en/latest/submitting.html",
+      "retrieved_at": "2026-10-19T12:16:31Z",
+      "sha256": "5f43df3565b3ff4ac5c2bf48cbc6be7e6bb7d97a5893caa2e53de449261074ef",
+      "path": "sources/src_3756504c45b84030.txt"
+    },
+    "src_96f8bb316be295d4": {
+      "url": "https://joss.readthedocs.io/en/latest/paper.html",
+      "retrieved_at": "2026-10-19T12:16:50Z",
+      "sha256": "e749651fb1e47ae5d07b52f520a9d1335422f21466b84c0c94e6fe18e0b9b723",
+      "path": "sources/src_96f8bb316be295d4.txt"
+    },
+    "src_7a68342f5f8e52f1": {
+      "url": "https://joss.readthedocs.io/en/latest/review_criteria.html",
+      "retrieved_at": "2026-10-19T12:16:52Z",
+      "sha256": "78127effbaea41e09fcf293d1ce735cc08445bf6d9d7d35283c42bc88977c999",
+      "path": "sources/src_7a68342f5f8e52f1.txt"
+    }
+  }
+}

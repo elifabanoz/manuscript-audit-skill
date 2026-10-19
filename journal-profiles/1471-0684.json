@@ -1,0 +1,209 @@
+{
+  "issn": "1471-0684",
+  "title": "Theory and Practice of Logic Programming",
+  "publisher": "Cambridge University Press",
+  "openalex_source_id": "https://openalex.org/S59670734",
+  "article_types": [
+    "Original Article",
+    "Rapid Communication",
+    "Technical Note"
+  ],
+  "scope": {
+    "quote": "Theory and Practice of Logic Programming (TPLP) is an international journal that publishes refereed papers covering both the theory and the practice of logic programming.",
+    "source_ref": "src_bc7f39a9f27a02ca"
+  },
+  "ai_policy": {
+    "quote": "You should always declare and describe your use of an AI tool if you have used it to generate text or images (this includes the translation of sources or of your own work) or to analyse or extract insights from data or other materials.",
+    "source_ref": "src_015366dd2d512fec"
+  },
+  "sources": {
+    "src_bc7f39a9f27a02ca": {
+      "url": "https://www.cambridge.org/core/journals/theory-and-practice-of-logic-programming/information/author-instructions",
+      "retrieved_at": "2026-10-19T11:36:10Z",
+      "sha256": "e1b01c6a190b9359ac167f07073b9b5ab947632dccd3d45e7f372409c51d52c8",
+      "path": "sources/src_bc7f39a9f27a02ca.txt"
+    },
+    "src_015366dd2d512fec": {
+      "url": "https://www.cambridge.org/core/journals/theory-and-practice-of-logic-programming/information/author-instructions/preparing-your-materials",
+      "retrieved_at": "2026-10-19T11:36:24Z",
+      "sha256": "cc9a43b6bb20e449dde148eecb933149b66c1cc715d1f933a638aa2a745128ee",
+      "path": "sources/src_015366dd2d512fec.txt"
+    },
+    "src_b97fb48d7070390f": {
+      "url": "https://www.cambridge.org/core/journals/theory-and-practice-of-logic-programming/information/author-instructions/submitting-your-materials",
+      "retrieved_at": "2026-10-19T11:36:28Z",
+      "sha256": "01029eabc6fa8039ffa8e8e4cc9c2e7d9f34e6fd6ced2743b3a515bdd0b22811",
+      "path": "sources/src_b97fb48d7070390f.txt"
+    },
+    "src_32c979c5bd774fde": {
+      "url": "https://www.cambridge.org/core/journals/theory-and-practice-of-logic-programming",
+      "retrieved_at": "2026-10-19T11:41:45Z",
+      "sha256": "d49777467ca05eb1e827bf1325df450081f4e2b779430ea24f55c8545b03096e",
+      "path": "sources/src_32c979c5bd774fde.txt"
+    }
+  },
+  "rules": [
+    {
+      "rule_id": "abstract_max_words",
+      "status": "verified",
+      "kind": "deterministic",
+      "check": {
+        "metric": "abstract_words",
+        "op": "<=",
+        "value": 300
+      },
+      "quote": "an abstract of not more than 300 words",
+      "source_ref": "src_015366dd2d512fec"
+    },
+    {
+      "rule_id": "abstract_position",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "Begin the manuscript with an abstract.",
+      "quote": "Manuscripts should begin with an abstract of not more than 300 words",
+      "source_ref": "src_015366dd2d512fec"
+    },
+    {
+      "rule_id": "accessibility_materials",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "For publishable figures, tables, and multimedia, ensure accessibility materials are available, including alt text for figures. Cambridge may machine-generate missing materials after acceptance, so evaluate at publication stage.",
+      "quote": "Accessibility materials must be made available for all figures, tables, and multimedia content to be published within the article, including the provision of image descriptions or “alt-text” for all figures.",
+      "source_ref": "src_015366dd2d512fec"
+    },
+    {
+      "rule_id": "ai_authorship",
+      "kind": "semantic",
+      "requirement": "Do not list generative AI tools as authors on submitted content.",
+      "quote": "generative AI tools such as ChatGPT should not be listed as authors on any submitted content.",
+      "source_ref": "src_015366dd2d512fec",
+      "status": "verified"
+    },
+    {
+      "rule_id": "ai_use_disclosure",
+      "kind": "semantic",
+      "requirement": "When AI tools generated text or images, including translations, or analysed or extracted insights from data or other materials, declare and describe their use in the manuscript. Minimal non-generative uses are exempt; follow the publisher guidance on describing uses in the appropriate part of the manuscript.",
+      "quote": "You should always declare and describe your use of an AI tool if you have used it to generate text or images (this includes the translation of sources or of your own work) or to analyse or extract insights from data or other materials.",
+      "source_ref": "src_015366dd2d512fec",
+      "status": "verified"
+    },
+    {
+      "rule_id": "competing_interests",
+      "kind": "semantic",
+      "requirement": "Include a competing interest declaration in the main manuscript file, covering every contributing author, including a declaration of none when applicable.",
+      "quote": "All authors must include a competing interest declaration in their main manuscript file.",
+      "source_ref": "src_015366dd2d512fec",
+      "status": "verified"
+    },
+    {
+      "rule_id": "figure_table_presentation",
+      "kind": "semantic",
+      "requirement": "Cite every table and figure in the text, number them consecutively with Arabic numerals, and provide captions; also label and number diagrams, graphs, maps, boxes, graphical diagrams, and code snippets.",
+      "quote": "Tables and figures must be cited in the text, must be numbered consecutively in Arabic numerals, and captions must be provided in all cases.",
+      "source_ref": "src_015366dd2d512fec",
+      "status": "verified"
+    },
+    {
+      "rule_id": "keywords_max",
+      "status": "verified",
+      "kind": "deterministic",
+      "check": {
+        "metric": "keyword_count",
+        "op": "<=",
+        "value": 5
+      },
+      "quote": "at the end of which are 4 or 5 keywords",
+      "source_ref": "src_015366dd2d512fec"
+    },
+    {
+      "rule_id": "keywords_min",
+      "status": "verified",
+      "kind": "deterministic",
+      "check": {
+        "metric": "keyword_count",
+        "op": ">=",
+        "value": 4
+      },
+      "quote": "at the end of which are 4 or 5 keywords",
+      "source_ref": "src_015366dd2d512fec"
+    },
+    {
+      "rule_id": "keywords_position",
+      "kind": "semantic",
+      "requirement": "Place the keywords at the end of the abstract.",
+      "quote": "at the end of which are 4 or 5 keywords",
+      "source_ref": "src_015366dd2d512fec",
+      "status": "verified"
+    },
+    {
+      "rule_id": "main_text_word_limit_technical_note",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "For Technical Notes, verify a limit of 5000 words after excluding tables, figures, and the bibliography. The available main-text metric does not reliably implement these exclusions.",
+      "applies_to": [
+        "Technical Note"
+      ],
+      "quote": "Technical notes should not exceed 5000 words in length, excluding tables, figures, and the bibliography.",
+      "source_ref": "src_015366dd2d512fec"
+    },
+    {
+      "rule_id": "orcid_requirement",
+      "kind": "semantic",
+      "requirement": "All corresponding authors must identify themselves with ORCID during manuscript submission; this may be held in the submission system rather than the manuscript.",
+      "quote": "We require all corresponding authors to identify themselves using ORCID when submitting a manuscript to this journal.",
+      "source_ref": "src_b97fb48d7070390f",
+      "status": "needs_validation"
+    },
+    {
+      "rule_id": "reference_style",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "Use the Harvard reference system.",
+      "quote": "The Harvard system of references should be used.",
+      "source_ref": "src_015366dd2d512fec"
+    },
+    {
+      "rule_id": "sentence_initial_symbol",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "Do not begin a sentence with a symbol or identifier name.",
+      "quote": "Do not begin a sentence with a symbol or identifier name.",
+      "source_ref": "src_015366dd2d512fec"
+    },
+    {
+      "rule_id": "simultaneous_submission",
+      "kind": "semantic",
+      "requirement": "Do not submit work that has already been published or is simultaneously under submission to another journal or conference; full versions of important conference papers are allowed.",
+      "quote": "The submitted manuscripts should not be published or simultaneously submitted to another journal or to a conference.",
+      "source_ref": "src_b97fb48d7070390f",
+      "status": "needs_validation"
+    },
+    {
+      "rule_id": "spelling_consistency",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "Use either American or British spelling consistently throughout the paper.",
+      "quote": "The spelling policy of the journal is to follow author’s American or British spelling as long as it is consistent within the paper.",
+      "source_ref": "src_015366dd2d512fec"
+    },
+    {
+      "rule_id": "tplp_class_file",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Prepare the submitted paper using the TPLP class file.",
+      "quote": "You should prepare your paper for submission using the new TPLP class file here.",
+      "source_ref": "src_b97fb48d7070390f"
+    },
+    {
+      "rule_id": "word_count_statement_technical_note",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Technical Note submissions should include a reasonably accurate word count for the paper, excluding tables, figures, and the bibliography; verify the statement and calculation manually.",
+      "applies_to": [
+        "Technical Note"
+      ],
+      "quote": "Submissions should include an abstract and a reasonably accurate word count for the paper (excluding tables and figures, and the bibliography.",
+      "source_ref": "src_015366dd2d512fec"
+    }
+  ]
+}

@@ -1,0 +1,258 @@
+{
+  "issn": "1532-4435",
+  "title": "Journal of Machine Learning Research",
+  "publisher": "JMLR, Inc.",
+  "article_types": [
+    "research paper"
+  ],
+  "scope": {
+    "quote": "JMLR publishes papers on the theory and methods of machine learning but does not publish applications of machine learning to other domains.",
+    "source_ref": "src_5142487f1bd551ca"
+  },
+  "rules": [
+    {
+      "rule_id": "abstract_max_words",
+      "status": "verified",
+      "kind": "deterministic",
+      "check": {
+        "metric": "abstract_words",
+        "op": "<=",
+        "value": 200
+      },
+      "quote": "an abstract that does not exceed 200 words",
+      "source_ref": "src_5142487f1bd551ca"
+    },
+    {
+      "rule_id": "abstract_position",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Abstract must appear on the title page; verify manuscript layout or rendered submission.",
+      "quote": "Ensure that the title page contains",
+      "source_ref": "src_5142487f1bd551ca",
+      "applies_to": [
+        "research paper"
+      ]
+    },
+    {
+      "rule_id": "competing_interests",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Disclose applicable financial relationships that could be perceived to influence the work over the preceding 36 months; verify author declarations, including a nil declaration where appropriate.",
+      "quote": "Please list all sources of revenue paid or promised to be paid.",
+      "source_ref": "src_5142487f1bd551ca"
+    },
+    {
+      "rule_id": "corresponding_author_contact",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "The title page must give the corresponding author's complete name, postal address, and email address; check the rendered title page.",
+      "quote": "complete name, post and e-mail address of the corresponding author;",
+      "source_ref": "src_5142487f1bd551ca"
+    },
+    {
+      "rule_id": "cover_letter_action_editors",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "The cover letter must suggest 3 to 5 suitable action editors without author conflicts; verify against the current action editor list.",
+      "quote": "Suggestions of 3 to 5 action editors that seem best suited to handle the submitted manuscript",
+      "source_ref": "src_5142487f1bd551ca"
+    },
+    {
+      "rule_id": "cover_letter_coauthor_consent",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "The cover letter must confirm that all coauthors know of the current submission and consent to JMLR review.",
+      "quote": "Confirmation that all co-authors are aware of the current submission and consent to its review by JMLR.",
+      "source_ref": "src_5142487f1bd551ca"
+    },
+    {
+      "rule_id": "cover_letter_conflicts",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "The cover letter must declare possible conflicts and name any action editors who recently collaborated with the authors.",
+      "quote": "Declaration of possible conflicts of interest; in particular, name all action editors that have recently collaborated with authors of the submission.",
+      "source_ref": "src_5142487f1bd551ca"
+    },
+    {
+      "rule_id": "cover_letter_keywords",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "The cover letter must include the article's keywords.",
+      "quote": "List of keywords from the article.",
+      "source_ref": "src_5142487f1bd551ca"
+    },
+    {
+      "rule_id": "cover_letter_prior_publications",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "The cover letter must disclose significantly overlapping prior publications, if any, and describe differences for an extension.",
+      "quote": "Disclosure of any previous publications by the author(s) that significantly overlap with the submission.",
+      "source_ref": "src_5142487f1bd551ca"
+    },
+    {
+      "rule_id": "cover_letter_required",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "A separate cover letter in PDF or plain text must accompany the submitted article; verify the submission package.",
+      "quote": "Articles must be accompanied by a cover letter (in PDF, using this LaTeX template or plain text format) containing all of the below:",
+      "source_ref": "src_5142487f1bd551ca"
+    },
+    {
+      "rule_id": "cover_letter_reviewers",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "The cover letter must suggest 3 to 5 reviewers without author conflicts.",
+      "quote": "Suggestions of 3 to 5 reviewers.",
+      "source_ref": "src_5142487f1bd551ca"
+    },
+    {
+      "rule_id": "funding_statement",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Disclose applicable funding or support for the submitted work covering the preceding 36 months; verify author declarations, including a nil declaration where appropriate.",
+      "quote": "Please list all such funding sources.",
+      "source_ref": "src_5142487f1bd551ca"
+    },
+    {
+      "rule_id": "keywords_max",
+      "status": "verified",
+      "kind": "deterministic",
+      "check": {
+        "metric": "keyword_count",
+        "op": "<=",
+        "value": 5
+      },
+      "quote": "a list of five key-words",
+      "source_ref": "src_5142487f1bd551ca"
+    },
+    {
+      "rule_id": "keywords_min",
+      "status": "verified",
+      "kind": "deterministic",
+      "check": {
+        "metric": "keyword_count",
+        "op": ">=",
+        "value": 5
+      },
+      "quote": "a list of five key-words",
+      "source_ref": "src_5142487f1bd551ca"
+    },
+    {
+      "rule_id": "long_paper_justification",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Conditional: if the submitted paper exceeds 50 pages including appendices, include a justification note in the cover letter.",
+      "quote": "papers above 50 pages require a note of justification in the cover letter",
+      "source_ref": "src_5142487f1bd551ca"
+    },
+    {
+      "rule_id": "manuscript_quality",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "At submission, the manuscript must be concise, complete, proofread, and polished; this is an editorial judgement.",
+      "quote": "Papers must be concise and complete; manuscripts should be carefully proofread and polished.",
+      "source_ref": "src_5142487f1bd551ca"
+    },
+    {
+      "rule_id": "previous_journal_publication",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Confirm with the authors and publication record that the work has not previously appeared in another journal.",
+      "quote": "Submissions to JMLR cannot have been published previously in any other journal.",
+      "source_ref": "src_5142487f1bd551ca"
+    },
+    {
+      "rule_id": "prior_publication_materials",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Conditional: if any version was previously published at a workshop or conference, disclose it at submission, attach the earlier paper, and explain the substantive differences.",
+      "quote": "In all cases, authors must notify JMLR about previous publication at the time of submission, attach the previous paper as a supplementary document, and explain the differences from their prior work.",
+      "source_ref": "src_5142487f1bd551ca"
+    },
+    {
+      "rule_id": "running_title_max_chars",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "The title page must contain a condensed running title of at most 50 characters; check the rendered title page.",
+      "quote": "a condensed running title of fifty (50) characters or less",
+      "source_ref": "src_5142487f1bd551ca"
+    },
+    {
+      "rule_id": "simultaneous_submission",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Confirm with the authors that the paper is not simultaneously submitted to a conference or another journal.",
+      "quote": "JMLR does not allow simultaneous submission to conferences or other journals.",
+      "source_ref": "src_5142487f1bd551ca"
+    },
+    {
+      "rule_id": "submission_claim_support",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Substantive claims should be clearly stated and supported empirically or theoretically; assess the research content manually.",
+      "quote": "All claims should be clearly articulated and supported either by empirical experiments or theoretical analyses.",
+      "source_ref": "src_5142487f1bd551ca",
+      "applies_to": [
+        "research paper"
+      ]
+    },
+    {
+      "rule_id": "submission_file_size",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "The uploaded submission file must be smaller than 5 MB; verify the actual upload file.",
+      "quote": "Ensure that the file to be uploaded is less than 5Mb in size.",
+      "source_ref": "src_5142487f1bd551ca"
+    },
+    {
+      "rule_id": "submission_latex_style",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "At initial submission, typeset the manuscript in LaTeX with the JMLR style file. Validate the submitted source or PDF; extracted prose cannot establish typesetting.",
+      "quote": "Submissions must be typeset in LaTex using the JMLR LaTeX style file described in the authors guide.",
+      "source_ref": "src_5142487f1bd551ca"
+    },
+    {
+      "rule_id": "submission_pdf_format",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Upload only a PDF manuscript (or a tar/zip archive when multiple files are submitted); verify the actual upload.",
+      "quote": "Only PDF files should be submitted.",
+      "source_ref": "src_5142487f1bd551ca",
+      "applies_to": [
+        "research paper"
+      ]
+    },
+    {
+      "rule_id": "submission_prior_work_acknowledgment",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Acknowledge predecessor contributions and place the work in the broader machine-learning literature; expert judgment is needed.",
+      "quote": "Authors must clearly acknowledge the contributions of their predecessors",
+      "source_ref": "src_5142487f1bd551ca",
+      "applies_to": [
+        "research paper"
+      ]
+    }
+  ],
+  "sources": {
+    "src_5142487f1bd551ca": {
+      "url": "https://www.jmlr.org/author-info.html",
+      "retrieved_at": "2026-10-19T12:19:42Z",
+      "sha256": "9c1d46cfd02deb24d49b5e1bc9a957e2e36b98174f040910f5147270b40a77da",
+      "path": "sources/src_5142487f1bd551ca.txt"
+    },
+    "src_138a3248a8d79a2a": {
+      "url": "https://www.jmlr.org/format/format.html",
+      "retrieved_at": "2026-10-19T12:19:45Z",
+      "sha256": "dd972915f0b2ca22df9b0c4c8e8e4007d6dc54c7594e53b7ca6710aa51da7ddd",
+      "path": "sources/src_138a3248a8d79a2a.txt"
+    },
+    "src_2e858f70092228e2": {
+      "url": "https://www.jmlr.org/format/formatting-errors.html",
+      "retrieved_at": "2026-10-19T12:19:47Z",
+      "sha256": "f05bbf8d1118bd54e9a9193e5ead81020e91641a23bedf962105c778d12a770f",
+      "path": "sources/src_2e858f70092228e2.txt"
+    }
+  }
+}
