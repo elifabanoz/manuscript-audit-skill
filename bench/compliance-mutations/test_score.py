@@ -9,6 +9,7 @@ import unittest
 from pathlib import Path
 
 from score import score
+from prepare_label_review import make_packet
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -259,6 +260,30 @@ class ComplianceMutationScoreTests(unittest.TestCase):
         ]), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "known compliance rule"):
             score({"schema_version": 1, "data_freeze": "2026-10-19", "cases": cases})
+
+    def test_private_review_packet_leaves_labels_blank_and_binds_source_hashes(self):
+        control = self.make_run("control", "# Secret control text\nData availability: on request.\n")
+        mutation = self.make_run("mutation", "# Secret mutation text\nNo statement here.\n")
+        cases_path = self.root / "cases.json"
+        cases_path.write_text(json.dumps({
+            "schema_version": 2, "data_freeze": "2026-10-19", "cases": [
+                {"case_id": "control", "kind": "control", "article_type": "original_research",
+                 "run": str(control), "raw_findings": str(control / "raw-findings.json")},
+                {"case_id": "mutation", "kind": "mutation", "article_type": "original_research",
+                 "control_case_id": "control", "expected_rule_id": "data_availability",
+                 "mutation_class": "semantic", "run": str(mutation),
+                 "raw_findings": str(mutation / "raw-findings.json")},
+            ],
+        }), encoding="utf-8")
+        packet = make_packet(cases_path)
+        control_manifest = json.loads((control / "run-manifest.json").read_text(encoding="utf-8"))
+        self.assertIn(control_manifest["manuscript"]["sha256"], packet)
+        self.assertIn(next(iter(control_manifest["sources"].values()))["sha256"], packet)
+        self.assertIn("A data availability statement is required.", packet)
+        self.assertIn("- [ ] Compliant", packet)
+        self.assertIn("Proposed mutation class (verify): `semantic`", packet)
+        self.assertNotIn("Secret control text", packet)
+        self.assertNotIn("Secret mutation text", packet)
 
 
 if __name__ == "__main__":
