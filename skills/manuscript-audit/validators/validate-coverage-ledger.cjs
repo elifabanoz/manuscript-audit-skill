@@ -8,7 +8,7 @@ function validate(ledger) {
   const ids = new Set();
   for (const [index, unit] of ledger.entries()) {
     const at = `ledger[${index}]`;
-    if (!allowedKeys(unit, ['unit_id', 'kind', 'section', 'review_class', 'target_issn', 'status', 'checked_by', 'source_hash'], at, errors)) continue;
+    if (!allowedKeys(unit, ['unit_id', 'kind', 'section', 'rule_id', 'review_class', 'target_issn', 'status', 'checked_by', 'source_hash'], at, errors)) continue;
     for (const key of ['unit_id', 'section', 'target_issn', 'source_hash']) requiredString(unit, key, at, errors);
     if (nonempty(unit.unit_id) && !/^U-[0-9]+$/.test(unit.unit_id)) errors.push(`${at}.unit_id is invalid`);
     if (nonempty(unit.unit_id)) {
@@ -16,6 +16,8 @@ function validate(ledger) {
       ids.add(unit.unit_id);
     }
     if (!['compliance', 'review'].includes(unit.kind)) errors.push(`${at}.kind is invalid`);
+    if (unit.kind === 'compliance') requiredString(unit, 'rule_id', at, errors);
+    if ('rule_id' in unit && unit.kind !== 'compliance') errors.push(`${at}.rule_id requires compliance kind`);
     if (unit.kind === 'review') requiredString(unit, 'review_class', at, errors);
     if ('review_class' in unit && unit.kind !== 'review') errors.push(`${at}.review_class requires review kind`);
     if (nonempty(unit.target_issn) && !/^[0-9]{4}-[0-9]{3}[0-9X]$/.test(unit.target_issn)) errors.push(`${at}.target_issn is invalid`);

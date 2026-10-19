@@ -24,6 +24,12 @@ function subjectHash(finding) {
   return crypto.createHash('sha256').update(canonical(subject)).digest('hex');
 }
 
+function corpusHash(manifest) {
+  const files = [manifest.manuscript, ...(Array.isArray(manifest.supplementary) ? manifest.supplementary : [])];
+  const entries = files.map(file => [file.path, file.sha256]).sort((left, right) => left[0].localeCompare(right[0], 'en'));
+  return crypto.createHash('sha256').update(canonical(entries)).digest('hex');
+}
+
 function checkProvenance(run, finding, index, errors) {
   if (!isObject(finding.provenance)) return;
   const roles = { hunter: 'hunter', validator: 'defense', record_verifier: 'record_verifier' };
@@ -81,6 +87,8 @@ function validate(run, manifest, profile, ledger, findings) {
   if (Array.isArray(ledger)) {
     for (const [index, unit] of ledger.entries()) {
       if (unit?.target_issn !== profile.issn) errors.push(`ledger[${index}].target_issn differs from profile.issn`);
+      if (unit?.kind === 'compliance' && !profile.rules.some(rule => rule.rule_id === unit.rule_id)) errors.push(`ledger[${index}].rule_id is absent from the profile`);
+      if (unit?.section === 'all-supplied-files' && unit.source_hash !== corpusHash(manifest)) errors.push(`ledger[${index}].source_hash is stale for supplied files`);
     }
   }
   if (Array.isArray(findings)) {
@@ -124,4 +132,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { subjectHash, validate };
+module.exports = { corpusHash, subjectHash, validate };

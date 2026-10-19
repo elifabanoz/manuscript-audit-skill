@@ -12,7 +12,7 @@ const { validate: validateLedger } = require('./validate-coverage-ledger.cjs');
 const { validate: validateFindings } = require('./validate-findings.cjs');
 const { verify } = require('./verify-quotes.cjs');
 const { validate: validateManifest } = require('./validate-run-manifest.cjs');
-const { subjectHash, validate: validateRun } = require('./validate-run.cjs');
+const { corpusHash, subjectHash, validate: validateRun } = require('./validate-run.cjs');
 
 function fixture(t) {
   const run = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-audit-'));
@@ -80,6 +80,7 @@ function fixture(t) {
   const ledger = [{
     unit_id: 'U-1',
     kind: 'compliance',
+    rule_id: 'data_availability',
     section: 'sec-3',
     target_issn: '1234-567X',
     status: 'covered',
@@ -256,6 +257,16 @@ test('the full run gate rejects reused actor identities', t => {
   record.actor_id = 'actor-hunter';
   fs.writeFileSync(file, JSON.stringify(record));
   assert.match(validateRun(data.run, manifest, data.profile, data.ledger, data.findings).join('\n'), /actor_id must differ/);
+});
+
+test('whole-corpus coverage becomes stale when its fingerprint differs', t => {
+  const data = fixture(t);
+  const manifest = manifestFor(data);
+  data.ledger[0].section = 'all-supplied-files';
+  data.ledger[0].source_hash = corpusHash(manifest);
+  assert.deepEqual(validateRun(data.run, manifest, data.profile, data.ledger, data.findings), []);
+  data.ledger[0].source_hash = crypto.createHash('sha256').update('old corpus').digest('hex');
+  assert.match(validateRun(data.run, manifest, data.profile, data.ledger, data.findings).join('\n'), /source_hash is stale/);
 });
 
 test('the hash command identifies the exact finding under review', t => {

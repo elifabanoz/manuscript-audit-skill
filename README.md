@@ -15,6 +15,8 @@ After adding `journal-profile.json`, `coverage-ledger.json`, `findings.json`, an
 
 For a journal profile with Markdown abstract or main-text word limits, `python skills/manuscript-audit/tools/check_deterministic.py <run-directory> --article-type original_research --main-start Introduction --main-end References` records provisional measurements in the private run. Unclear section boundaries or unsupported formatting stay unresolved.
 
+Create a pending compliance ledger from the selected article type with `python skills/manuscript-audit/tools/build_coverage.py <run-directory> --article-type original_research`. The tool refuses to overwrite an existing ledger; each unit carries a fingerprint of the supplied manuscript files.
+
 ## License
 
 This version is offered under the [PolyForm Noncommercial License 1.0.0](LICENSE). It does not grant commercial-use rights. Earlier commits were released under MIT and retain their original terms.

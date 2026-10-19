@@ -9,6 +9,7 @@
     "properties": {
       "unit_id": { "type": "string", "pattern": "^U-[0-9]+$" },
       "kind": { "enum": ["compliance", "review"] },
+      "rule_id": { "type": "string", "minLength": 1 },
       "section": { "type": "string", "minLength": 1 },
       "review_class": { "type": "string", "minLength": 1 },
       "target_issn": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{3}[0-9X]$" },
@@ -21,6 +22,7 @@
       "source_hash": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" }
     },
     "allOf": [
+      { "if": { "properties": { "kind": { "const": "compliance" } } }, "then": { "required": ["rule_id"] } },
       { "if": { "properties": { "kind": { "const": "review" } } }, "then": { "required": ["review_class"] } },
       { "if": { "properties": { "status": { "const": "covered" } } }, "then": { "properties": { "checked_by": { "minItems": 1 } } } }
     ]
