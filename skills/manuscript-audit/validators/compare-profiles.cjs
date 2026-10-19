@@ -18,7 +18,7 @@ function canonical(value) {
 }
 
 function normalizedRule(rule) {
-  return { ...rule, applies_to: [...(rule.applies_to || [])].sort() };
+  return { ...rule, status: rule.status || 'verified', applies_to: [...(rule.applies_to || [])].sort() };
 }
 
 function differences(first, second) {
@@ -75,12 +75,12 @@ function compare(run, firstPath, secondPath, promote = false) {
   const hashes = bytes.map(raw => crypto.createHash('sha256').update(raw).digest('hex'));
   const disagreements = differences(...profiles);
   const record = {
-    schema_version: 1,
+    schema_version: 2,
     profiles: [firstPath, secondPath].map((file, index) => ({ path: file, sha256: hashes[index] })),
     status: disagreements.length ? 'needs_validation' : 'agreed',
     differing_fields: disagreements
   };
-  const output = path.join(run, `profile-comparison-${hashes[0].slice(0, 12)}-${hashes[1].slice(0, 12)}.json`);
+  const output = path.join(run, `profile-comparison-v2-${hashes[0].slice(0, 12)}-${hashes[1].slice(0, 12)}.json`);
   const finalPath = path.join(run, 'journal-profile.json');
   const shouldPromote = promote === 'partial' || (promote === true && !disagreements.length);
   if (shouldPromote && fs.existsSync(finalPath)) throw new Error(`Final profile already exists: ${finalPath}`);

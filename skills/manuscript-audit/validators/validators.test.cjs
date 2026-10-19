@@ -147,6 +147,18 @@ test('independent profiles promote only after source-backed agreement', t => {
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(run, 'journal-profile.json'))), profile);
 });
 
+test('omitted rule status agrees with explicit verified status', t => {
+  const { run, profile } = fixture(t);
+  fs.writeFileSync(path.join(run, 'run-manifest.json'), JSON.stringify(manifestFor({ run, profile })));
+  const explicit = structuredClone(profile);
+  explicit.rules[0].status = 'verified';
+  fs.writeFileSync(path.join(run, 'profile-a.json'), JSON.stringify(profile));
+  fs.writeFileSync(path.join(run, 'profile-b.json'), JSON.stringify(explicit));
+  const result = compareProfiles(run, 'profile-a.json', 'profile-b.json', true);
+  assert.equal(result.status, 'agreed');
+  assert.equal(result.promoted, true);
+});
+
 test('profile disagreements stay private and block promotion', t => {
   const { run, profile } = fixture(t);
   fs.writeFileSync(path.join(run, 'run-manifest.json'), JSON.stringify(manifestFor({ run, profile })));
