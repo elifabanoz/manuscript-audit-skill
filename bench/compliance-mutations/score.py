@@ -65,20 +65,21 @@ def load_case(case, freeze):
         raise ValueError(f"{case['case_id']}: data_freeze differs from benchmark")
     if case["article_type"] not in profile["article_types"]:
         raise ValueError(f"{case['case_id']}: article_type is absent from the profile")
-    applicable = {rule["rule_id"] for rule in profile["rules"]
+    applicable = {rule["rule_id"]: rule for rule in profile["rules"]
                   if case["article_type"] in rule.get("applies_to", [case["article_type"]])}
-    if not applicable or any(rule.get("status") == "needs_validation" for rule in profile["rules"]
-                             if rule["rule_id"] in applicable):
-        raise ValueError(f"{case['case_id']}: applicable journal rules are empty or unresolved")
+    scored = {rule_id for rule_id, rule in applicable.items() if rule.get("status") != "needs_validation"}
+    excluded = set(applicable) - scored
+    if not scored:
+        raise ValueError(f"{case['case_id']}: no verified applicable rules can be scored")
     coverage = [unit for unit in ledger if unit["kind"] == "compliance"]
-    if len(coverage) != len(applicable) or {unit["rule_id"] for unit in coverage} != applicable \
-            or any(unit["status"] != "covered" for unit in coverage):
+    if len(coverage) != len(applicable) or {unit["rule_id"] for unit in coverage} != set(applicable) \
+            or any(unit["status"] != ("pending" if unit["rule_id"] in excluded else "covered") for unit in coverage):
         raise ValueError(f"{case['case_id']}: applicable compliance coverage is incomplete")
     raw = read_json(raw_path)
     final = read_json(findings_path)
     if not isinstance(raw, list) or not all(isinstance(item, dict) for item in raw):
         raise ValueError(f"{case['case_id']}: raw_findings must be an array of objects")
-    known = applicable
+    known = scored
     raw_rules = set()
     for item in raw:
         if item.get("category") != "compliance" or item.get("rule_id") not in known:
@@ -95,6 +96,8 @@ def load_case(case, freeze):
         "issn": profile["issn"],
         "sources": {key: source["sha256"] for key, source in manifest["sources"].items()},
         "manuscript_sha256": manifest["manuscript"]["sha256"],
+        "scored_rule_ids": sorted(scored),
+        "excluded_rule_ids": sorted(excluded),
         "raw_rules": raw_rules,
         "final_rules": final_rules,
         "input_sha256": {name: sha256(file) for name, file in (
@@ -151,6 +154,8 @@ def score(benchmark):
         rows.append({
             "case_id": item["case_id"], "kind": item["kind"], "target_rule_id": target,
             "raw_flagged": raw_flag, "validated_flagged": final_flag,
+            "scored_rule_ids": item["scored_rule_ids"],
+            "excluded_rule_ids": item["excluded_rule_ids"],
             "run_manifest_sha256": item["input_sha256"]["manifest"],
             "input_sha256": item["input_sha256"],
         })

@@ -29,7 +29,7 @@ class ComplianceMutationScoreTests(unittest.TestCase):
             "A data availability statement is required. An ethics statement is required.", encoding="utf-8"
         )
 
-    def make_run(self, name, manuscript, raw_rules=(), confirmed=False, freeze="2026-10-19"):
+    def make_run(self, name, manuscript, raw_rules=(), confirmed=False, freeze="2026-10-19", unresolved_ethics=False):
         paper = self.root / f"{name}.md"
         paper.write_text(manuscript, encoding="utf-8")
         result = subprocess.run([
@@ -52,7 +52,8 @@ class ComplianceMutationScoreTests(unittest.TestCase):
                  "quote": "A data availability statement is required.", "source_ref": source_ref},
                 {"rule_id": "ethics_statement", "kind": "semantic",
                  "requirement": "Include an ethics statement",
-                 "quote": "An ethics statement is required.", "source_ref": source_ref},
+                 "quote": "An ethics statement is required.", "source_ref": source_ref,
+                 **({"status": "needs_validation"} if unresolved_ethics else {})},
             ],
         }
         (run / "journal-profile.json").write_text(json.dumps(profile), encoding="utf-8")
@@ -62,6 +63,8 @@ class ComplianceMutationScoreTests(unittest.TestCase):
         ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
         (run / "agents").mkdir()
         for unit in ledger:
+            if unresolved_ethics and unit["rule_id"] == "ethics_statement":
+                continue
             subject = subprocess.run(["node", str(HASH_COVERAGE), str(run), unit["unit_id"]],
                                      check=True, capture_output=True, text=True).stdout.strip()
             record_path = f"agents/coverage-{unit['unit_id']}.json"
@@ -188,6 +191,27 @@ class ComplianceMutationScoreTests(unittest.TestCase):
              "run": str(mutation), "raw_findings": str(mutation / "raw-findings.json")},
         ]
         with self.assertRaisesRegex(ValueError, "coverage is incomplete"):
+            score({"schema_version": 1, "data_freeze": "2026-10-19", "cases": cases})
+
+    def test_unresolved_rules_are_excluded_and_disclosed_without_weakening_verified_coverage(self):
+        control = self.make_run("control", "# Title\nData availability: on request.\n", unresolved_ethics=True)
+        mutation = self.make_run("mutation", "# Title\nNo statement here.\n",
+                                 raw_rules=("data_availability",), confirmed=True, unresolved_ethics=True)
+        cases = [
+            {"case_id": "control", "kind": "control", "article_type": "original_research", "run": str(control),
+             "raw_findings": str(control / "raw-findings.json")},
+            {"case_id": "mutation", "kind": "mutation", "article_type": "original_research",
+             "control_case_id": "control", "expected_rule_id": "data_availability", "run": str(mutation),
+             "raw_findings": str(mutation / "raw-findings.json")},
+        ]
+        result = score({"schema_version": 1, "data_freeze": "2026-10-19", "cases": cases})
+        self.assertEqual(result["mutations"]["validated_recall"], 1)
+        self.assertEqual(result["cases"][0]["scored_rule_ids"], ["data_availability"])
+        self.assertEqual(result["cases"][0]["excluded_rule_ids"], ["ethics_statement"])
+        (control / "raw-findings.json").write_text(json.dumps([
+            {"category": "compliance", "rule_id": "ethics_statement"}
+        ]), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "known compliance rule"):
             score({"schema_version": 1, "data_freeze": "2026-10-19", "cases": cases})
 
 
