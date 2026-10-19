@@ -2,7 +2,7 @@
 
 An early-stage skill for checking a manuscript against a selected journal's guidelines.
 
-The current implementation provides [skill instructions](skills/manuscript-audit/SKILL.md), JSON contracts, local validators, private report rendering, and a [run preparation tool](skills/manuscript-audit/tools/prepare_run.py) for UTF-8 text or Markdown. It can fetch public HTML or plain-text guideline pages and extract DOCX or text-based PDF content locally. Private run files are created outside any Git checkout.
+The current implementation provides [skill instructions](skills/manuscript-audit/SKILL.md), [review role contracts](skills/manuscript-audit/roles/REVIEW-ROLES.md), JSON contracts, local validators, private report rendering, and a [run preparation tool](skills/manuscript-audit/tools/prepare_run.py) for UTF-8 text or Markdown. It can fetch public HTML or plain-text guideline pages and extract DOCX or text-based PDF content locally. Private run files are created outside any Git checkout.
 
 For a DOCX manuscript, run `python skills/manuscript-audit/tools/convert_docx.py --input /path/to/paper.docx`. Inspect the private `extraction.json` warnings and `manuscript.md` before preparing the run. Pass both files to `prepare_run.py` with `--manuscript <manuscript.md> --extraction-record <extraction.json>` to retain the original DOCX hash in the private run. Tables are flattened; figures, notes, and some Word fields require separate inspection. Documents with tracked changes are rejected until those changes are resolved.
 
