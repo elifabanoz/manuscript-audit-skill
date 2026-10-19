@@ -7,6 +7,7 @@ The current fixtures cover:
 | ISSN | Journal |
 | --- | --- |
 | `1076-9757` | Journal of Artificial Intelligence Research |
+| `1382-3256` | Empirical Software Engineering |
 | `1471-0684` | Theory and Practice of Logic Programming |
 | `1532-4435` | Journal of Machine Learning Research |
 | `1548-7660` | Journal of Statistical Software |
