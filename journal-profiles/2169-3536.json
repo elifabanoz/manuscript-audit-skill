@@ -1,0 +1,445 @@
+{
+  "issn": "2169-3536",
+  "title": "IEEE Access",
+  "publisher": "IEEE",
+  "article_types": [
+    "research_article",
+    "topical_review",
+    "theory",
+    "survey",
+    "perspective",
+    "applied_research",
+    "negative_result",
+    "methods",
+    "tutorial",
+    "standards",
+    "debate",
+    "exposition",
+    "meta_analysis",
+    "unsolved_problem"
+  ],
+  "scope": {
+    "quote": "The scope of this journal comprises all IEEE fields of interest",
+    "source_ref": "src_f2d8484fdc3d82de"
+  },
+  "ai_policy": {
+    "quote": "shall be disclosed in the acknowledgments section of any article submitted to an IEEE publication.",
+    "source_ref": "src_67d3b0d1d6ff0d05"
+  },
+  "rules": [
+    {
+      "rule_id": "access_template",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "using a required IEEE Access template",
+      "source_ref": "src_dc089e329c991bfe",
+      "requirement": "Use the IEEE Access template."
+    },
+    {
+      "rule_id": "acronyms_first_use",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "Define abbreviations and acronyms at first use in the article.",
+      "quote": "Authors must define abbreviations and acronyms the first time they are used in the article",
+      "source_ref": "src_dc089e329c991bfe"
+    },
+    {
+      "rule_id": "ai_affected_sections",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "Identify article sections containing AI-generated content and explain the level of its use.",
+      "quote": "specific sections of the article that use AI-generated content shall be identified and accompanied by a brief explanation",
+      "source_ref": "src_67d3b0d1d6ff0d05"
+    },
+    {
+      "rule_id": "ai_generated_content_disclosure",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "Disclose AI-generated content in the acknowledgments section.",
+      "quote": "shall be disclosed in the acknowledgments section of any article submitted to an IEEE publication.",
+      "source_ref": "src_67d3b0d1d6ff0d05"
+    },
+    {
+      "rule_id": "ai_system_identification",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "Identify the AI system used for AI-generated content.",
+      "quote": "The AI system used shall be identified",
+      "source_ref": "src_67d3b0d1d6ff0d05"
+    },
+    {
+      "rule_id": "ai_text_section_citation",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "For AI-generated text, cite the AI system in affected sections.",
+      "quote": "The sections of the paper that use AI-generated text shall have a citation to the AI system",
+      "source_ref": "src_dc089e329c991bfe"
+    },
+    {
+      "rule_id": "article_originality",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Submit original writing that enhances the subject area.",
+      "quote": "The article must be original writing that enhances the existing body of knowledge",
+      "source_ref": "src_67d3b0d1d6ff0d05"
+    },
+    {
+      "rule_id": "author_biographies",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "Include short biographies for all authors below the references.",
+      "quote": "biographies of all authors should be included directly within the article below the references section.",
+      "source_ref": "src_dc089e329c991bfe"
+    },
+    {
+      "rule_id": "author_change_exception",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Any change to the author list after the article has been submitted is considered rare and exceptional",
+      "source_ref": "src_dc089e329c991bfe",
+      "requirement": "Treat post-submission author-list changes as exceptional and subject to editor approval."
+    },
+    {
+      "rule_id": "author_list_source_pdf",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "All authors should be listed on both the source file",
+      "source_ref": "src_dc089e329c991bfe",
+      "requirement": "List all authors in both source and PDF files."
+    },
+    {
+      "rule_id": "conclusions_supported",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Present conclusions clearly and support them with data.",
+      "quote": "Conclusions must be presented clearly and supported by the data.",
+      "source_ref": "src_67d3b0d1d6ff0d05"
+    },
+    {
+      "rule_id": "conference_extension_citation",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "If expanding a prior conference article, cite the source article.",
+      "quote": "or the source article is not referenced, the article will be rejected.",
+      "source_ref": "src_67d3b0d1d6ff0d05"
+    },
+    {
+      "rule_id": "conference_extension_connection",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "If expanding a prior conference article, describe the connection in the manuscript.",
+      "quote": "authors are expected to describe the connection in the manuscript",
+      "source_ref": "src_67d3b0d1d6ff0d05"
+    },
+    {
+      "rule_id": "conference_extension_cover_letter",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "If expanding a prior conference article, disclose the connection in the cover letter.",
+      "quote": "disclose it in the cover letter",
+      "source_ref": "src_67d3b0d1d6ff0d05"
+    },
+    {
+      "rule_id": "conference_overlap",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "as long as the similarity is less than 35%.",
+      "source_ref": "src_67d3b0d1d6ff0d05",
+      "requirement": "For an expanded conference article, keep similarity below 35%."
+    },
+    {
+      "rule_id": "copyrighted_illustration_permission",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "For a reused copyrighted illustration in a review, obtain permission and credit its source.",
+      "quote": "you must obtain permission from the copyright holder and cite and properly credit the source references",
+      "source_ref": "src_67d3b0d1d6ff0d05"
+    },
+    {
+      "rule_id": "double_column",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "Prepare the manuscript in double-column format.",
+      "quote": "prepared in a double column, single-spaced format",
+      "source_ref": "src_dc089e329c991bfe"
+    },
+    {
+      "rule_id": "duplicate_submission",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Do not submit the article elsewhere at the same time.",
+      "quote": "The article should not be submitted elsewhere at the same time.",
+      "source_ref": "src_dc089e329c991bfe"
+    },
+    {
+      "rule_id": "fabricated_content",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Check that the article contains no fabricated content, including fabricated references.",
+      "quote": "any article found to include fabricated content of any kind will be promptly rejected.",
+      "source_ref": "src_67d3b0d1d6ff0d05"
+    },
+    {
+      "rule_id": "grammar",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Check the article for standard English grammar.",
+      "quote": "Article must be written in standard English with correct grammar.",
+      "source_ref": "src_67d3b0d1d6ff0d05"
+    },
+    {
+      "rule_id": "keyword_range",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "minimum of 3 (and a maximum of 10) manuscript keywords",
+      "source_ref": "src_dc089e329c991bfe",
+      "requirement": "Select 3 to 10 submission keywords."
+    },
+    {
+      "rule_id": "manuscript_type",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "required to select a manuscript type upon submission.",
+      "source_ref": "src_dc089e329c991bfe",
+      "requirement": "Select the appropriate manuscript type at submission."
+    },
+    {
+      "rule_id": "methods_detail",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Describe experiments, statistics, and analyses in sufficient detail.",
+      "quote": "described in sufficient detail.",
+      "source_ref": "src_67d3b0d1d6ff0d05"
+    },
+    {
+      "rule_id": "no_lena_image",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "will no longer accept submitted papers which include the ‘Lena image’.",
+      "source_ref": "src_dc089e329c991bfe",
+      "requirement": "Do not include the Lena image in the manuscript."
+    },
+    {
+      "rule_id": "no_multi_part_submission",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "does not permit the submission of multi-part articles",
+      "source_ref": "src_dc089e329c991bfe",
+      "requirement": "Submit one complete article rather than a multi-part series."
+    },
+    {
+      "rule_id": "one_corresponding_author",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "you can designate only one person as the corresponding author.",
+      "source_ref": "src_dc089e329c991bfe",
+      "requirement": "Designate one corresponding author at submission."
+    },
+    {
+      "rule_id": "prior_work_references",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Include appropriate references to related prior published works.",
+      "quote": "Appropriate references to related prior published works must be included.",
+      "source_ref": "src_67d3b0d1d6ff0d05"
+    },
+    {
+      "rule_id": "references_accuracy",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Check each reference for accuracy.",
+      "quote": "carefully check each reference for accuracy",
+      "source_ref": "src_dc089e329c991bfe"
+    },
+    {
+      "rule_id": "references_relevant",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Include only references relevant to the work.",
+      "quote": "Do not include references that are not relevant to your work",
+      "source_ref": "src_dc089e329c991bfe"
+    },
+    {
+      "rule_id": "resubmission_response_detail",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "For each reviewer comment in an invited resubmission, document the concern, response, and changes.",
+      "quote": "1) reviewers’ concerns, 2) authors’ response to the concerns, 3) actual changes implemented.",
+      "source_ref": "src_dc089e329c991bfe"
+    },
+    {
+      "rule_id": "resubmission_update_list",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "For an invited resubmission after rejection, include a separate complete list of updates.",
+      "quote": "a complete “list of updates” must be included in a separate document.",
+      "source_ref": "src_dc089e329c991bfe"
+    },
+    {
+      "rule_id": "retracted_references",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Check that the reference list does not include retracted works.",
+      "quote": "ensure that they have not been retracted",
+      "source_ref": "src_dc089e329c991bfe"
+    },
+    {
+      "rule_id": "scope_fit",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Ensure the article falls within IEEE fields of interest.",
+      "quote": "The scope of this journal comprises all IEEE fields of interest",
+      "source_ref": "src_f2d8484fdc3d82de"
+    },
+    {
+      "rule_id": "single_spaced",
+      "status": "verified",
+      "kind": "semantic",
+      "requirement": "Prepare the manuscript with single spacing.",
+      "quote": "prepared in a double column, single-spaced format",
+      "source_ref": "src_dc089e329c991bfe"
+    },
+    {
+      "rule_id": "source_pdf_match",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Ensure source and PDF content matches exactly.",
+      "quote": "The content on each file must match exactly.",
+      "source_ref": "src_dc089e329c991bfe"
+    },
+    {
+      "rule_id": "submission_file_size",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "File sizes should not exceed 40MB.",
+      "source_ref": "src_dc089e329c991bfe",
+      "requirement": "Keep each manuscript submission file at or below 40 MB."
+    },
+    {
+      "rule_id": "submitting_author_orcid",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Ensure the submitting author has a public, populated ORCID profile linked to the submission account.",
+      "quote": "The ORCID profile must be publicly visible and populated.",
+      "source_ref": "src_dc089e329c991bfe"
+    },
+    {
+      "rule_id": "supplementary_review",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "If applicable, prepare supplementary material for peer review at submission.",
+      "quote": "If applicable to your research, have any supplementary material for review ready for the submission process.",
+      "source_ref": "src_dc089e329c991bfe"
+    },
+    {
+      "rule_id": "survey_inclusion_exclusion",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Have specific research questions, goals, scope, and inclusion and exclusion criteria.",
+      "source_ref": "src_dc089e329c991bfe",
+      "requirement": "State research questions, goals, scope, and inclusion/exclusion criteria in a survey.",
+      "applies_to": [
+        "survey"
+      ]
+    },
+    {
+      "rule_id": "survey_search_screening",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "For a Survey, explain the literature search and screening procedure.",
+      "quote": "Explain the literature search and screening procedure.",
+      "source_ref": "src_dc089e329c991bfe",
+      "applies_to": [
+        "survey"
+      ]
+    },
+    {
+      "rule_id": "topical_review_comparison",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Compare and contrast the competitive methods",
+      "source_ref": "src_dc089e329c991bfe",
+      "requirement": "Compare competing methods on defined technical criteria in a topical review.",
+      "applies_to": [
+        "topical_review"
+      ]
+    },
+    {
+      "rule_id": "topical_review_novelty",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Demonstrate the need and novelty of the Topical Review",
+      "source_ref": "src_dc089e329c991bfe",
+      "requirement": "Explain why a topical review is needed and timely relative to recent reviews.",
+      "applies_to": [
+        "topical_review"
+      ]
+    },
+    {
+      "rule_id": "topical_review_research_questions",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "For a Topical Review, specify research questions, goals, and scope.",
+      "quote": "Have specific research questions, goals, and scope.",
+      "source_ref": "src_dc089e329c991bfe",
+      "applies_to": [
+        "topical_review"
+      ]
+    },
+    {
+      "rule_id": "tutorial_objectives_prerequisites",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "For a Tutorial, state its objectives and prerequisite background in the introduction.",
+      "quote": "The objectives and prerequisite background required by the reader should be clearly identified in the introduction.",
+      "source_ref": "src_dc089e329c991bfe",
+      "applies_to": [
+        "tutorial"
+      ]
+    },
+    {
+      "rule_id": "video_peer_review",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "requirement": "Upload video with the article so it can be peer reviewed.",
+      "quote": "all video must be peer reviewed with the article.",
+      "source_ref": "src_dc089e329c991bfe"
+    },
+    {
+      "rule_id": "video_size",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "video (maximum file size is 100MB)",
+      "source_ref": "src_dc089e329c991bfe",
+      "requirement": "Keep any submitted video at or below 100 MB."
+    },
+    {
+      "rule_id": "word_or_latex_and_pdf",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "A Word or LaTex file and a PDF file are both required",
+      "source_ref": "src_dc089e329c991bfe",
+      "requirement": "Submit a Word or LaTeX source file and a PDF."
+    }
+  ],
+  "sources": {
+    "src_dc089e329c991bfe": {
+      "url": "https://ieeeaccess.ieee.org/authors/submission-guidelines/",
+      "retrieved_at": "2026-10-19T13:26:45Z",
+      "sha256": "dcf3d6d92e91aaaddfa59e254a22c4178d57051bb5db1230704007e6659e7a21",
+      "path": "sources/src_dc089e329c991bfe.txt"
+    },
+    "src_67d3b0d1d6ff0d05": {
+      "url": "https://ieeeaccess.ieee.org/authors/preparing-your-article/",
+      "retrieved_at": "2026-10-19T13:27:03Z",
+      "sha256": "0822b6d16b4c579d077fa60f3e4cccfa088b679c59227d54cee86b27ccd3a234",
+      "path": "sources/src_67d3b0d1d6ff0d05.txt"
+    },
+    "src_f2d8484fdc3d82de": {
+      "url": "https://ieeeaccess.ieee.org/about/",
+      "retrieved_at": "2026-10-19T13:27:28Z",
+      "sha256": "ac2673ab4ad65dde9ad87befbd5b8f28f5b7b40a78b2beb382f17afbdf63b9c1",
+      "path": "sources/src_f2d8484fdc3d82de.txt"
+    }
+  }
+}

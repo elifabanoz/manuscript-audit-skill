@@ -11,6 +11,7 @@ The current fixtures cover:
 | `1532-4435` | Journal of Machine Learning Research |
 | `1548-7660` | Journal of Statistical Software |
 | `2073-4859` | The R Journal |
+| `2169-3536` | IEEE Access |
 | `2475-9066` | Journal of Open Source Software |
 | `2835-8856` | Transactions on Machine Learning Research |
 
