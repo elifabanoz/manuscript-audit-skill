@@ -54,7 +54,7 @@ class DiscoveryTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temporary, patch.dict("os.environ", {"OPENALEX_API_KEY": "test-key"}):
             output = discover("synthetic topic", Path(temporary), opener=opener, field_id=17,
-                              published_after="2024-01-01")
+                              published_after="2024-01-01", strategy="sample")
             record = json.loads(output.read_text(encoding="utf-8"))
             self.assertEqual(record["query"], "synthetic topic")
             self.assertEqual(record["field_id"], 17)
@@ -67,6 +67,43 @@ class DiscoveryTests(unittest.TestCase):
                              ["type:article,primary_topic.field.id:17,from_publication_date:2024-01-01"])
             self.assertEqual(requests[0].get_header("Authorization"), "Bearer test-key")
             self.assertNotIn("test-key", requests[0].full_url)
+
+    def test_grouped_discovery_enriches_sources_and_normalizes_volume(self):
+        groups = {"meta": {"count": 246, "groups_count": 3}, "group_by": [
+            {"key": "https://openalex.org/S10", "count": 20},
+            {"key": "https://openalex.org/S20", "count": 8},
+            {"key": "https://openalex.org/S30", "count": 30}]}
+        sources = {"results": [
+            {"id": "https://openalex.org/S10", "display_name": "Large Journal", "type": "journal",
+             "issn_l": "1234-567X", "works_count": 10000, "homepage_url": "https://journal.example"},
+            {"id": "https://openalex.org/S20", "display_name": "Focused Journal", "type": "journal",
+             "issn_l": "2345-678X", "works_count": 100, "homepage_url": "https://focused.example"},
+            {"id": "https://openalex.org/S30", "display_name": "Repository", "type": "repository",
+             "issn_l": "3456-789X", "works_count": 200}]}
+        requests = []
+
+        def opener(request, timeout):
+            requests.append(request)
+            self.assertEqual(timeout, 20)
+            return Response(json.dumps(groups if len(requests) == 1 else sources).encode())
+
+        with tempfile.TemporaryDirectory() as temporary:
+            output = discover("synthetic topic", Path(temporary), limit=2, opener=opener,
+                              field_id=17, published_after="2024-01-01")
+            record = json.loads(output.read_text(encoding="utf-8"))
+        self.assertEqual(record["strategy"], "grouped")
+        self.assertEqual(record["matching_works_total"], 246)
+        self.assertEqual(record["grouped_sources_seen"], 3)
+        self.assertEqual([item["display_name"] for item in record["candidates"]],
+                         ["Focused Journal", "Large Journal"])
+        self.assertEqual(record["candidates"][0]["topic_share"], 0.08)
+        self.assertEqual(record["candidates"][0]["evidence"], ["openalex_grouped_works"])
+        first = parse_qs(urlsplit(requests[0].full_url).query)
+        self.assertEqual(first["group_by"], ["primary_location.source.id"])
+        self.assertEqual(first["filter"], ["type:article,primary_topic.field.id:17,from_publication_date:2024-01-01,primary_location.source.type:journal"])
+        second = parse_qs(urlsplit(requests[1].full_url).query)
+        self.assertEqual(second["filter"], ["ids.openalex:S30|S10|S20"])
+        self.assertNotIn("Unused title", json.dumps(record))
 
     def test_rejects_repository_output_before_network_request(self):
         root = Path(__file__).resolve().parents[3]
