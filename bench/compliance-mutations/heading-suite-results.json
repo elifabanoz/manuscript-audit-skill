@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "label": "limited_heading_suite",
+  "data_freeze": "2026-10-19",
+  "paper_doi": "10.21105/joss.09737",
+  "paper_source_sha256": "8bf3011c587d8f77c7873e1116fd9a7294f97828e018603e48a402f19358ef63",
+  "verified_heading_rules_scored": 7,
+  "other_applicable_rules_excluded": 63,
+  "mutation_method": "Remove one Markdown heading marker while retaining the heading text and section body.",
+  "target_rule_ids": [
+    "required_section_ai_usage_disclosure",
+    "required_section_references",
+    "required_section_research_impact_statement",
+    "required_section_software_design",
+    "required_section_state_of_the_field",
+    "required_section_statement_of_need",
+    "required_section_summary"
+  ],
+  "mutations": {
+    "count": 7,
+    "raw_detected": 7,
+    "validated_detected": 7,
+    "raw_recall": 1.0,
+    "validated_recall": 1.0
+  },
+  "controls": {
+    "count": 1,
+    "raw_flagged": 0,
+    "validated_flagged": 0,
+    "raw_false_positive_rate": 0.0,
+    "validated_false_positive_rate": 0.0
+  },
+  "validation_false_positive_rate_reduction": 0.0,
+  "private_benchmark_manifest_sha256": "1c4f14109ab807b831af70f61c566ccb69343e91c9483f430e0ba85f3b9fe8ee",
+  "independent_review": "Six new mutations and the structural heading control were reviewed by separate defense and record-verification agents; the original Software Design mutation was reviewed separately in the prior pilot.",
+  "human_control_label_review": "pending",
+  "scope_limit": "One published JOSS paper, one control, and seven correlated heading-marker mutations. Rates apply only to the seven verified heading rules, not to full manuscript compliance."
+}
