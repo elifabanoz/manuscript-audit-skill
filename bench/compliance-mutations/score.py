@@ -6,11 +6,13 @@ import hashlib
 import json
 import re
 import subprocess
+import sys
 from datetime import date
 from pathlib import Path
 
 
 VALIDATOR = Path(__file__).resolve().parents[2] / "skills" / "manuscript-audit" / "validators" / "validate-run.cjs"
+DETERMINISTIC_CHECKER = Path(__file__).resolve().parents[2] / "skills" / "manuscript-audit" / "tools" / "check_deterministic.py"
 MUTATION_CLASSES = {"structural", "semantic", "numerical_format"}
 
 
@@ -54,6 +56,17 @@ def check_control_deterministic(run, manifest, profile, article_type, scored, ca
             or len(checks) != len(applicable) \
             or {item["rule_id"] for item in checks} != applicable:
         raise ValueError(f"{case_id}: deterministic checks do not match the control inputs")
+    command = [sys.executable, str(DETERMINISTIC_CHECKER), str(run), "--article-type", article_type, "--no-write"]
+    for key, flag in (("main_start", "--main-start"), ("main_end", "--main-end")):
+        if key in report:
+            if not isinstance(report[key], str) or not report[key].strip():
+                raise ValueError(f"{case_id}: deterministic {key} must be nonempty")
+            command.extend((flag, report[key]))
+    recalculated = subprocess.run(command, capture_output=True, text=True)
+    if recalculated.returncode:
+        raise ValueError(f"{case_id}: deterministic checks cannot be recomputed: {recalculated.stderr.strip()}")
+    if json.loads(recalculated.stdout) != report:
+        raise ValueError(f"{case_id}: deterministic checks differ from recomputed measurements")
     failed = sorted(item["rule_id"] for item in checks
                     if item["rule_id"] in verified and item.get("status") != "met")
     if failed:

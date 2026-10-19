@@ -152,7 +152,7 @@ def compare(actual, op, limit):
     }[op]
 
 
-def check(run, article_type, main_start=None, main_end=None):
+def check(run, article_type, main_start=None, main_end=None, write_output=True):
     run = run.resolve()
     outside_git(run)
     manifest_file = run / "run-manifest.json"
@@ -215,7 +215,11 @@ def check(run, article_type, main_start=None, main_end=None):
         "method": "Markdown heading ranges; final inline Keywords excluded from abstract; Unicode word tokens",
         "checks": results,
     }
-    (run / "deterministic-checks.json").write_text(json.dumps(output, indent=2) + "\n", encoding="utf-8")
+    if main_start is not None or main_end is not None:
+        output["main_start"] = main_start
+        output["main_end"] = main_end
+    if write_output:
+        (run / "deterministic-checks.json").write_text(json.dumps(output, indent=2) + "\n", encoding="utf-8")
     return output
 
 
@@ -225,10 +229,14 @@ def main():
     parser.add_argument("--article-type", required=True)
     parser.add_argument("--main-start", help="First main-text Markdown heading")
     parser.add_argument("--main-end", help="Heading immediately after main text")
+    parser.add_argument("--no-write", action="store_true", help="Recompute and print the checks without changing the run")
     args = parser.parse_args()
     try:
-        output = check(args.run, args.article_type, args.main_start, args.main_end)
-        print(json.dumps({"checks": len(output["checks"]), "output": str(args.run / "deterministic-checks.json")}))
+        output = check(args.run, args.article_type, args.main_start, args.main_end, not args.no_write)
+        if args.no_write:
+            print(json.dumps(output))
+        else:
+            print(json.dumps({"checks": len(output["checks"]), "output": str(args.run / "deterministic-checks.json")}))
     except (OSError, UnicodeError, ValueError) as error:
         parser.exit(1, f"Error: {error}\n")
 

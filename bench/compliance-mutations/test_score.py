@@ -18,6 +18,7 @@ PREPARE = ROOT / "skills" / "manuscript-audit" / "tools" / "prepare_run.py"
 HASH_FINDING = ROOT / "skills" / "manuscript-audit" / "validators" / "hash-finding.cjs"
 HASH_COVERAGE = ROOT / "skills" / "manuscript-audit" / "validators" / "hash-coverage.cjs"
 BUILD_COVERAGE = ROOT / "skills" / "manuscript-audit" / "tools" / "build_coverage.py"
+CHECK_DETERMINISTIC = ROOT / "skills" / "manuscript-audit" / "tools" / "check_deterministic.py"
 
 
 class ComplianceMutationScoreTests(unittest.TestCase):
@@ -286,24 +287,35 @@ class ComplianceMutationScoreTests(unittest.TestCase):
         self.assertNotIn("Secret mutation text", packet)
 
     def test_control_rejects_a_triggered_verified_deterministic_rule(self):
-        run = self.root / "control"
-        run.mkdir()
-        manuscript_hash = "a" * 64
-        manifest = {"manuscript": {"sha256": manuscript_hash}}
-        profile = {"rules": [
-            {"rule_id": "required_heading", "kind": "deterministic"},
-            {"rule_id": "unverified_heading", "kind": "deterministic", "status": "needs_validation"},
-        ]}
-        report = {"article_type": "original_research", "manuscript_sha256": manuscript_hash,
-                  "checks": [{"rule_id": "required_heading", "status": "triggered"},
-                             {"rule_id": "unverified_heading", "status": "unresolved"}]}
+        def checked_run(name, manuscript):
+            run = self.make_run(name, manuscript)
+            profile_path = run / "journal-profile.json"
+            profile = json.loads(profile_path.read_text(encoding="utf-8"))
+            profile["rules"].append({
+                "rule_id": "required_heading", "kind": "deterministic",
+                "check": {"metric": "heading_count", "heading": "Data Availability", "op": ">=", "value": 1},
+                "quote": "A data availability statement is required.",
+                "source_ref": next(iter(profile["sources"])),
+            })
+            profile_path.write_text(json.dumps(profile), encoding="utf-8")
+            subprocess.run([sys.executable, str(CHECK_DETERMINISTIC), str(run),
+                            "--article-type", "original_research"], check=True, capture_output=True)
+            manifest = json.loads((run / "run-manifest.json").read_text(encoding="utf-8"))
+            return run, manifest, profile
+
+        run, manifest, profile = checked_run("control", "# Title\nNo matching heading.\n")
         path = run / "deterministic-checks.json"
-        path.write_text(json.dumps(report), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "unmet deterministic rules: required_heading"):
             check_control_deterministic(run, manifest, profile, "original_research", {"required_heading"}, "control")
+        report = json.loads(path.read_text(encoding="utf-8"))
         report["checks"][0]["status"] = "met"
         path.write_text(json.dumps(report), encoding="utf-8")
-        check_control_deterministic(run, manifest, profile, "original_research", {"required_heading"}, "control")
+        with self.assertRaisesRegex(ValueError, "differ from recomputed measurements"):
+            check_control_deterministic(run, manifest, profile, "original_research", {"required_heading"}, "control")
+        self.assertEqual(json.loads(path.read_text(encoding="utf-8")), report)
+        valid_run, valid_manifest, valid_profile = checked_run("valid-control", "# Title\n# Data Availability\n")
+        check_control_deterministic(valid_run, valid_manifest, valid_profile,
+                                    "original_research", {"required_heading"}, "valid-control")
         report["manuscript_sha256"] = "b" * 64
         path.write_text(json.dumps(report), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "do not match the control inputs"):

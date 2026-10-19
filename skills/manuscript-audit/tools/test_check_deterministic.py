@@ -57,6 +57,12 @@ class DeterministicCheckTests(unittest.TestCase):
         self.assertEqual([item["status"] for item in output["checks"]], ["triggered", "met", "triggered"])
         self.assertEqual([item.get("measured_value") for item in output["checks"]], [3, 4, 3])
         self.assertEqual(json.loads((self.run / "deterministic-checks.json").read_text(encoding="utf-8")), output)
+        self.assertEqual((output["main_start"], output["main_end"]), ("Introduction", "References"))
+
+    def test_read_only_recalculation_does_not_create_a_report(self):
+        output = check(self.run, "original_research", "Introduction", "References", write_output=False)
+        self.assertEqual(output["checks"][1]["status"], "met")
+        self.assertFalse((self.run / "deterministic-checks.json").exists())
 
     def test_unknown_main_boundaries_remain_unresolved(self):
         output = check(self.run, "original_research")
