@@ -32,7 +32,7 @@ function checkCachedFile(root, record, at, errors) {
 
 function validate(run, manifest) {
   const errors = [];
-  if (!allowedKeys(manifest, ['schema_version', 'created_at', 'host', 'models', 'skill_sha256', 'prompt_hashes', 'config_hash', 'data_freeze', 'cross_host', 'manuscript', 'sources'], 'manifest', errors)) return errors;
+  if (!allowedKeys(manifest, ['schema_version', 'created_at', 'host', 'models', 'skill_sha256', 'prompt_hashes', 'config_hash', 'data_freeze', 'cross_host', 'manuscript', 'supplementary', 'sources'], 'manifest', errors)) return errors;
   if (manifest.schema_version !== 1) errors.push('manifest.schema_version must be 1');
   checkTime(manifest.created_at, 'manifest.created_at', errors);
   if (!['codex', 'claude-code', 'manual'].includes(manifest.host)) errors.push('manifest.host is invalid');
@@ -43,6 +43,10 @@ function validate(run, manifest) {
   if (manifest.data_freeze !== null) errors.push('manifest.data_freeze must be null for a local run');
   if (manifest.cross_host !== false) errors.push('manifest.cross_host must be false for a local run');
   checkCachedFile(run, manifest.manuscript, 'manifest.manuscript', errors);
+  if (manifest.supplementary !== undefined) {
+    if (!Array.isArray(manifest.supplementary)) errors.push('manifest.supplementary must be an array');
+    else for (const [index, record] of manifest.supplementary.entries()) checkCachedFile(run, record, `manifest.supplementary[${index}]`, errors);
+  }
   if (!isObject(manifest.sources) || Object.keys(manifest.sources).length === 0) {
     errors.push('manifest.sources must contain at least one source');
   } else {

@@ -23,6 +23,7 @@ class PrepareRunTests(unittest.TestCase):
         self.args = argparse.Namespace(
             manuscript=self.manuscript,
             guideline_text=self.guideline,
+            supplementary=[],
             guideline_url="https://example.org/authors",
             retrieved_at="2026-10-19T12:30:00+03:00",
             output_root=self.root / "output",
@@ -31,12 +32,16 @@ class PrepareRunTests(unittest.TestCase):
         )
 
     def test_private_run_records_exact_bytes_and_allocates_new_number(self):
+        supplement = self.root / "appendix.md"
+        supplement.write_text("Additional methods\n", encoding="utf-8")
+        self.args.supplementary = [supplement]
         first = prepare(self.args)
         manifest = json.loads((first / "run-manifest.json").read_text(encoding="utf-8"))
         self.assertEqual(first.name, "run-1")
         self.assertEqual(manifest["sources"][next(iter(manifest["sources"]))]["retrieved_at"], "2026-10-19T09:30:00Z")
         self.assertEqual((first / manifest["manuscript"]["path"]).read_bytes(), self.manuscript.read_bytes())
         self.assertEqual((first / next(iter(manifest["sources"].values()))["path"]).read_bytes(), self.guideline.read_bytes())
+        self.assertEqual((first / manifest["supplementary"][0]["path"]).read_bytes(), supplement.read_bytes())
         self.assertEqual(prepare(self.args).name, "run-2")
 
     def test_rejects_output_inside_git_checkout(self):

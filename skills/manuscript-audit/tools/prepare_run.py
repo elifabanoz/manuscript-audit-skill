@@ -50,6 +50,7 @@ def prepare(args):
         raise ValueError("Python 3.11 or newer is required")
     manuscript = read_text(args.manuscript, "--manuscript")
     guideline = read_text(args.guideline_text, "--guideline-text")
+    supplementary = [(path.suffix.lower(), read_text(path, "--supplementary")) for path in args.supplementary]
     if any(not model.strip() for model in args.model):
         raise ValueError("--model must be nonempty when supplied")
     skill = SKILL_FILE.read_bytes()
@@ -78,6 +79,13 @@ def prepare(args):
     (run / "sources").mkdir()
     (run / f"manuscript{args.manuscript.suffix.lower()}").write_bytes(manuscript)
     (run / source_path).write_bytes(guideline)
+    if supplementary:
+        (run / "supplementary").mkdir()
+    supplement_records = []
+    for index, (suffix, content) in enumerate(supplementary, start=1):
+        relative = f"supplementary/supp-{index}{suffix}"
+        (run / relative).write_bytes(content)
+        supplement_records.append({"path": relative, "sha256": digest(content)})
     manifest = {
         "schema_version": 1,
         "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
@@ -89,6 +97,7 @@ def prepare(args):
         "data_freeze": None,
         "cross_host": False,
         "manuscript": {"path": f"manuscript{args.manuscript.suffix.lower()}", "sha256": digest(manuscript)},
+        "supplementary": supplement_records,
         "sources": {source_id: {"url": args.guideline_url, "retrieved_at": retrieved_at, "sha256": source_hash, "path": source_path}},
     }
     (run / "run-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
@@ -99,6 +108,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manuscript", type=Path, required=True)
     parser.add_argument("--guideline-text", type=Path, required=True)
+    parser.add_argument("--supplementary", type=Path, action="append", default=[], help="Additional UTF-8 .md or .txt file; repeat if needed")
     parser.add_argument("--guideline-url", required=True)
     parser.add_argument("--retrieved-at", required=True, help="ISO 8601 time with timezone")
     parser.add_argument("--output-root", type=Path, default=Path.home() / "manuscript-audit")

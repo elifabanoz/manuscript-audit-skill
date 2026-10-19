@@ -12,6 +12,7 @@ const { validate: validateLedger } = require('./validate-coverage-ledger.cjs');
 const { validate: validateFindings } = require('./validate-findings.cjs');
 const { verify } = require('./verify-quotes.cjs');
 const { validate: validateManifest } = require('./validate-run-manifest.cjs');
+const { validate: validateRun } = require('./validate-run.cjs');
 
 function fixture(t) {
   const run = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-audit-'));
@@ -71,6 +72,27 @@ function fixture(t) {
     source_hash: crypto.createHash('sha256').update('Methods and results').digest('hex')
   }];
   return { run, profile, findings, ledger };
+}
+
+function manifestFor(data) {
+  const skillHash = crypto.createHash('sha256').update('skill').digest('hex');
+  return {
+    schema_version: 1,
+    created_at: '2026-10-19T09:12:00Z',
+    host: 'manual',
+    models: [],
+    skill_sha256: skillHash,
+    prompt_hashes: { 'SKILL.md': skillHash },
+    config_hash: null,
+    data_freeze: null,
+    cross_host: false,
+    manuscript: {
+      path: 'manuscript.md',
+      sha256: crypto.createHash('sha256').update(fs.readFileSync(path.join(data.run, 'manuscript.md'))).digest('hex')
+    },
+    supplementary: [],
+    sources: structuredClone(data.profile.sources)
+  };
 }
 
 test('valid records and local quotes pass', t => {
@@ -162,25 +184,35 @@ test('the command line validator returns a failing status for invalid input', t 
 
 test('a run manifest detects changed private files and escaped paths', t => {
   const data = fixture(t);
-  const manuscript = fs.readFileSync(path.join(data.run, 'manuscript.md'));
-  const source = fs.readFileSync(path.join(data.run, 'sources', 'guideline.txt'));
-  const manifest = {
-    schema_version: 1,
-    created_at: '2026-10-19T09:12:00Z',
-    host: 'manual',
-    models: [],
-    skill_sha256: crypto.createHash('sha256').update('skill').digest('hex'),
-    prompt_hashes: {},
-    config_hash: null,
-    data_freeze: null,
-    cross_host: false,
-    manuscript: { path: 'manuscript.md', sha256: crypto.createHash('sha256').update(manuscript).digest('hex') },
-    sources: { src_guideline: { ...data.profile.sources.src_guideline } }
-  };
-  manifest.prompt_hashes['SKILL.md'] = manifest.skill_sha256;
+  const manifest = manifestFor(data);
   assert.deepEqual(validateManifest(data.run, manifest), []);
   fs.appendFileSync(path.join(data.run, 'manuscript.md'), 'Changed');
   assert.match(validateManifest(data.run, manifest).join('\n'), /SHA-256 mismatch/);
   manifest.manuscript.path = '../outside.txt';
   assert.match(validateManifest(data.run, manifest).join('\n'), /traversal/);
+});
+
+test('the full run gate binds profile sources to the manifest', t => {
+  const data = fixture(t);
+  const manifest = manifestFor(data);
+  assert.deepEqual(validateRun(data.run, manifest, data.profile, data.ledger, data.findings), []);
+  data.profile.sources.src_guideline.url = 'https://example.invalid/other';
+  assert.match(validateRun(data.run, manifest, data.profile, data.ledger, data.findings).join('\n'), /url differs from the manifest/);
+});
+
+test('absence evidence must search every supplied manuscript file', t => {
+  const data = fixture(t);
+  const manifest = manifestFor(data);
+  fs.mkdirSync(path.join(data.run, 'supplementary'));
+  const supplementary = 'Additional methods without the required statement.\n';
+  fs.writeFileSync(path.join(data.run, 'supplementary', 'supp-1.md'), supplementary);
+  manifest.supplementary.push({
+    path: 'supplementary/supp-1.md',
+    sha256: crypto.createHash('sha256').update(supplementary).digest('hex')
+  });
+  assert.match(validateRun(data.run, manifest, data.profile, data.ledger, data.findings).join('\n'), /searched omits supplementary\/supp-1.md/);
+  data.findings[0].evidence[1].searched.push('supplementary/supp-1.md');
+  assert.deepEqual(validateRun(data.run, manifest, data.profile, data.ledger, data.findings), []);
+  fs.writeFileSync(path.join(data.run, 'supplementary', 'supp-1.md'), 'Data availability: available on request.\n');
+  assert.match(validateRun(data.run, manifest, data.profile, data.ledger, data.findings).join('\n'), /occurs in supplementary\/supp-1.md/);
 });

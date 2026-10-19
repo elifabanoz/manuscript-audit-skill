@@ -11,6 +11,8 @@ python skills/manuscript-audit/tools/prepare_run.py --manuscript /path/to/paper.
 node skills/manuscript-audit/validators/validate-run-manifest.cjs /path/to/manuscript-audit/paper/run-1
 ```
 
+After adding `journal-profile.json`, `coverage-ledger.json`, and `findings.json` to that run, check the complete evidence chain with `node skills/manuscript-audit/validators/validate-run.cjs <run-directory>`. Use `--supplementary <file.md>` during preparation for each supplied text supplement; an absence claim must search all of them.
+
 ## License
 
 This version is offered under the [PolyForm Noncommercial License 1.0.0](LICENSE). It does not grant commercial-use rights. Earlier commits were released under MIT and retain their original terms.

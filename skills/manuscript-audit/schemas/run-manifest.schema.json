@@ -19,6 +19,7 @@
     "data_freeze": { "type": "null" },
     "cross_host": { "const": false },
     "manuscript": { "$ref": "#/$defs/cachedFile" },
+    "supplementary": { "type": "array", "items": { "$ref": "#/$defs/cachedFile" } },
     "sources": {
       "type": "object",
       "minProperties": 1,
