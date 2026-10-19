@@ -15,6 +15,7 @@ const { validate: validateManifest } = require('./validate-run-manifest.cjs');
 const { corpusHash, reviewSubjectHash, validate: validateRun } = require('./validate-run.cjs');
 const { escapeMarkdown, render } = require('./render-report.cjs');
 const { compare } = require('./compare-runs.cjs');
+const { compare: compareProfiles } = require('./compare-profiles.cjs');
 
 function fixture(t) {
   const run = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-audit-'));
@@ -120,6 +121,46 @@ test('valid records and local quotes pass', t => {
   assert.deepEqual(validateLedger(data.ledger), []);
   assert.deepEqual(validateFindings(data.findings, data.profile), []);
   assert.deepEqual(verify(data.run, data.profile, data.findings), []);
+});
+
+test('independent profiles promote only after source-backed agreement', t => {
+  const { run, profile } = fixture(t);
+  fs.writeFileSync(path.join(run, 'run-manifest.json'), JSON.stringify(manifestFor({ run, profile })));
+  fs.writeFileSync(path.join(run, 'profile-a.json'), JSON.stringify(profile));
+  fs.writeFileSync(path.join(run, 'profile-b.json'), JSON.stringify({ ...profile, rules: [...profile.rules].reverse() }));
+  const result = compareProfiles(run, 'profile-a.json', 'profile-b.json', true);
+  assert.equal(result.status, 'agreed');
+  assert.equal(result.promoted, true);
+  assert.deepEqual(result.differing_fields, []);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(run, 'journal-profile.json'))), profile);
+});
+
+test('profile disagreements stay private and block promotion', t => {
+  const { run, profile } = fixture(t);
+  fs.writeFileSync(path.join(run, 'run-manifest.json'), JSON.stringify(manifestFor({ run, profile })));
+  fs.writeFileSync(path.join(run, 'profile-a.json'), JSON.stringify(profile));
+  const changed = structuredClone(profile);
+  changed.rules[0].requirement = 'Use a different statement';
+  fs.writeFileSync(path.join(run, 'profile-b.json'), JSON.stringify(changed));
+  const result = compareProfiles(run, 'profile-a.json', 'profile-b.json', true);
+  assert.equal(result.status, 'needs_validation');
+  assert.deepEqual(result.differing_fields, ['rules.data_availability']);
+  assert.equal(fs.existsSync(path.join(run, 'journal-profile.json')), false);
+  assert.equal(JSON.parse(fs.readFileSync(result.output)).status, 'needs_validation');
+});
+
+test('profile comparison rejects invented quotes and source drift', t => {
+  const { run, profile } = fixture(t);
+  fs.writeFileSync(path.join(run, 'run-manifest.json'), JSON.stringify(manifestFor({ run, profile })));
+  fs.writeFileSync(path.join(run, 'profile-a.json'), JSON.stringify(profile));
+  const changed = structuredClone(profile);
+  changed.rules[0].quote = 'This sentence is absent from the guideline.';
+  fs.writeFileSync(path.join(run, 'profile-b.json'), JSON.stringify(changed));
+  assert.throws(() => compareProfiles(run, 'profile-a.json', 'profile-b.json', true), /not in source/);
+  changed.rules[0].quote = profile.rules[0].quote;
+  changed.sources.src_guideline.url = 'https://example.invalid/other';
+  fs.writeFileSync(path.join(run, 'profile-b.json'), JSON.stringify(changed));
+  assert.throws(() => compareProfiles(run, 'profile-a.json', 'profile-b.json', true), /sources differ/);
 });
 
 test('heading count rules require an explicit heading', t => {

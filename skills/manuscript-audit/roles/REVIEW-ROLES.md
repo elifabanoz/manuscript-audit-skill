@@ -8,6 +8,10 @@ Before assigning work, validate the private run manifest and journal profile. Gi
 
 Each role record follows `schemas/agent-record.schema.json`: `role`, `finding_id`, `decision`, `actor_id`, `subject_sha256`, and a concrete `rationale`. After the claim and evidence are final, compute `subject_sha256` with `node validators/hash-finding.cjs <run-directory> <finding-id>`. Any change to the claim, evidence, manuscript, profile, or guideline source requires fresh review records.
 
+## Journal profile builders
+
+Use two fresh invocations that receive the same cached guideline sources and article-type scope, but neither receives the other's draft or reasoning. Each writes a full private profile under a distinct path. Compare them with `node validators/compare-profiles.cjs <run-directory> profile-a.json profile-b.json --promote`. The comparison checks structure, source identity, exact quoted text, and rule fields. It records differing field paths without declaring either draft correct. Resolve each difference against the guideline before another pair of drafts; the host must enforce independent invocations.
+
 ## Compliance hunter
 
 Take one assigned compliance ledger unit and its exact quoted journal rule. Check whether the rule applies to the selected article type. Read every supplied file before asserting that a required item is absent. Quote the smallest source passage that states the rule and cite manuscript text by file and physical `line_id`. Record a candidate only when a specific claim can be supported by the allowed evidence types. Mark the ledger unit covered only after its actual check is recorded. The hunter record uses `role: "hunter"` and `decision: "candidate"`.
