@@ -28,7 +28,7 @@ node skills/manuscript-audit/validators/validate-run-manifest.cjs /path/to/manus
 
 After adding `journal-profile.json`, `coverage-ledger.json`, `findings.json`, and the referenced agent records to that run, check the record and local evidence chain with `node skills/manuscript-audit/validators/validate-run.cjs <run-directory>`. Use `--supplementary <file.md>` during preparation for each supplied text supplement; an absence claim must search all of them. The validator checks records and hashes; it cannot prove that reviewers worked independently.
 
-For a journal profile with Markdown abstract or main-text word limits, `python skills/manuscript-audit/tools/check_deterministic.py <run-directory> --article-type original_research --main-start Introduction --main-end References` records provisional measurements in the private run. Unclear section boundaries or unsupported formatting stay unresolved.
+For a journal profile with Markdown abstract, main-text word, or keyword-count limits, `python skills/manuscript-audit/tools/check_deterministic.py <run-directory> --article-type original_research --main-start Introduction --main-end References` records provisional measurements in the private run. Unclear section boundaries or unsupported formatting stay unresolved.
 
 Create a pending compliance ledger from the selected article type with `python skills/manuscript-audit/tools/build_coverage.py <run-directory> --article-type original_research`. The tool refuses to overwrite an existing ledger; each unit carries a fingerprint of the supplied manuscript files.
 

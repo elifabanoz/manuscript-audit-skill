@@ -18,10 +18,10 @@ class DeterministicCheckTests(unittest.TestCase):
         manuscript = root / "example.md"
         guideline = root / "guideline.txt"
         manuscript.write_text(
-            "# Abstract\nOne two three.\n# Introduction\nAlpha beta.\n## Methods\nGamma delta.\n# References\nReference text.\n",
+            "# Abstract\nOne two three.\n# Keywords\nalpha, beta, gamma\n# Introduction\nAlpha beta.\n## Methods\nGamma delta.\n# References\nReference text.\n",
             encoding="utf-8",
         )
-        guideline.write_text("Abstract limit: 2 words.\nMain text limit: 5 words.\n", encoding="utf-8")
+        guideline.write_text("Abstract limit: 2 words.\nMain text limit: 5 words.\nMaximum 2 keywords.\n", encoding="utf-8")
         args = argparse.Namespace(
             manuscript=manuscript,
             guideline_text=guideline,
@@ -44,6 +44,7 @@ class DeterministicCheckTests(unittest.TestCase):
             "rules": [
                 {"rule_id": "abstract_limit", "kind": "deterministic", "check": {"metric": "abstract_words", "op": "<=", "value": 2}, "quote": "Abstract limit: 2 words.", "source_ref": source_ref},
                 {"rule_id": "main_limit", "kind": "deterministic", "check": {"metric": "main_text_words", "op": "<=", "value": 5}, "quote": "Main text limit: 5 words.", "source_ref": source_ref},
+                {"rule_id": "keyword_limit", "kind": "deterministic", "check": {"metric": "keyword_count", "op": "<=", "value": 2}, "quote": "Maximum 2 keywords.", "source_ref": source_ref},
                 {"rule_id": "unknown_metric", "kind": "deterministic", "check": {"metric": "figures", "op": "<=", "value": 3}, "quote": "Main text limit: 5 words.", "source_ref": source_ref},
             ],
         }
@@ -54,8 +55,8 @@ class DeterministicCheckTests(unittest.TestCase):
 
     def test_measures_explicit_sections_without_confirming_a_finding(self):
         output = check(self.run, "original_research", "Introduction", "References")
-        self.assertEqual([item["status"] for item in output["checks"]], ["triggered", "met", "unresolved"])
-        self.assertEqual([item.get("measured_value") for item in output["checks"]], [3, 4, None])
+        self.assertEqual([item["status"] for item in output["checks"]], ["triggered", "met", "triggered", "unresolved"])
+        self.assertEqual([item.get("measured_value") for item in output["checks"]], [3, 4, 3, None])
         self.assertEqual(json.loads((self.run / "deterministic-checks.json").read_text(encoding="utf-8")), output)
 
     def test_unknown_main_boundaries_remain_unresolved(self):
@@ -72,6 +73,17 @@ class DeterministicCheckTests(unittest.TestCase):
         manifest_file.write_text(json.dumps(manifest), encoding="utf-8")
         output = check(self.run, "original_research", "Introduction", "References")
         self.assertEqual(output["checks"][0]["status"], "unresolved")
+
+    def test_ambiguous_keyword_separator_remains_unresolved(self):
+        manuscript = self.run / "manuscript.md"
+        manuscript.write_text(manuscript.read_text(encoding="utf-8").replace("alpha, beta, gamma", "alpha; beta, gamma"), encoding="utf-8")
+        manifest_file = self.run / "run-manifest.json"
+        manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+        import hashlib
+        manifest["manuscript"]["sha256"] = hashlib.sha256(manuscript.read_bytes()).hexdigest()
+        manifest_file.write_text(json.dumps(manifest), encoding="utf-8")
+        output = check(self.run, "original_research")
+        self.assertEqual(output["checks"][2]["status"], "unresolved")
 
     def test_source_mismatch_and_tampering_are_rejected(self):
         self.profile["sources"][next(iter(self.profile["sources"]))]["url"] = "https://example.org/other"

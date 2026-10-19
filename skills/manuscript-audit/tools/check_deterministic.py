@@ -69,6 +69,27 @@ def measure_main(text, start_label, end_label):
     return section_words(lines, starts[0] + 1, ends[0])
 
 
+def measure_keywords(text):
+    lines, headings = heading_spans(text)
+    matches = [(position, level) for position, level, label in headings if label in ("keywords", "key words")]
+    if len(matches) != 1:
+        return None, "Expected exactly one Markdown Keywords heading"
+    start, level = matches[0]
+    following = [position for position, depth, _ in headings if position > start and depth <= level]
+    end = following[0] if following else len(lines)
+    body = [line.strip() for line in lines[start + 1:end] if line.strip()]
+    if len(body) != 1 or any(mark in body[0] for mark in ("`", "[", "]", "|", "*", "<", ">")):
+        return None, "Keywords must be one plain-text line"
+    value = re.sub(r"^(?:keywords|key words)\s*:\s*", "", body[0], flags=re.IGNORECASE)
+    if "," in value and ";" in value:
+        return None, "Mixed keyword separators need manual review"
+    separator = ";" if ";" in value else ","
+    parts = [part.strip() for part in value.split(separator)]
+    if any(not part for part in parts):
+        return None, "Keywords contain an empty entry"
+    return len(parts), None
+
+
 def compare(actual, op, limit):
     return {
         "<": actual < limit,
@@ -116,6 +137,12 @@ def check(run, article_type, main_start=None, main_end=None):
                 item.update(status="met" if compare(value, rule["check"]["op"], rule["check"]["value"]) else "triggered", measured_value=value)
         elif rule["check"]["metric"] == "main_text_words":
             value, reason = measure_main(text, main_start, main_end)
+            if reason:
+                item.update(status="unresolved", reason=reason)
+            else:
+                item.update(status="met" if compare(value, rule["check"]["op"], rule["check"]["value"]) else "triggered", measured_value=value)
+        elif rule["check"]["metric"] == "keyword_count":
+            value, reason = measure_keywords(text)
             if reason:
                 item.update(status="unresolved", reason=reason)
             else:
