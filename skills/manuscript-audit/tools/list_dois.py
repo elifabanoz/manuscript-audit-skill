@@ -23,7 +23,7 @@ def clean_doi(value):
     return value
 
 
-def collect(run):
+def read_corpus(run):
     run = run.resolve()
     outside_git(run)
     result = subprocess.run(["node", str(VALIDATOR), str(run)], capture_output=True, text=True)
@@ -31,16 +31,20 @@ def collect(run):
         raise ValueError(result.stderr.strip())
     manifest = json.loads((run / "run-manifest.json").read_text(encoding="utf-8"))
     files = [manifest["manuscript"], *manifest.get("supplementary", [])]
+    return manifest, [(file["path"], checked_file(run, file["path"], file["sha256"])) for file in files]
+
+
+def collect(run):
+    manifest, files = read_corpus(run)
     found = {}
-    for file in files:
-        text = checked_file(run, file["path"], file["sha256"])
-        for line_number, line in enumerate(text.splitlines(), start=1):
+    for path, content in files:
+        for line_number, line in enumerate(content.splitlines(), start=1):
             for match in DOI.finditer(line):
                 value = clean_doi(match.group())
                 key = value.casefold()
                 if key not in found:
                     found[key] = {"doi": value, "doi_url": f"https://doi.org/{value}", "occurrences": []}
-                location = {"path": file["path"], "line_id": f"L{line_number}"}
+                location = {"path": path, "line_id": f"L{line_number}"}
                 if location not in found[key]["occurrences"]:
                     found[key]["occurrences"].append(location)
     return {

@@ -36,6 +36,8 @@ For a journal profile with Markdown abstract, main-text word, keyword-count, or 
 
 To inventory DOI mentions in the supplied manuscript and text supplements, run `python skills/manuscript-audit/tools/list_dois.py <run-directory>`. It writes a private `doi-inventory.json` with file and line references. DOI mentions do not establish that the reference list is complete or that a citation is correct.
 
+For labeled arXiv identifiers, run `python skills/manuscript-audit/tools/list_arxiv_ids.py <run-directory>`. It writes a separate private `arxiv-inventory.json` with file and line references. This catches modern and legacy `arXiv:` IDs but does not look them up or infer which references lack an identifier.
+
 To check those DOI values against Crossref, run `python skills/manuscript-audit/tools/check_dois.py <run-directory> --allow-network`. This sends DOI values to Crossref, which may reveal the manuscript's reference topics. The private `doi-metadata.json` records registry status and limited metadata; a Crossref miss does not prove a DOI is invalid, and a registry match does not verify the citation details. No manuscript text or cached PDF is sent.
 
 Create a pending compliance ledger from the selected article type with `python skills/manuscript-audit/tools/build_coverage.py <run-directory> --article-type original_research`. The tool refuses to overwrite an existing ledger; each unit carries a fingerprint of the supplied manuscript files.
