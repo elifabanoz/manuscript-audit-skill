@@ -1,0 +1,403 @@
+{
+  "issn": "2073-4859",
+  "title": "The R Journal",
+  "publisher": "The R Foundation",
+  "article_types": [
+    "package_article",
+    "review_proposal",
+    "comparison_benchmark",
+    "application",
+    "special_issue"
+  ],
+  "scope": {
+    "quote": "All submissions must primarily be about R packages and R programming.",
+    "source_ref": "src_4c990925ac30696a"
+  },
+  "rules": [
+    {
+      "rule_id": "abstract_max_words",
+      "status": "verified",
+      "kind": "deterministic",
+      "quote": "with the abstract no more than 250 words.",
+      "source_ref": "src_a96e323637666b0e",
+      "check": {
+        "metric": "abstract_words",
+        "op": "<=",
+        "value": 250
+      }
+    },
+    {
+      "rule_id": "application_broad_value",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "benefit beyond the specific application.",
+      "source_ref": "src_4c990925ac30696a",
+      "requirement": "For an application article, show value beyond the specific use case.",
+      "applies_to": [
+        "application"
+      ]
+    },
+    {
+      "rule_id": "article_page_limit",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Articles for the R Journal should be no more than 20 pages",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "Keep the article at or below 20 pages."
+    },
+    {
+      "rule_id": "bibliography_bib_file",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "your references need to be contained in a .bib file.",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "Put references in a .bib file."
+    },
+    {
+      "rule_id": "bibliography_cited_only",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Your submitted bib file should contain only the references actually cited in your paper.",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "Include only cited references in the submitted .bib file."
+    },
+    {
+      "rule_id": "bibliography_format",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Please also check that all references fields are properly formatted.",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "Check the formatting of bibliography fields."
+    },
+    {
+      "rule_id": "code_data_available",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "all code and data must be made available (publicly if we publish your submission).",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "Make all code and data available, with public availability if published."
+    },
+    {
+      "rule_id": "comparison_scope",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "of implementations in base-R and contributed packages with each other",
+      "source_ref": "src_4c990925ac30696a",
+      "requirement": "For a comparison article, compare relevant base R or contributed package implementations.",
+      "applies_to": [
+        "comparison_benchmark"
+      ]
+    },
+    {
+      "rule_id": "contribution_motivation",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "explain the motivation for their contribution;",
+      "source_ref": "src_4c990925ac30696a",
+      "requirement": "Explain the motivation for the contribution."
+    },
+    {
+      "rule_id": "exclusive_submission",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Articles must not be published or submitted for publication elsewhere.",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "Do not submit a previously published or concurrently submitted article."
+    },
+    {
+      "rule_id": "external_software_conditions",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "the other software is open source and free to use",
+      "source_ref": "src_4c990925ac30696a",
+      "requirement": "If R calls other software, justify its use and ensure it meets the journal's openness and use conditions."
+    },
+    {
+      "rule_id": "figure_table_alt_text",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Figures and tables should have alt-text in chunk specifications, to assist with accessibility.",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "Add alt text for figures and tables in source chunk specifications."
+    },
+    {
+      "rule_id": "function_documentation",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Each user-facing function must be fully documented with all terms and arguments explained, and examples provided.",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "Document each user-facing function, its terms and arguments, and examples.",
+      "applies_to": [
+        "package_article"
+      ]
+    },
+    {
+      "rule_id": "generated_r_outputs",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Ensure that R outputs are from an evaluation of R code rather than manually entering the outputs in the Rmd file.",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "Generate R outputs by evaluating code in the R Markdown source."
+    },
+    {
+      "rule_id": "latex_template",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "If you do use LaTeX, you must use the LaTeX template.",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "If submitting LaTeX source, use the journal LaTeX template."
+    },
+    {
+      "rule_id": "open_data_format",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "are all the data files (if any) in an open, non-proprietary format?",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "Provide any data files in an open, nonproprietary format."
+    },
+    {
+      "rule_id": "open_source_code",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "is all code used open source and available via CRAN or Bioconductor?",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "Use open-source code available through CRAN or Bioconductor for technical review."
+    },
+    {
+      "rule_id": "package_dependencies",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Avoid unnecessary dependencies.",
+      "source_ref": "src_a96e323637666b0e",
+      "applies_to": [
+        "package_article"
+      ],
+      "requirement": "Avoid unnecessary package dependencies."
+    },
+    {
+      "rule_id": "package_maintenance",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "The package is actively maintained and sufficiently mature.",
+      "source_ref": "src_a96e323637666b0e",
+      "applies_to": [
+        "package_article"
+      ],
+      "requirement": "Provide evidence that the package is maintained and mature."
+    },
+    {
+      "rule_id": "package_output_tests",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "The package must include unit tests that verify output values, not merely output class or structure.",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "Include package unit tests that check output values. Check package code, not only the article.",
+      "applies_to": [
+        "package_article"
+      ]
+    },
+    {
+      "rule_id": "package_registry",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "The package must be available on CRAN or Bioconductor.",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "A package described by the article must be available on CRAN or Bioconductor.",
+      "applies_to": [
+        "package_article"
+      ]
+    },
+    {
+      "rule_id": "package_substantial",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "The content of the package should be substantial and would likely be of significant interest and use within the R community.",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "Show substantive package functionality and likely broad interest in the R community.",
+      "applies_to": [
+        "package_article"
+      ]
+    },
+    {
+      "rule_id": "package_use_and_advantages",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "clearly demonstrate the use of the package and its advantages over any competing packages or existing approaches.",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "Demonstrate package use and explain advantages over alternatives.",
+      "applies_to": [
+        "package_article"
+      ]
+    },
+    {
+      "rule_id": "package_vignette",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Include a vignette describing a full workflow or example analysis.",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "Provide a package vignette with a full workflow or example analysis.",
+      "applies_to": [
+        "package_article"
+      ]
+    },
+    {
+      "rule_id": "paper_reproducibility",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Papers must be fully reproducible",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "Make results in the paper reproducible."
+    },
+    {
+      "rule_id": "plain_title_abstract",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Titles and abstract should be in plain text",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "Use plain text for title and abstract."
+    },
+    {
+      "rule_id": "r_focus",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "All submissions must primarily be about R packages and R programming.",
+      "source_ref": "src_4c990925ac30696a",
+      "requirement": "Keep the article primarily about R packages or R programming."
+    },
+    {
+      "rule_id": "related_r_work",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "put their contribution in context, in particular discuss related R functions or packages;",
+      "source_ref": "src_4c990925ac30696a",
+      "requirement": "Discuss related R functions or packages to place the contribution in context."
+    },
+    {
+      "rule_id": "reproduction_time",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "If a submission cannot be reproduced in a reasonable time (less than 10 minutes), it will be sent back to you.",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "Keep the submission reproducible within about ten minutes, or provide intermediate outputs for intensive methods."
+    },
+    {
+      "rule_id": "resubmission_identifier",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "you will need to enter the identifier of the original submission in the last field of the submission form.",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "For revisions or resubmissions, enter the original submission identifier."
+    },
+    {
+      "rule_id": "review_perspective",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "surveying and discussing challenges and opportunities of potential importance for the broader R community",
+      "source_ref": "src_4c990925ac30696a",
+      "requirement": "For a review or proposal, discuss challenges or opportunities relevant to the broader R community.",
+      "applies_to": [
+        "review_proposal"
+      ]
+    },
+    {
+      "rule_id": "rjtools_preferred",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Please use rjtools instead of rticles.",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "Use the rjtools template rather than the deprecated rticles format when writing in R Markdown."
+    },
+    {
+      "rule_id": "software_focus",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "The R Journal is primarily a software journal.",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "Focus a package article on the software and its design rather than extensive method exposition.",
+      "applies_to": [
+        "package_article"
+      ]
+    },
+    {
+      "rule_id": "submission_build_files",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Files to build the article.",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "Include all source files needed to build the article."
+    },
+    {
+      "rule_id": "submission_motivation_letter",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "A motivating letter that describes why your paper is suitable for consideration by the R Journal.",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "Include a letter explaining suitability for The R Journal."
+    },
+    {
+      "rule_id": "submission_package_list",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "A list of R packages needed to reproduce the submission.",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "Include a list of required R packages."
+    },
+    {
+      "rule_id": "submission_pdf",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "The article in .pdf format.",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "Include a PDF of the article in the submission archive."
+    },
+    {
+      "rule_id": "submission_reproduction_files",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Files to reproduce the results, including R scripts, and data.",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "Include R scripts and data needed to reproduce results."
+    },
+    {
+      "rule_id": "submission_zip",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Your files will need to be uploaded in a zip file that should contain:",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "Upload the submission files as a ZIP archive."
+    },
+    {
+      "rule_id": "version_control_link",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Use a version control system (e.g., GitHub, GitLab, BitBucket, R-Forge), linked in the package’s CRAN DESCRIPTION",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "Use version control and link it in the package CRAN DESCRIPTION.",
+      "applies_to": [
+        "package_article"
+      ]
+    },
+    {
+      "rule_id": "wide_audience",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "you cannot expect all readers to be familiar with the jargon in your field.",
+      "source_ref": "src_a96e323637666b0e",
+      "requirement": "Explain field-specific jargon for a broad R audience."
+    }
+  ],
+  "sources": {
+    "src_a96e323637666b0e": {
+      "url": "https://journal.r-project.org/submissions.html",
+      "retrieved_at": "2026-10-19T13:00:10Z",
+      "sha256": "0c6091f91c0218c88c56b75fc82af56bbf48bfd50cc847fc410d8aab047c585a",
+      "path": "sources/src_a96e323637666b0e.txt"
+    },
+    "src_4c990925ac30696a": {
+      "url": "https://journal.r-project.org/index.html",
+      "retrieved_at": "2026-10-19T13:00:49Z",
+      "sha256": "78e1236fd44a04cd02a4c8313eafed4e85b10ce3582a6412b77dbf5f9beb2c77",
+      "path": "sources/src_4c990925ac30696a.txt"
+    }
+  }
+}
