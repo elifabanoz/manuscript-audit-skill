@@ -7,6 +7,7 @@ The current fixtures cover:
 | ISSN | Journal |
 | --- | --- |
 | `0098-5589` | IEEE Transactions on Software Engineering |
+| `0885-6125` | Machine Learning |
 | `0928-8910` | Automated Software Engineering |
 | `0947-3602` | Requirements Engineering |
 | `0963-9314` | Software Quality Journal |
