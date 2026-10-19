@@ -49,6 +49,22 @@ def prepare(args):
     if sys.version_info < (3, 11):
         raise ValueError("Python 3.11 or newer is required")
     manuscript = read_text(args.manuscript, "--manuscript")
+    extraction_path = getattr(args, "extraction_record", None)
+    extraction = None
+    extraction_bytes = None
+    if extraction_path:
+        extraction_bytes = extraction_path.read_bytes()
+        extraction = json.loads(extraction_bytes)
+        if not isinstance(extraction, dict) or extraction.get("schema_version") != 1 or extraction.get("format") not in ("docx", "pdf"):
+            raise ValueError("--extraction-record has an invalid format")
+        expected_key = "markdown_sha256" if extraction["format"] == "docx" else "text_sha256"
+        expected_name = "manuscript.md" if extraction["format"] == "docx" else "manuscript.txt"
+        if args.manuscript.resolve() != (extraction_path.parent / expected_name).resolve():
+            raise ValueError("--manuscript must be the extracted file beside --extraction-record")
+        if extraction.get(expected_key) != digest(manuscript):
+            raise ValueError("--extraction-record text hash does not match")
+        if not isinstance(extraction.get("source_sha256"), str) or not re.fullmatch(r"[a-f0-9]{64}", extraction["source_sha256"]):
+            raise ValueError("--extraction-record has no valid original file hash")
     source_record = getattr(args, "source_record", None)
     if source_record:
         if args.guideline_text or args.guideline_url or args.retrieved_at:
@@ -100,6 +116,8 @@ def prepare(args):
     source_path = f"sources/{source_hash}.txt"
     (run / "sources").mkdir()
     (run / f"manuscript{args.manuscript.suffix.lower()}").write_bytes(manuscript)
+    if extraction_bytes:
+        (run / "extraction.json").write_bytes(extraction_bytes)
     (run / source_path).write_bytes(guideline)
     if supplementary:
         (run / "supplementary").mkdir()
@@ -122,6 +140,9 @@ def prepare(args):
         "supplementary": supplement_records,
         "sources": {source_id: {"url": guideline_url, "retrieved_at": retrieved_at, "sha256": source_hash, "path": source_path}},
     }
+    if extraction:
+        manifest["extraction"] = {"format": extraction["format"], "source_sha256": extraction["source_sha256"],
+                                  "path": "extraction.json", "sha256": digest(extraction_bytes)}
     (run / "run-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     return run
 
@@ -129,6 +150,7 @@ def prepare(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manuscript", type=Path, required=True)
+    parser.add_argument("--extraction-record", type=Path, help="Private extraction.json written by a converter")
     parser.add_argument("--guideline-text", type=Path)
     parser.add_argument("--supplementary", type=Path, action="append", default=[], help="Additional UTF-8 .md or .txt file; repeat if needed")
     parser.add_argument("--guideline-url")

@@ -36,6 +36,7 @@ class ConvertPdfTests(unittest.TestCase):
             record = json.loads(output.read_text(encoding="utf-8"))
             self.assertEqual(text, "[Page 1]\nTitle\nMethods\n[Page 2]\n")
             self.assertEqual(record["page_count"], 2)
+            self.assertEqual(record["format"], "pdf")
             self.assertEqual(record["source_sha256"], hashlib.sha256(original.read_bytes()).hexdigest())
             self.assertTrue(any("page(s): 2" in warning for warning in record["warnings"]))
             self.assertFalse((output.parent / "paper.pdf").exists())

@@ -280,6 +280,17 @@ test('whole-corpus coverage becomes stale when its fingerprint differs', t => {
   assert.match(validateRun(data.run, manifest, data.profile, data.ledger, data.findings).join('\n'), /source_hash is stale/);
 });
 
+test('review fingerprints include the original converted file hash', t => {
+  const data = fixture(t);
+  const manifest = manifestFor(data);
+  const textOnly = corpusHash(manifest);
+  manifest.extraction = { format: 'pdf', source_sha256: 'a'.repeat(64), path: 'extraction.json', sha256: 'b'.repeat(64) };
+  const first = corpusHash(manifest);
+  manifest.extraction.source_sha256 = 'c'.repeat(64);
+  assert.notEqual(first, textOnly);
+  assert.notEqual(corpusHash(manifest), first);
+});
+
 test('review coverage becomes stale when supplied files change', t => {
   const data = fixture(t);
   const manifest = manifestFor(data);

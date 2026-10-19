@@ -1,13 +1,16 @@
 """DOCX conversion tests use invented OOXML packages only."""
 
+import argparse
 import hashlib
 import json
+import subprocess
 import tempfile
 import unittest
 import zipfile
 from pathlib import Path
 
 from convert_docx import convert
+from prepare_run import prepare
 
 
 NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -37,6 +40,26 @@ class ConvertDocxTests(unittest.TestCase):
             self.assertEqual(record["markdown_sha256"], hashlib.sha256(markdown.encode()).hexdigest())
             self.assertTrue(any("table" in warning for warning in record["warnings"]))
             self.assertFalse((output.parent / "paper.docx").exists())
+
+    def test_prepared_run_binds_original_docx_and_extraction_record(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            original = root / "paper.docx"
+            make_docx(original, '<w:p><w:r><w:t>Invented manuscript</w:t></w:r></w:p>')
+            extraction = convert(original, root / "private")
+            guideline = root / "guide.txt"
+            guideline.write_text("Include a data statement.\n", encoding="utf-8")
+            run = prepare(argparse.Namespace(
+                manuscript=extraction.parent / "manuscript.md", extraction_record=extraction,
+                guideline_text=guideline, guideline_url="https://example.org/authors",
+                retrieved_at="2026-10-19T09:00:00Z", supplementary=[],
+                output_root=root / "runs", host="manual", model=[]))
+            manifest = json.loads((run / "run-manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["extraction"]["source_sha256"], hashlib.sha256(original.read_bytes()).hexdigest())
+            validator = Path(__file__).resolve().parents[1] / "validators" / "validate-run-manifest.cjs"
+            self.assertEqual(subprocess.run(["node", str(validator), str(run)], capture_output=True).returncode, 0)
+            (run / "extraction.json").write_text("{}", encoding="utf-8")
+            self.assertEqual(subprocess.run(["node", str(validator), str(run)], capture_output=True).returncode, 1)
 
     def test_rejects_tracked_changes_instead_of_guessing_final_text(self):
         with tempfile.TemporaryDirectory() as temporary:

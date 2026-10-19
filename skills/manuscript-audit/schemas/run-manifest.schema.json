@@ -19,6 +19,17 @@
     "data_freeze": { "type": "null" },
     "cross_host": { "const": false },
     "manuscript": { "$ref": "#/$defs/cachedFile" },
+    "extraction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "source_sha256", "path", "sha256"],
+      "properties": {
+        "format": { "enum": ["docx", "pdf"] },
+        "source_sha256": { "$ref": "#/$defs/sha256" },
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
     "supplementary": { "type": "array", "items": { "$ref": "#/$defs/cachedFile" } },
     "sources": {
       "type": "object",

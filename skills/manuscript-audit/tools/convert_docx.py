@@ -125,6 +125,7 @@ def convert(input_path, output_root):
     (directory / "manuscript.md").write_bytes(text)
     record = {
         "schema_version": 1,
+        "format": "docx",
         "converted_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
         "source_sha256": original_hash,
         "markdown_sha256": hashlib.sha256(text).hexdigest(),

@@ -32,7 +32,7 @@ function checkCachedFile(root, record, at, errors) {
 
 function validate(run, manifest) {
   const errors = [];
-  if (!allowedKeys(manifest, ['schema_version', 'created_at', 'host', 'models', 'skill_sha256', 'prompt_hashes', 'config_hash', 'data_freeze', 'cross_host', 'manuscript', 'supplementary', 'sources'], 'manifest', errors)) return errors;
+  if (!allowedKeys(manifest, ['schema_version', 'created_at', 'host', 'models', 'skill_sha256', 'prompt_hashes', 'config_hash', 'data_freeze', 'cross_host', 'manuscript', 'extraction', 'supplementary', 'sources'], 'manifest', errors)) return errors;
   if (manifest.schema_version !== 1) errors.push('manifest.schema_version must be 1');
   checkTime(manifest.created_at, 'manifest.created_at', errors);
   if (!['codex', 'claude-code', 'manual'].includes(manifest.host)) errors.push('manifest.host is invalid');
@@ -43,6 +43,23 @@ function validate(run, manifest) {
   if (manifest.data_freeze !== null) errors.push('manifest.data_freeze must be null for a local run');
   if (manifest.cross_host !== false) errors.push('manifest.cross_host must be false for a local run');
   checkCachedFile(run, manifest.manuscript, 'manifest.manuscript', errors);
+  if (manifest.extraction !== undefined) {
+    const record = manifest.extraction;
+    if (allowedKeys(record, ['format', 'source_sha256', 'path', 'sha256'], 'manifest.extraction', errors)) {
+      if (!['docx', 'pdf'].includes(record.format)) errors.push('manifest.extraction.format is invalid');
+      if (typeof record.source_sha256 !== 'string' || !SHA256.test(record.source_sha256)) errors.push('manifest.extraction.source_sha256 must be a SHA-256 hex digest');
+      checkCachedFile(run, { path: record.path, sha256: record.sha256 }, 'manifest.extraction', errors);
+      try {
+        const details = readJson(safeFile(run, record.path));
+        const textHash = record.format === 'docx' ? details.markdown_sha256 : details.text_sha256;
+        if (details.schema_version !== 1 || details.format !== record.format || details.source_sha256 !== record.source_sha256 || textHash !== manifest.manuscript?.sha256) {
+          errors.push('manifest.extraction does not match the copied manuscript and extraction record');
+        }
+      } catch (error) {
+        errors.push(`manifest.extraction: ${error.message}`);
+      }
+    }
+  }
   if (manifest.supplementary !== undefined) {
     if (!Array.isArray(manifest.supplementary)) errors.push('manifest.supplementary must be an array');
     else for (const [index, record] of manifest.supplementary.entries()) checkCachedFile(run, record, `manifest.supplementary[${index}]`, errors);
