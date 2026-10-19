@@ -1,0 +1,411 @@
+{
+  "issn": "0219-1377",
+  "title": "Knowledge and Information Systems",
+  "publisher": "Springer Nature",
+  "article_types": [
+    "research_article"
+  ],
+  "scope": {
+    "quote": "knowledge systems and advanced information systems",
+    "source_ref": "src_1ae293e7ef094606"
+  },
+  "ai_policy": {
+    "quote": "Use of an LLM should be properly documented in the Methods section",
+    "source_ref": "src_dbfc5b1e656d9561"
+  },
+  "rules": [
+    {
+      "rule_id": "abbreviations_first_use",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Abbreviations should be defined at first mention",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Define abbreviations at first use."
+    },
+    {
+      "rule_id": "abstract_abbreviations",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "The abstract should not contain any undefined abbreviations",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Define abbreviations in the abstract."
+    },
+    {
+      "rule_id": "abstract_max_words",
+      "status": "verified",
+      "kind": "deterministic",
+      "quote": "an abstract of 150 to 250 words.",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "check": {
+        "metric": "abstract_words",
+        "op": "<=",
+        "value": 250
+      }
+    },
+    {
+      "rule_id": "abstract_min_words",
+      "status": "verified",
+      "kind": "deterministic",
+      "quote": "an abstract of 150 to 250 words.",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "check": {
+        "metric": "abstract_words",
+        "op": ">=",
+        "value": 150
+      }
+    },
+    {
+      "rule_id": "abstract_required",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Please provide an abstract of 150 to 250 words.",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Provide an abstract."
+    },
+    {
+      "rule_id": "abstract_unspecified_references",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "or unspecified references.",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Avoid unspecified references in the abstract."
+    },
+    {
+      "rule_id": "acknowledgments_title_page",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "should be placed in a separate section on the title page.",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Place acknowledgments on the title page."
+    },
+    {
+      "rule_id": "author_affiliations",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "The affiliation(s) of the author(s), i.e. institution, (department), city, (state), country",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "List author affiliations."
+    },
+    {
+      "rule_id": "author_names",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "The name(s) of the author(s)",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "List author names."
+    },
+    {
+      "rule_id": "coauthor_approval",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "its publication has been approved by all co-authors",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Obtain coauthor approval."
+    },
+    {
+      "rule_id": "competing_interests",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Authors are required to disclose financial or non-financial interests",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Disclose relevant financial and nonfinancial interests."
+    },
+    {
+      "rule_id": "conference_expansion",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "after the expansion and revision is verified by an Associate Editor",
+      "source_ref": "src_1ae293e7ef094606",
+      "requirement": "For an expanded conference paper, explain the expansion and revision."
+    },
+    {
+      "rule_id": "corresponding_author_email",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "A clear indication and an active e-mail address of the corresponding author",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Identify the corresponding author and an active email."
+    },
+    {
+      "rule_id": "data_availability",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "All original research must include a data availability statement.",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Include a data availability statement for original research.",
+      "applies_to": [
+        "research_article"
+      ]
+    },
+    {
+      "rule_id": "dataset_citation",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "cite any publicly available data on which the conclusions of the paper rely",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Cite public supporting datasets."
+    },
+    {
+      "rule_id": "declarations_heading",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "under the heading \"Statements and Declarations\"",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Include applicable statements under Statements and Declarations."
+    },
+    {
+      "rule_id": "doi_links",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "include DOIs as full DOI links in your reference list",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Use full DOI links where available."
+    },
+    {
+      "rule_id": "editable_source_files",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "provide all relevant editable source files at every submission and revision",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Provide complete editable source files."
+    },
+    {
+      "rule_id": "figure_accessibility",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "All figures have descriptive captions",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Make figures accessible using descriptive captions and other requested measures."
+    },
+    {
+      "rule_id": "figure_captions",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Each figure should have a concise caption",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Provide figure captions."
+    },
+    {
+      "rule_id": "figures_cited",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Figures should always be cited in text in consecutive numerical order.",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Cite figures consecutively."
+    },
+    {
+      "rule_id": "figures_numbered",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "All figures are to be numbered using Arabic numerals.",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Number figures with Arabic numerals."
+    },
+    {
+      "rule_id": "footnotes",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Always use footnotes instead of endnotes.",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Use footnotes rather than endnotes."
+    },
+    {
+      "rule_id": "headings_three_levels",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "decimal system of headings with no more than three levels",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Use at most three numbered heading levels."
+    },
+    {
+      "rule_id": "keywords_max",
+      "status": "verified",
+      "kind": "deterministic",
+      "quote": "4 to 6 keywords",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "check": {
+        "metric": "keyword_count",
+        "op": "<=",
+        "value": 6
+      }
+    },
+    {
+      "rule_id": "keywords_min",
+      "status": "verified",
+      "kind": "deterministic",
+      "quote": "4 to 6 keywords",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "check": {
+        "metric": "keyword_count",
+        "op": ">=",
+        "value": 4
+      }
+    },
+    {
+      "rule_id": "knowledge_systems_scope",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "report new advances on all topics related to knowledge systems and advanced information systems",
+      "source_ref": "src_1ae293e7ef094606",
+      "requirement": "Explain the advance in knowledge or information systems."
+    },
+    {
+      "rule_id": "latex_source_pdf",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "original source (including all style files and figures) and a PDF version",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Include original source and compiled PDF for LaTeX submissions."
+    },
+    {
+      "rule_id": "llm_not_author",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Large Language Models (LLMs), such as ChatGPT, do not currently satisfy our authorship criteria.",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Do not list an LLM as an author."
+    },
+    {
+      "rule_id": "llm_use_documentation",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Use of an LLM should be properly documented in the Methods section",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Document substantive LLM use in Methods or another suitable section."
+    },
+    {
+      "rule_id": "numbered_in_text_citations",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "identified by numbers in square brackets.",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Use numeric in-text citations in square brackets."
+    },
+    {
+      "rule_id": "orcid_if_available",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "If available, the 16-digit ORCID of the author(s)",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Include available author ORCID IDs."
+    },
+    {
+      "rule_id": "original_work",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "the work described has not been published before",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Submit original work or transparently disclose an eligible expansion."
+    },
+    {
+      "rule_id": "permissions_reused_material",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "obtain permission from the copyright owner(s) for both the print and online format",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Obtain permission for reused published material."
+    },
+    {
+      "rule_id": "reference_entries_numbered",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "The entries in the list should be numbered consecutively.",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Number reference entries consecutively."
+    },
+    {
+      "rule_id": "references_cited_only",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "only include works that are cited in the text",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "List only cited published or accepted works."
+    },
+    {
+      "rule_id": "research_integrity",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "without fabrication, falsification or inappropriate data manipulation",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Present results without fabrication or falsification."
+    },
+    {
+      "rule_id": "restricted_data_access",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "describe how data can be accessed and any conditions for reuse",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Describe access conditions if data cannot be public."
+    },
+    {
+      "rule_id": "supplementary_captions",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "For each supplementary material, please supply a concise caption",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Provide a caption for each supplementary item."
+    },
+    {
+      "rule_id": "supplementary_citations",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "text must make specific mention of the material as a citation",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Cite supplementary material in the manuscript."
+    },
+    {
+      "rule_id": "table_captions",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "For each table, please supply a table caption",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Provide table captions."
+    },
+    {
+      "rule_id": "tables_cited",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Tables should always be cited in text in consecutive numerical order.",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Cite tables consecutively."
+    },
+    {
+      "rule_id": "tables_numbered",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "All tables are to be numbered using Arabic numerals.",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Number tables with Arabic numerals."
+    },
+    {
+      "rule_id": "title_concise",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "The title should be concise and informative.",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Use a concise informative title."
+    },
+    {
+      "rule_id": "title_page",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Please make sure your title page contains the following information.",
+      "source_ref": "src_dbfc5b1e656d9561",
+      "requirement": "Provide a title page with requested metadata."
+    }
+  ],
+  "sources": {
+    "src_1ae293e7ef094606": {
+      "url": "https://link.springer.com/journal/10115/aims-and-scope",
+      "retrieved_at": "2026-10-19T14:25:40Z",
+      "sha256": "1d02f5e997ffef735202674418167a7dbe9e845fd7142726f714c45d79bea6b1",
+      "path": "sources/src_1ae293e7ef094606.txt"
+    },
+    "src_dbfc5b1e656d9561": {
+      "url": "https://link.springer.com/journal/10115/submission-guidelines",
+      "retrieved_at": "2026-10-19T14:25:44Z",
+      "sha256": "4726fee8319aa1c8d98a0eacb866ac9853e522bda79e91f577d437d96d8e82ce",
+      "path": "sources/src_dbfc5b1e656d9561.txt"
+    }
+  }
+}

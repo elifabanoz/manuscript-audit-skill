@@ -8,6 +8,7 @@ The current fixtures cover:
 | --- | --- |
 | `0010-485X` | Computing |
 | `0098-5589` | IEEE Transactions on Software Engineering |
+| `0219-1377` | Knowledge and Information Systems |
 | `0269-2821` | Artificial Intelligence Review |
 | `0885-6125` | Machine Learning |
 | `0924-669X` | Applied Intelligence |
