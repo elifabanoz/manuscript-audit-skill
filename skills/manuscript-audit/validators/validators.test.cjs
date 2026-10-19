@@ -383,11 +383,29 @@ test('report rendering uses validated findings and shows remaining coverage', t 
   assert.match(report, /U\\-1 \(pending\): rule data\\_availability; section sec\\-3/);
   assert.match(report, /data availability statement/);
   assert.match(report, /does not predict an editorial decision/);
+  assert.match(report, /No verified AI policy was recorded/);
   const plan = fs.readFileSync(path.join(data.run, 'REVISION-PLAN.md'), 'utf8');
   assert.match(plan, /F\\-1 \(major\)/);
   assert.match(plan, /Suggested change: Add a data availability statement/);
   assert.match(plan, /0 unresolved finding\(s\)/);
   assert.throws(() => render(data.run), /already exists/);
+});
+
+test('report quotes a verified journal AI policy with its source', t => {
+  const data = fixture(t);
+  const guideline = `${fs.readFileSync(path.join(data.run, 'sources', 'guideline.txt'), 'utf8')} Disclose AI-assisted writing.`;
+  fs.writeFileSync(path.join(data.run, 'sources', 'guideline.txt'), guideline);
+  data.profile.sources.src_guideline.sha256 = crypto.createHash('sha256').update(guideline).digest('hex');
+  data.profile.ai_policy = { quote: 'Disclose AI-assisted writing.', source_ref: 'src_guideline' };
+  fs.writeFileSync(path.join(data.run, 'run-manifest.json'), JSON.stringify(manifestFor(data)));
+  fs.writeFileSync(path.join(data.run, 'journal-profile.json'), JSON.stringify(data.profile));
+  fs.writeFileSync(path.join(data.run, 'coverage-ledger.json'), JSON.stringify([{ ...data.ledger[0], status: 'pending', checked_by: [] }]));
+  fs.writeFileSync(path.join(data.run, 'findings.json'), '[]');
+  render(data.run);
+  const report = fs.readFileSync(path.join(data.run, 'REPORT.md'), 'utf8');
+  assert.match(report, /Journal AI policy/);
+  assert.match(report, /Disclose AI\\-assisted writing\\\./);
+  assert.match(report, /https:\/\/example\\\.invalid\/guidelines/);
 });
 
 test('report rendering refuses unverified records and escapes untrusted Markdown', t => {

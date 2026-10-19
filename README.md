@@ -52,7 +52,7 @@ Create a pending compliance ledger from the selected article type with `python s
 
 For explicit review coverage, add `--review-section Methods --review-class statistics` (repeat either flag for more sections or review lenses). This creates pending section/class pairs. The validator marks their fingerprints stale when supplied manuscript files change.
 
-Once the profile, ledger, findings, and agent records pass `validate-run.cjs`, generate private summaries with `node skills/manuscript-audit/validators/render-report.cjs <run-directory>`. `REPORT.md` lists confirmed records and names every pending or stale coverage unit; unresolved records go to `NEEDS-VALIDATION.md`. `REVISION-PLAN.md` orders only confirmed findings by recorded severity and repeats their recorded suggested changes.
+Once the profile, ledger, findings, and agent records pass `validate-run.cjs`, generate private summaries with `node skills/manuscript-audit/validators/render-report.cjs <run-directory>`. `REPORT.md` lists confirmed records, names every pending or stale coverage unit, and quotes a verified journal AI policy when one is recorded; unresolved records go to `NEEDS-VALIDATION.md`. `REVISION-PLAN.md` orders only confirmed findings by recorded severity and repeats their recorded suggested changes.
 
 For a revised manuscript, prepare and validate a new run, then use `node skills/manuscript-audit/validators/compare-runs.cjs <previous-run> <current-run>`. The private comparison lists changed records and coverage states without treating a missing finding as resolved. Reviewer records from the prior run become stale when the manuscript files or guideline sources change.
 

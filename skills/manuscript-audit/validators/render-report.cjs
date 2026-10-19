@@ -56,9 +56,20 @@ function render(run, replace = false) {
     '',
     'This report summarizes validated local records. It does not predict an editorial decision.',
     '',
-    '## Confirmed findings',
+    '## Journal AI policy',
     ''
   ];
+  if (profile.ai_policy) {
+    const source = profile.sources[profile.ai_policy.source_ref];
+    report.push(escapeMarkdown(profile.ai_policy.quote), '',
+      `Source: ${escapeMarkdown(source.url)} (retrieved ${escapeMarkdown(source.retrieved_at)})`, '');
+  } else {
+    report.push('No verified AI policy was recorded in the journal profile. Check the current submission instructions.', '');
+  }
+  report.push(
+    '## Confirmed findings',
+    ''
+  );
   if (!confirmed.length) report.push('None.', '');
   for (const finding of confirmed) {
     report.push(`### ${escapeMarkdown(finding.id)} — ${escapeMarkdown(finding.severity)}`, '', escapeMarkdown(finding.claim), '');
