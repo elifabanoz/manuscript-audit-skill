@@ -16,6 +16,7 @@ class Page:
 
     def extract_text(self, **options):
         assert options["extraction_mode"] == "layout"
+        assert options["layout_mode_strip_rotated"] is False
         return self.text
 
 

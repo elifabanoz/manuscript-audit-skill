@@ -36,7 +36,8 @@ def extract(path, reader_factory=None):
         lines = []
         empty_pages = []
         for index, page in enumerate(reader.pages, start=1):
-            text = page.extract_text(extraction_mode="layout", layout_mode_space_vertically=False) or ""
+            text = page.extract_text(extraction_mode="layout", layout_mode_space_vertically=False,
+                                     layout_mode_strip_rotated=False) or ""
             if not text.strip():
                 empty_pages.append(index)
             lines.append(f"[Page {index}]")
@@ -50,7 +51,7 @@ def extract(path, reader_factory=None):
     output = ("\n".join(lines) + "\n").encode("utf-8")
     if len(output) > MAX_TEXT_BYTES:
         raise ValueError("Extracted PDF text exceeds the size limit")
-    warnings = ["Verify reading order, tables, equations, and figures against the rendered PDF"]
+    warnings = ["Verify reading order, rotated text, tables, equations, and figures against the rendered PDF"]
     if empty_pages:
         warnings.append(f"No text extracted from page(s): {', '.join(map(str, empty_pages))}")
     return output, page_count, warnings

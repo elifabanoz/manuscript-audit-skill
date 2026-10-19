@@ -42,6 +42,21 @@ Once the profile, ledger, findings, and agent records pass `validate-run.cjs`, g
 
 For a revised manuscript, prepare and validate a new run, then use `node skills/manuscript-audit/validators/compare-runs.cjs <previous-run> <current-run>`. The private comparison lists changed records and coverage states without treating a missing finding as resolved. Reviewer records from the prior run become stale when the manuscript files or guideline sources change.
 
+## Public-paper example
+
+The [ALICE Collaboration paper arXiv:2404.07542v2](https://arxiv.org/abs/2404.07542) is available under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). A private demonstration run compared its extracted PDF text with the [PLOS ONE submission guidelines](https://journals.plos.org/plosone/s/submission-guidelines) as a hypothetical target. The guideline page was retrieved on 2026-10-19 at 10:44:44 UTC; its locally extracted text has SHA-256 `9b001b7db59c1dce0434004ac044f220832cbda192eb900ed91f83c33817303f`. The original PDF and extracted text are not in this repository.
+
+The validated local records produced this report summary:
+
+```text
+Journal: PLOS ONE
+Coverage: 0 covered, 1 pending, 0 stale
+Confirmed findings: none
+Needs validation: F-1 — A short title is not apparent in the extracted manuscript text.
+```
+
+F-1 is an unresolved search result. The submission form, supporting files, and PDF reading order were not checked, so the example does not claim the paper violates a journal rule. The report does not predict an editorial decision.
+
 ## License
 
 This version is offered under the [PolyForm Noncommercial License 1.0.0](LICENSE). It does not grant commercial-use rights. Earlier commits were released under MIT and retain their original terms.
