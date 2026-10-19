@@ -340,6 +340,10 @@ test('report rendering uses validated findings and shows remaining coverage', t 
   assert.match(report, /1 pending/);
   assert.match(report, /data availability statement/);
   assert.match(report, /does not predict an editorial decision/);
+  const plan = fs.readFileSync(path.join(data.run, 'REVISION-PLAN.md'), 'utf8');
+  assert.match(plan, /F\\-1 \(major\)/);
+  assert.match(plan, /Suggested change: Add a data availability statement/);
+  assert.match(plan, /0 unresolved finding\(s\)/);
   assert.throws(() => render(data.run), /already exists/);
 });
 
@@ -352,6 +356,7 @@ test('report rendering refuses unverified records and escapes untrusted Markdown
   fs.rmSync(path.join(data.run, 'agents', 'defense.json'));
   assert.throws(() => render(data.run), /Run validation failed/);
   assert.equal(fs.existsSync(path.join(data.run, 'REPORT.md')), false);
+  assert.equal(fs.existsSync(path.join(data.run, 'REVISION-PLAN.md')), false);
   assert.equal(escapeMarkdown('![image](https://example.org)'), '\\!\\[image\\]\\(https://example\\.org\\)');
 });
 

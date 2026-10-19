@@ -72,9 +72,27 @@ function render(run, replace = false) {
   for (const finding of unresolved) {
     pendingReport.push(`## ${escapeMarkdown(finding.id)}`, '', escapeMarkdown(finding.claim), '', `Unresolved: ${escapeMarkdown(finding.unresolved_fact)}`, '');
   }
+  const revisionPlan = [
+    '# Revision plan',
+    '',
+    `Journal: ${escapeMarkdown(profile.title)} (${escapeMarkdown(profile.issn)})`,
+    '',
+    'Only confirmed findings appear as revision tasks. Check each change against the manuscript and journal guidelines.',
+    '',
+    '## Confirmed revision tasks',
+    ''
+  ];
+  if (!confirmed.length) revisionPlan.push('None.', '');
+  for (const [index, finding] of confirmed.entries()) {
+    revisionPlan.push(`${index + 1}. ${escapeMarkdown(finding.id)} (${escapeMarkdown(finding.severity)}): ${escapeMarkdown(finding.claim)}`);
+    if (finding.suggested_fix) revisionPlan.push(`   Suggested change: ${escapeMarkdown(finding.suggested_fix)}`);
+  }
+  if (confirmed.length) revisionPlan.push('');
+  revisionPlan.push('## Pending review', '', `${unresolved.length} unresolved finding(s). See NEEDS-VALIDATION.md before treating them as revision tasks.`, '');
   const outputs = [
     [path.join(run, 'REPORT.md'), report.join('\n') + '\n'],
-    [path.join(run, 'NEEDS-VALIDATION.md'), pendingReport.join('\n') + '\n']
+    [path.join(run, 'NEEDS-VALIDATION.md'), pendingReport.join('\n') + '\n'],
+    [path.join(run, 'REVISION-PLAN.md'), revisionPlan.join('\n') + '\n']
   ];
   if (!replace && outputs.some(([file]) => fs.existsSync(file))) throw new Error('A report already exists; use --replace after reviewing the run');
   for (const [file, content] of outputs) fs.writeFileSync(file, content, { encoding: 'utf8', flag: replace ? 'w' : 'wx' });
