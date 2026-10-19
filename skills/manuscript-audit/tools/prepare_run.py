@@ -65,37 +65,47 @@ def prepare(args):
             raise ValueError("--extraction-record text hash does not match")
         if not isinstance(extraction.get("source_sha256"), str) or not re.fullmatch(r"[a-f0-9]{64}", extraction["source_sha256"]):
             raise ValueError("--extraction-record has no valid original file hash")
-    source_record = getattr(args, "source_record", None)
-    if source_record:
+    source_records = getattr(args, "source_record", None) or []
+    if isinstance(source_records, Path):
+        source_records = [source_records]
+    sources = []
+    if source_records:
         if args.guideline_text or args.guideline_url or args.retrieved_at:
             raise ValueError("--source-record cannot be combined with manual guideline fields")
-        source = json.loads(source_record.read_text(encoding="utf-8"))
-        if not isinstance(source, dict) or source.get("schema_version") != 1 or source.get("text_file") != "guideline.txt":
-            raise ValueError("--source-record has an invalid format")
-        guideline_path = source_record.parent / "guideline.txt"
-        if guideline_path.is_symlink():
-            raise ValueError("--source-record cannot reference a symbolic link")
-        guideline = read_text(guideline_path, "--source-record")
-        if source.get("sha256") != digest(guideline):
-            raise ValueError("--source-record text hash does not match")
-        guideline_url = source.get("url")
-        retrieved_at = source.get("retrieved_at")
-        if not isinstance(guideline_url, str) or not isinstance(retrieved_at, str):
-            raise ValueError("--source-record is missing its URL or retrieval time")
+        for source_record in source_records:
+            source = json.loads(source_record.read_text(encoding="utf-8"))
+            if not isinstance(source, dict) or source.get("schema_version") != 1 or source.get("text_file") != "guideline.txt":
+                raise ValueError("--source-record has an invalid format")
+            guideline_path = source_record.parent / "guideline.txt"
+            if guideline_path.is_symlink():
+                raise ValueError("--source-record cannot reference a symbolic link")
+            guideline = read_text(guideline_path, "--source-record")
+            if source.get("sha256") != digest(guideline):
+                raise ValueError("--source-record text hash does not match")
+            sources.append((source.get("url"), source.get("retrieved_at"), guideline))
     else:
         if not (args.guideline_text and args.guideline_url and args.retrieved_at):
             raise ValueError("Supply --source-record or all manual guideline fields")
-        guideline = read_text(args.guideline_text, "--guideline-text")
-        guideline_url = args.guideline_url
-        retrieved_at = args.retrieved_at
+        sources.append((args.guideline_url, args.retrieved_at,
+                        read_text(args.guideline_text, "--guideline-text")))
     supplementary = [(path.suffix.lower(), read_text(path, "--supplementary")) for path in args.supplementary]
     if any(not model.strip() for model in args.model):
         raise ValueError("--model must be nonempty when supplied")
     skill = SKILL_FILE.read_bytes()
-    retrieved_at = timestamp(retrieved_at)
-    url = urlsplit(guideline_url)
-    if url.scheme != "https" or not url.hostname or url.username or url.password:
-        raise ValueError("--guideline-url must be a valid HTTPS URL without credentials")
+    validated_sources = []
+    seen_urls = set()
+    for guideline_url, retrieved_at, guideline in sources:
+        if not isinstance(guideline_url, str) or not isinstance(retrieved_at, str):
+            raise ValueError("A guideline source is missing its URL or retrieval time")
+        url = urlsplit(guideline_url)
+        if url.scheme != "https" or not url.hostname or url.username or url.password:
+            raise ValueError("--guideline-url must be a valid HTTPS URL without credentials")
+        if guideline_url in seen_urls:
+            raise ValueError("Guideline source URLs must be unique within a run")
+        seen_urls.add(guideline_url)
+        source_hash = digest(guideline)
+        source_id = f"src_{digest((guideline_url + chr(0) + source_hash).encode('utf-8'))[:16]}"
+        validated_sources.append((source_id, guideline_url, timestamp(retrieved_at), source_hash, guideline))
     root = args.output_root.expanduser()
     outside_git(root)
     slug = re.sub(r"[^a-z0-9]+", "-", args.manuscript.stem.lower()).strip("-")[:64] or "manuscript"
@@ -111,14 +121,16 @@ def prepare(args):
             continue
     else:
         raise ValueError("No available run number")
-    source_hash = digest(guideline)
-    source_id = f"src_{source_hash[:16]}"
-    source_path = f"sources/{source_hash}.txt"
     (run / "sources").mkdir()
     (run / f"manuscript{args.manuscript.suffix.lower()}").write_bytes(manuscript)
     if extraction_bytes:
         (run / "extraction.json").write_bytes(extraction_bytes)
-    (run / source_path).write_bytes(guideline)
+    source_manifest = {}
+    for source_id, guideline_url, retrieved_at, source_hash, guideline in validated_sources:
+        source_path = f"sources/{source_id}.txt"
+        (run / source_path).write_bytes(guideline)
+        source_manifest[source_id] = {"url": guideline_url, "retrieved_at": retrieved_at,
+                                      "sha256": source_hash, "path": source_path}
     if supplementary:
         (run / "supplementary").mkdir()
     supplement_records = []
@@ -138,7 +150,7 @@ def prepare(args):
         "cross_host": False,
         "manuscript": {"path": f"manuscript{args.manuscript.suffix.lower()}", "sha256": digest(manuscript)},
         "supplementary": supplement_records,
-        "sources": {source_id: {"url": guideline_url, "retrieved_at": retrieved_at, "sha256": source_hash, "path": source_path}},
+        "sources": source_manifest,
     }
     if extraction:
         manifest["extraction"] = {"format": extraction["format"], "source_sha256": extraction["source_sha256"],
@@ -155,7 +167,7 @@ def main():
     parser.add_argument("--supplementary", type=Path, action="append", default=[], help="Additional UTF-8 .md or .txt file; repeat if needed")
     parser.add_argument("--guideline-url")
     parser.add_argument("--retrieved-at", help="ISO 8601 time with timezone")
-    parser.add_argument("--source-record", type=Path, help="Private source.json written by fetch_guidelines.py")
+    parser.add_argument("--source-record", type=Path, action="append", help="Private source.json written by fetch_guidelines.py; repeat for each guideline page")
     parser.add_argument("--output-root", type=Path, default=Path.home() / "manuscript-audit")
     parser.add_argument("--host", choices=("codex", "claude-code", "manual"), default="manual")
     parser.add_argument("--model", action="append", default=[], help="Model actually used; repeat if needed")

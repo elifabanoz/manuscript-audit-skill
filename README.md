@@ -23,6 +23,8 @@ python skills/manuscript-audit/tools/fetch_guidelines.py --url https://example.o
 python skills/manuscript-audit/tools/prepare_run.py --manuscript /path/to/paper.md --source-record /path/to/manuscript-audit/sources/source-1/source.json
 ```
 
+Repeat `--source-record` for every relevant guideline page. Each page receives its own source ID, URL, retrieval time, and content hash in the private run; no cached page is committed to the repository.
+
 For manually verified guideline text, supply the actual guideline URL and its known retrieval time:
 
 ```sh
