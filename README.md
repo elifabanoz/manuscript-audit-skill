@@ -14,7 +14,7 @@ If a journal has not been chosen, use an explicit, nonconfidential topic phrase 
 python skills/manuscript-audit/tools/discover_journals.py --query "synthetic topic"
 ```
 
-This writes a private `candidates.json` under `~/manuscript-audit/discovery/discovery-N/`. It contains source IDs, ISSN-L values, and matching work IDs; it does not copy article text. Set `OPENALEX_API_KEY` in the environment if you have a key. The author selects the target journal; the matching-work count is only a discovery signal.
+For a known field, add its OpenAlex field ID, such as `--field-id 17` for Computer Science. Discovery considers journal sources of article works in that primary field. This writes a private `candidates.json` under `~/manuscript-audit/discovery/discovery-N/`. It contains source IDs, ISSN-L values, and matching work IDs; it does not copy article text. Set `OPENALEX_API_KEY` in the environment if you have a key. The author selects the target journal; the matching-work count is only a discovery signal. Inspect journal scope and current submission status before using a candidate.
 
 To fetch a public guideline page and prepare a run, inspect the extracted text before using it:
 

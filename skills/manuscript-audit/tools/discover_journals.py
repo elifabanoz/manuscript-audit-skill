@@ -54,9 +54,12 @@ def shortlist(payload, limit):
     return candidates[:limit]
 
 
-def fetch_works(query, per_page, opener=urlopen):
-    params = urlencode({"search.title_abstract_keywords": query, "per_page": per_page,
-                        "select": "id,primary_location"})
+def fetch_works(query, per_page, opener=urlopen, field_id=None):
+    filters = ["type:article"]
+    if field_id is not None:
+        filters.append(f"primary_topic.field.id:{field_id}")
+    params = urlencode({"search.title_abstract_keywords": query, "filter": ",".join(filters),
+                        "per_page": per_page, "select": "id,primary_location"})
     request = Request(f"{API_URL}?{params}", headers={"User-Agent": "manuscript-audit-skill/0.1", "Accept": "application/json"})
     api_key = os.environ.get("OPENALEX_API_KEY")
     if api_key:
@@ -77,15 +80,17 @@ def fetch_works(query, per_page, opener=urlopen):
     return payload, hashlib.sha256(data).hexdigest()
 
 
-def discover(query, output_root, per_page=50, limit=10, opener=urlopen):
+def discover(query, output_root, per_page=50, limit=10, opener=urlopen, field_id=None):
     query = query.strip()
     if not query or len(query) > 200 or any(character in query for character in "\r\n\x00"):
         raise ValueError("--query must be a single topic phrase of 1 to 200 characters")
     if not 1 <= per_page <= 100 or not 1 <= limit <= 100:
         raise ValueError("--works and --limit must be between 1 and 100")
+    if field_id is not None and (isinstance(field_id, bool) or not isinstance(field_id, int) or field_id <= 0):
+        raise ValueError("--field-id must be a positive OpenAlex field ID")
     root = output_root.expanduser()
     outside_git(root)
-    payload, response_hash = fetch_works(query, per_page, opener)
+    payload, response_hash = fetch_works(query, per_page, opener, field_id)
     candidates = shortlist(payload, limit)
     root.mkdir(parents=True, exist_ok=True)
     for number in range(1, 100000):
@@ -102,6 +107,8 @@ def discover(query, output_root, per_page=50, limit=10, opener=urlopen):
         "retrieved_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
         "provider": "OpenAlex",
         "query": query,
+        "field_id": field_id,
+        "work_filter": "article with matching primary field" if field_id is not None else "article",
         "works_requested": per_page,
         "response_sha256": response_hash,
         "candidates": candidates,
@@ -117,9 +124,10 @@ def main():
     parser.add_argument("--output-root", type=Path, default=Path.home() / "manuscript-audit" / "discovery")
     parser.add_argument("--works", type=int, default=50, help="Number of OpenAlex works to inspect (1-100)")
     parser.add_argument("--limit", type=int, default=10, help="Maximum journal candidates to retain (1-100)")
+    parser.add_argument("--field-id", type=int, help="Optional OpenAlex primary field ID")
     args = parser.parse_args()
     try:
-        print(discover(args.query, args.output_root, args.works, args.limit))
+        print(discover(args.query, args.output_root, args.works, args.limit, field_id=args.field_id))
     except (OSError, ValueError) as error:
         parser.exit(1, f"Error: {error}\n")
 

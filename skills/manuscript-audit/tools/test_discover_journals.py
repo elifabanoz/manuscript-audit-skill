@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from urllib.parse import parse_qs, urlsplit
 
 from discover_journals import discover, shortlist
 
@@ -52,12 +53,15 @@ class DiscoveryTests(unittest.TestCase):
             return Response(data)
 
         with tempfile.TemporaryDirectory() as temporary, patch.dict("os.environ", {"OPENALEX_API_KEY": "test-key"}):
-            output = discover("synthetic topic", Path(temporary), opener=opener)
+            output = discover("synthetic topic", Path(temporary), opener=opener, field_id=17)
             record = json.loads(output.read_text(encoding="utf-8"))
             self.assertEqual(record["query"], "synthetic topic")
+            self.assertEqual(record["field_id"], 17)
             self.assertEqual(record["candidates"][0]["display_name"], "Example Journal")
             self.assertNotIn("Unused title", output.read_text(encoding="utf-8"))
-            self.assertIn("synthetic+topic", requests[0].full_url)
+            params = parse_qs(urlsplit(requests[0].full_url).query)
+            self.assertEqual(params["search.title_abstract_keywords"], ["synthetic topic"])
+            self.assertEqual(params["filter"], ["type:article,primary_topic.field.id:17"])
             self.assertEqual(requests[0].get_header("Authorization"), "Bearer test-key")
             self.assertNotIn("test-key", requests[0].full_url)
 
@@ -75,6 +79,13 @@ class DiscoveryTests(unittest.TestCase):
             for query in ("", "word\nsecret", "x" * 201):
                 with self.subTest(query=query[:10]), self.assertRaisesRegex(ValueError, "topic phrase"):
                     discover(query, Path(temporary), opener=lambda *_args, **_kwargs: None)
+
+    def test_rejects_invalid_field_before_network_request(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            for field_id in (0, -1, True):
+                with self.subTest(field_id=field_id), self.assertRaisesRegex(ValueError, "field-id"):
+                    discover("synthetic topic", Path(temporary), field_id=field_id,
+                             opener=lambda *_args, **_kwargs: self.fail("Unexpected network request"))
 
 
 if __name__ == "__main__":
