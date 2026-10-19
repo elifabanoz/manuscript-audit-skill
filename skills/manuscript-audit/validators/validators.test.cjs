@@ -280,6 +280,16 @@ test('whole-corpus coverage becomes stale when its fingerprint differs', t => {
   assert.match(validateRun(data.run, manifest, data.profile, data.ledger, data.findings).join('\n'), /source_hash is stale/);
 });
 
+test('review coverage becomes stale when supplied files change', t => {
+  const data = fixture(t);
+  const manifest = manifestFor(data);
+  const reviewUnit = { unit_id: 'U-2', kind: 'review', review_class: 'methods', section: 'Methods',
+    target_issn: data.profile.issn, status: 'pending', checked_by: [], source_hash: corpusHash(manifest) };
+  assert.deepEqual(validateRun(data.run, manifest, data.profile, [...data.ledger, reviewUnit], data.findings), []);
+  reviewUnit.source_hash = crypto.createHash('sha256').update('old corpus').digest('hex');
+  assert.match(validateRun(data.run, manifest, data.profile, [...data.ledger, reviewUnit], data.findings).join('\n'), /source_hash is stale/);
+});
+
 test('the hash command identifies the exact finding under review', t => {
   const data = fixture(t);
   const manifest = manifestFor(data);

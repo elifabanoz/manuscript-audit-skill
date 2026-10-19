@@ -70,6 +70,19 @@ class CoverageBuildTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "sources differ"):
             build(self.run, "original_research")
 
+    def test_builds_explicit_section_review_matrix(self):
+        ledger = build(self.run, "original_research", ["Introduction"], ["methods", "claim_evidence"])
+        self.assertEqual([(item["kind"], item.get("review_class"), item["section"]) for item in ledger],
+                         [("compliance", None, "all-supplied-files"),
+                          ("review", "methods", "Introduction"),
+                          ("review", "claim_evidence", "Introduction")])
+        self.assertEqual(len({item["unit_id"] for item in ledger}), 3)
+
+    def test_review_sections_require_unique_existing_heading(self):
+        with self.assertRaisesRegex(ValueError, "unique Markdown heading"):
+            build(self.run, "original_research", ["Missing"], ["methods"])
+        self.assertFalse((self.run / "coverage-ledger.json").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

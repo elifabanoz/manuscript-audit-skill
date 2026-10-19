@@ -94,7 +94,7 @@ function validate(run, manifest, profile, ledger, findings) {
     for (const [index, unit] of ledger.entries()) {
       if (unit?.target_issn !== profile.issn) errors.push(`ledger[${index}].target_issn differs from profile.issn`);
       if (unit?.kind === 'compliance' && !profile.rules.some(rule => rule.rule_id === unit.rule_id)) errors.push(`ledger[${index}].rule_id is absent from the profile`);
-      if (unit?.section === 'all-supplied-files' && unit.source_hash !== corpusHash(manifest)) errors.push(`ledger[${index}].source_hash is stale for supplied files`);
+      if ((unit?.section === 'all-supplied-files' || unit?.kind === 'review') && unit.source_hash !== corpusHash(manifest)) errors.push(`ledger[${index}].source_hash is stale for supplied files`);
     }
   }
   if (Array.isArray(findings)) {

@@ -32,6 +32,8 @@ For a journal profile with Markdown abstract, main-text word, or keyword-count l
 
 Create a pending compliance ledger from the selected article type with `python skills/manuscript-audit/tools/build_coverage.py <run-directory> --article-type original_research`. The tool refuses to overwrite an existing ledger; each unit carries a fingerprint of the supplied manuscript files.
 
+For explicit review coverage, add `--review-section Methods --review-class statistics` (repeat either flag for more sections or review lenses). This creates pending section/class pairs. The validator marks their fingerprints stale when supplied manuscript files change.
+
 Once the profile, ledger, findings, and agent records pass `validate-run.cjs`, generate private summaries with `node skills/manuscript-audit/validators/render-report.cjs <run-directory>`. The report lists confirmed records and pending coverage; unresolved records go to `NEEDS-VALIDATION.md`.
 
 For a revised manuscript, prepare and validate a new run, then use `node skills/manuscript-audit/validators/compare-runs.cjs <previous-run> <current-run>`. The private comparison lists changed records and coverage states without treating a missing finding as resolved. Reviewer records from the prior run become stale when the manuscript files or guideline sources change.
