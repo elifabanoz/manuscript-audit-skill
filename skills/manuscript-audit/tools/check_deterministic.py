@@ -14,6 +14,7 @@ from prepare_run import outside_git
 HEADING = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 WORD = re.compile(r"[^\W_]+(?:[-'\u2019][^\W_]+)*", re.UNICODE)
+INLINE_KEYWORDS = re.compile(r"^\s*(?:keywords|key words)\s*:\s*(.*?)\s*$", re.IGNORECASE)
 VALIDATORS = Path(__file__).resolve().parents[1] / "validators"
 
 
@@ -64,7 +65,7 @@ def section_words(lines, start, end):
     return len(WORD.findall("\n".join(body_lines))), None
 
 
-def measure_abstract(text):
+def abstract_section(text):
     lines, headings = heading_spans(text)
     matches = [(position, level) for position, level, label in headings if label == "abstract"]
     if len(matches) != 1:
@@ -73,7 +74,28 @@ def measure_abstract(text):
     following = [position for position, depth, _ in headings if position > start and depth <= level]
     if not following:
         return None, "Abstract has no following heading at the same or higher level"
-    return section_words(lines, start + 1, following[0])
+    return lines[start + 1:following[0]], None
+
+
+def inline_keyword_line(body):
+    matches = [(index, line) for index, line in enumerate(body) if INLINE_KEYWORDS.fullmatch(line)]
+    if not matches:
+        return None, None
+    if len(matches) != 1 or any(line.strip() for line in body[matches[0][0] + 1:]):
+        return None, "Inline keywords must be the final nonblank line of the abstract"
+    return matches[0], None
+
+
+def measure_abstract(text):
+    body, reason = abstract_section(text)
+    if reason:
+        return None, reason
+    keyword, reason = inline_keyword_line(body)
+    if reason:
+        return None, reason
+    if keyword:
+        body = body[:keyword[0]]
+    return section_words(body, 0, len(body))
 
 
 def measure_main(text, start_label, end_label):
@@ -90,12 +112,24 @@ def measure_main(text, start_label, end_label):
 def measure_keywords(text):
     lines, headings = heading_spans(text)
     matches = [(position, level) for position, level, label in headings if label in ("keywords", "key words")]
-    if len(matches) != 1:
-        return None, "Expected exactly one Markdown Keywords heading"
-    start, level = matches[0]
-    following = [position for position, depth, _ in headings if position > start and depth <= level]
-    end = following[0] if following else len(lines)
-    body = [line.strip() for line in lines[start + 1:end] if line.strip()]
+    abstract, abstract_reason = abstract_section(text)
+    inline, inline_reason = inline_keyword_line(abstract) if abstract is not None else (None, None)
+    if inline_reason:
+        return None, inline_reason
+    if len(matches) > 1 or (matches and inline):
+        return None, "Ambiguous or duplicate keyword blocks"
+    if matches:
+        start, level = matches[0]
+        following = [position for position, depth, _ in headings if position > start and depth <= level]
+        end = following[0] if following else len(lines)
+        body = [line.strip() for line in lines[start + 1:end] if line.strip()]
+    elif inline:
+        _, unsafe = section_words(abstract, 0, len(abstract))
+        if unsafe:
+            return None, unsafe
+        body = [inline[1].strip()]
+    else:
+        return None, abstract_reason or "Expected a Markdown Keywords heading or a final Keywords line in the abstract"
     if len(body) != 1 or any(mark in body[0] for mark in ("`", "[", "]", "|", "*", "<", ">")):
         return None, "Keywords must be one plain-text line"
     value = re.sub(r"^(?:keywords|key words)\s*:\s*", "", body[0], flags=re.IGNORECASE)
@@ -178,7 +212,7 @@ def check(run, article_type, main_start=None, main_end=None):
     output = {
         "article_type": article_type,
         "manuscript_sha256": manifest["manuscript"]["sha256"],
-        "method": "Markdown heading ranges; Unicode word tokens; headings excluded",
+        "method": "Markdown heading ranges; final inline Keywords excluded from abstract; Unicode word tokens",
         "checks": results,
     }
     (run / "deterministic-checks.json").write_text(json.dumps(output, indent=2) + "\n", encoding="utf-8")

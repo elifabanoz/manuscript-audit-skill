@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from check_deterministic import check, measure_heading_count
+from check_deterministic import check, measure_abstract, measure_heading_count, measure_keywords
 from prepare_run import prepare
 
 
@@ -108,6 +108,15 @@ class DeterministicCheckTests(unittest.TestCase):
         manifest_file.write_text(json.dumps(manifest), encoding="utf-8")
         output = check(self.run, "original_research")
         self.assertEqual(output["checks"][2]["status"], "unresolved")
+
+    def test_final_inline_keywords_are_counted_outside_the_abstract(self):
+        text = "# Title\n## Abstract\nOne two three.\n\nKeywords: alpha, beta, gamma\n\n## Introduction\nBody.\n"
+        self.assertEqual(measure_abstract(text), (3, None))
+        self.assertEqual(measure_keywords(text), (3, None))
+        moved = text.replace("Keywords: alpha, beta, gamma\n\n## Introduction", "Keywords: alpha, beta, gamma\nMore abstract text.\n## Introduction")
+        self.assertIsNotNone(measure_keywords(moved)[1])
+        duplicated = text.replace("## Introduction", "## Keywords\nalpha, beta\n## Introduction")
+        self.assertIsNotNone(measure_keywords(duplicated)[1])
 
     def test_source_mismatch_and_tampering_are_rejected(self):
         self.profile["sources"][next(iter(self.profile["sources"]))]["url"] = "https://example.org/other"
