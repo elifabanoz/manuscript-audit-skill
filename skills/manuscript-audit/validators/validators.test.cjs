@@ -16,6 +16,7 @@ const { corpusHash, coverageSubjectHash, reviewSubjectHash, validate: validateRu
 const { escapeMarkdown, render } = require('./render-report.cjs');
 const { compare } = require('./compare-runs.cjs');
 const { compare: compareProfiles } = require('./compare-profiles.cjs');
+const { adjudicate } = require('./adjudicate-profiles.cjs');
 
 function fixture(t) {
   const run = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-audit-'));
@@ -212,6 +213,37 @@ test('partial promotion rejects conflicting journal identity', t => {
   fs.writeFileSync(path.join(run, 'profile-b.json'), JSON.stringify({ ...profile, title: 'Another Journal' }));
   assert.throws(() => compareProfiles(run, 'profile-a.json', 'profile-b.json', 'partial'), /Profile identity differs: title/);
   assert.equal(fs.existsSync(path.join(run, 'journal-profile.json')), false);
+});
+
+test('adjudication requires a reason for every difference and cannot silently upgrade a rule', t => {
+  const data = fixture(t);
+  const { run, profile } = data;
+  fs.writeFileSync(path.join(run, 'run-manifest.json'), JSON.stringify(manifestFor(data)));
+  const first = structuredClone(profile);
+  first.rules[0].status = 'needs_validation';
+  const second = structuredClone(profile);
+  second.rules[0].requirement = 'Provide the required statement';
+  second.rules.push({
+    rule_id: 'extra_rule', kind: 'semantic', requirement: 'Follow the example journal guidelines',
+    quote: 'Example Journal guidelines.', source_ref: 'src_guideline'
+  });
+  fs.writeFileSync(path.join(run, 'profile-a.json'), JSON.stringify(first));
+  fs.writeFileSync(path.join(run, 'profile-b.json'), JSON.stringify(second));
+  const decisionsPath = path.join(run, 'decisions.json');
+  fs.writeFileSync(decisionsPath, JSON.stringify({ schema_version: 1, resolutions: {} }));
+  assert.throws(() => adjudicate(run, 'profile-a.json', 'profile-b.json', 'decisions.json'), /One resolution is required/);
+  const resolutions = {
+    'rules.data_availability': { choice: 'first', reason: 'The first wording follows the cited source.', status: 'verified' },
+    'rules.extra_rule': { choice: 'omit', reason: 'It duplicates the first rule.' }
+  };
+  fs.writeFileSync(decisionsPath, JSON.stringify({ schema_version: 1, resolutions }));
+  assert.throws(() => adjudicate(run, 'profile-a.json', 'profile-b.json', 'decisions.json'), /Cannot upgrade unresolved rule/);
+  resolutions['rules.data_availability'].status = 'needs_validation';
+  fs.writeFileSync(decisionsPath, JSON.stringify({ schema_version: 1, resolutions }));
+  const result = adjudicate(run, 'profile-a.json', 'profile-b.json', 'decisions.json');
+  assert.equal(result.rules, 1);
+  assert.equal(result.unresolved_rules, 1);
+  assert.deepEqual(validateProfile(JSON.parse(fs.readFileSync(result.output))), []);
 });
 
 test('unresolved journal rules cannot be covered or used for confirmed findings', t => {
