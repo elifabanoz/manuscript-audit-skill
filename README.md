@@ -34,6 +34,8 @@ After adding `journal-profile.json`, `coverage-ledger.json`, `findings.json`, an
 
 For a journal profile with Markdown abstract, main-text word, keyword-count, or required-heading rules, `python skills/manuscript-audit/tools/check_deterministic.py <run-directory> --article-type original_research --main-start Introduction --main-end References` records provisional measurements in the private run. A required heading uses `{"metric":"heading_count","heading":"Data Availability","op":">=","value":1}` in the journal profile. Unclear section boundaries or unsupported formatting stay unresolved; heading counts from PDF text are not inferred.
 
+For explicitly labeled, same-line two-sided z statistics and p values, `python skills/manuscript-audit/tools/check_z_p.py <run-directory>` writes private `z-checks.json`. It compares the normal-tail probability while allowing for the printed precision of z and equality p values. Other test formats are skipped. A `needs_review` result is a prompt to inspect the original manuscript and test assumptions, not a confirmed statistical error.
+
 To inventory DOI mentions in the supplied manuscript and text supplements, run `python skills/manuscript-audit/tools/list_dois.py <run-directory>`. It writes a private `doi-inventory.json` with file and line references. DOI mentions do not establish that the reference list is complete or that a citation is correct.
 
 For labeled arXiv identifiers, run `python skills/manuscript-audit/tools/list_arxiv_ids.py <run-directory>`. It writes a separate private `arxiv-inventory.json` with file and line references. This catches modern and legacy `arXiv:` IDs but does not look them up or infer which references lack an identifier.
