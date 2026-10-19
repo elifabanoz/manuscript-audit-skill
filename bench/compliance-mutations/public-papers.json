@@ -10,6 +10,16 @@
       "source_ref": "v1.1",
       "source_sha256": "8bf3011c587d8f77c7873e1116fd9a7294f97828e018603e48a402f19358ef63",
       "output_name": "joss-09737-paper.md"
+    },
+    {
+      "doi": "10.21105/jose.00059",
+      "journal": "Journal of Open Source Education",
+      "article_url": "https://jose.theoj.org/papers/10.21105/jose.00059",
+      "article_license": "CC BY 4.0",
+      "source_url": "https://raw.githubusercontent.com/kalu-o/mLEARn/037d86506681c763def5852c27e35365d8fc4bdd/papers/paper.md",
+      "source_ref": "037d86506681c763def5852c27e35365d8fc4bdd",
+      "source_sha256": "9c6cdf15c8e4579cac237b215720a343f8369044398cf8b79286e47ea2b6becc",
+      "output_name": "jose-00059-paper.md"
     }
   ]
 }
