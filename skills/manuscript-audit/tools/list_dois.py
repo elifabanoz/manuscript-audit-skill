@@ -23,7 +23,7 @@ def clean_doi(value):
     return value
 
 
-def inventory(run):
+def collect(run):
     run = run.resolve()
     outside_git(run)
     result = subprocess.run(["node", str(VALIDATOR), str(run)], capture_output=True, text=True)
@@ -43,13 +43,17 @@ def inventory(run):
                 location = {"path": file["path"], "line_id": f"L{line_number}"}
                 if location not in found[key]["occurrences"]:
                     found[key]["occurrences"].append(location)
-    output = {
+    return {
         "schema_version": 1,
         "corpus_sha256": corpus_hash(manifest),
         "note": "DOI mentions only; reference completeness and bibliographic accuracy are not established",
         "dois": sorted(found.values(), key=lambda item: item["doi"].casefold()),
     }
-    path = run / "doi-inventory.json"
+
+
+def inventory(run):
+    output = collect(run)
+    path = run.resolve() / "doi-inventory.json"
     with path.open("x", encoding="utf-8") as handle:
         json.dump(output, handle, indent=2, ensure_ascii=False)
         handle.write("\n")
