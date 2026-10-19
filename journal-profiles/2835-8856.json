@@ -1,0 +1,333 @@
+{
+  "issn": "2835-8856",
+  "title": "Transactions on Machine Learning Research",
+  "publisher": "Transactions on Machine Learning Research",
+  "article_types": [
+    "original_research",
+    "reproducibility_study",
+    "application_study",
+    "theoretical_study"
+  ],
+  "scope": {
+    "quote": "TMLR’s objective is to publish original papers that contribute to the\nunderstanding of the computational and mathematical principles that enable intelligence through learning",
+    "source_ref": "src_ba6548c481e0c08c"
+  },
+  "ai_policy": {
+    "quote": "LLMs may be used as general-purpose assistive tools.",
+    "source_ref": "src_ba6548c481e0c08c"
+  },
+  "rules": [
+    {
+      "rule_id": "action_editor_recommendation",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "information on appropriate action editors for the submission",
+      "source_ref": "src_a671317dd4fa4971",
+      "requirement": "Recommend appropriate action editors in the submission system."
+    },
+    {
+      "rule_id": "ai_authorship",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "LLMs are not eligible for authorship.",
+      "source_ref": "src_ba6548c481e0c08c",
+      "requirement": "Do not list an LLM as an author."
+    },
+    {
+      "rule_id": "ai_use_disclosure",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "we also require that authors mention explicitly in their submission that they have used this tool, as a footnote on the first page.",
+      "source_ref": "src_ebd91400a42414b3",
+      "requirement": "Disclose LLM use in a first-page footnote when applicable."
+    },
+    {
+      "rule_id": "anonymous_submission",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "submissions must be anonymized.",
+      "source_ref": "src_a671317dd4fa4971",
+      "requirement": "Remove author-identifying information from the submission."
+    },
+    {
+      "rule_id": "appendix_position",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "after the references (for proofs, derivations or complimentary results).",
+      "source_ref": "src_a671317dd4fa4971",
+      "requirement": "Place any appendix after the references in the submission PDF."
+    },
+    {
+      "rule_id": "audience_interest",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Would some individuals in TMLR’s audience be interested in the findings of this paper",
+      "source_ref": "src_6d1177319c488a3e",
+      "requirement": "Explain findings of interest to some of the TMLR audience."
+    },
+    {
+      "rule_id": "author_consent",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "They are aware the submission has been submitted to TMLR.",
+      "source_ref": "src_ba6548c481e0c08c",
+      "requirement": "Ensure every listed author knows the paper is submitted to TMLR."
+    },
+    {
+      "rule_id": "author_contribution_criteria",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "They have made a substantial intellectual contribution to the work described in the submission.",
+      "source_ref": "src_ba6548c481e0c08c",
+      "requirement": "List as authors only people who meet TMLR’s intellectual contribution and other authorship criteria."
+    },
+    {
+      "rule_id": "author_list_fixed",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "No authors may be added or removed after submission. There are no exceptions to this policy.",
+      "source_ref": "src_ba6548c481e0c08c",
+      "requirement": "Fix the complete author list at submission; do not add or remove authors later."
+    },
+    {
+      "rule_id": "author_openreview_list",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "The exact set of authors must be listed on OpenReview, with active OpenReview profiles",
+      "source_ref": "src_ba6548c481e0c08c",
+      "requirement": "List all authors on OpenReview with active profiles at submission."
+    },
+    {
+      "rule_id": "author_responsibility",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "They take full responsibility for all content in the final published work.",
+      "source_ref": "src_ba6548c481e0c08c",
+      "requirement": "Ensure each author takes responsibility for the final work."
+    },
+    {
+      "rule_id": "broader_impact_content",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "a concise, concrete description of potential positive and\nnegative societal impact, as well as a discussion of possible mitigations.",
+      "source_ref": "src_a671317dd4fa4971",
+      "requirement": "For a required broader impact statement, describe positive and negative impacts and possible mitigations."
+    },
+    {
+      "rule_id": "broader_impact_statement",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "If their work carries a significant risk of harm, authors are required to include a Statement of\nBroader Impact.",
+      "source_ref": "src_a671317dd4fa4971",
+      "requirement": "Include a Statement of Broader Impact when the work carries significant risk of harm."
+    },
+    {
+      "rule_id": "claim_evidence",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Are the claims made in the submission supported by accurate and convincing evidence?",
+      "source_ref": "src_6d1177319c488a3e",
+      "requirement": "Support the paper’s claims with accurate and convincing evidence."
+    },
+    {
+      "rule_id": "clear_communication",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "a submission should clearly communicate what it has found",
+      "source_ref": "src_6d1177319c488a3e",
+      "requirement": "Communicate the findings and why they matter clearly."
+    },
+    {
+      "rule_id": "competing_interests",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "funding, competing interests and any conflict of interest",
+      "source_ref": "src_a671317dd4fa4971",
+      "requirement": "Report competing interests and conflicts during submission."
+    },
+    {
+      "rule_id": "conflict_accuracy",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "It is forbidden to state a false\nconflict in order to block potentially negative reviewers from an institution.",
+      "source_ref": "src_ba6548c481e0c08c",
+      "requirement": "Report only genuine conflicts of interest."
+    },
+    {
+      "rule_id": "correct_novelty_claims",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "papers that incorrectly claim novelty over existing\npublished work",
+      "source_ref": "src_ba6548c481e0c08c",
+      "requirement": "Avoid unsupported claims of novelty over published work."
+    },
+    {
+      "rule_id": "funding_statement",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "funding, competing interests and any conflict of interest",
+      "source_ref": "src_a671317dd4fa4971",
+      "requirement": "Report funding information during submission."
+    },
+    {
+      "rule_id": "human_sourced_ideas",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "the ideas, claims and results found in submissions are human-sourced",
+      "source_ref": "src_ebd91400a42414b3",
+      "requirement": "Ensure the scientific ideas, claims, and results are human-sourced."
+    },
+    {
+      "rule_id": "human_subjects_reporting",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "information on appropriate action editors for the submission, as well as on human subjects reporting (IRB)",
+      "source_ref": "src_a671317dd4fa4971",
+      "requirement": "Provide relevant human subjects or IRB information in the submission system."
+    },
+    {
+      "rule_id": "no_archival_overlap",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "There should not be any reuse of written text,\nfigures or results",
+      "source_ref": "src_ba6548c481e0c08c",
+      "requirement": "Avoid reuse of text, figures, or results from archival or parallel submissions."
+    },
+    {
+      "rule_id": "no_conference_extension",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "we do not accept submissions that are\nexpanded versions of conference papers.",
+      "source_ref": "src_ba6548c481e0c08c",
+      "requirement": "Do not submit an expanded version of an archival conference paper."
+    },
+    {
+      "rule_id": "openreview_submission",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "is submitted to OpenReview in anonymized form",
+      "source_ref": "src_ba6548c481e0c08c",
+      "requirement": "Submit an anonymized manuscript through OpenReview."
+    },
+    {
+      "rule_id": "preprint_identity_link",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "not linking to another version that includes the authors' names.",
+      "source_ref": "src_a671317dd4fa4971",
+      "requirement": "Do not link the anonymized submission to an identified preprint version."
+    },
+    {
+      "rule_id": "resubmission_prior_link",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "a link provided to the previously rejected submission",
+      "source_ref": "src_ba6548c481e0c08c",
+      "requirement": "For a revised resubmission, link the previously rejected submission and describe changes."
+    },
+    {
+      "rule_id": "submission_license",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "All TMLR submissions, from the time of submission to final publication, are licensed under CC BY 4.0.",
+      "source_ref": "src_a671317dd4fa4971",
+      "requirement": "Ensure submission can be licensed CC BY 4.0 from submission onward."
+    },
+    {
+      "rule_id": "submission_pdf",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Submissions must be PDF files generated using the\nTMLR LaTeX stylefile",
+      "source_ref": "src_a671317dd4fa4971",
+      "requirement": "Submit a PDF generated with the TMLR LaTeX style file and template."
+    },
+    {
+      "rule_id": "submission_quota",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "All authors must have sufficient budget remaining for the year in order to make a submission.",
+      "source_ref": "src_ba6548c481e0c08c",
+      "requirement": "Confirm each author has sufficient annual submission quota."
+    },
+    {
+      "rule_id": "supplement_relevance",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "material created by the authors that directly supports the submission content.",
+      "source_ref": "src_a671317dd4fa4971",
+      "requirement": "Submit only author-created supplementary material directly supporting the paper."
+    },
+    {
+      "rule_id": "supplement_size",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "up to 100MB of supplementary material",
+      "source_ref": "src_a671317dd4fa4971",
+      "requirement": "Keep any submitted supplementary material within 100 MB."
+    },
+    {
+      "rule_id": "supplementary_anonymity",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "supplementary material must be anonymized.",
+      "source_ref": "src_a671317dd4fa4971",
+      "requirement": "Anonymize submitted supplementary material."
+    },
+    {
+      "rule_id": "supplementary_format",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "all supplementary materials must be in PDF or ZIP format.",
+      "source_ref": "src_a671317dd4fa4971",
+      "requirement": "Submit supplementary materials only as PDF or ZIP files."
+    },
+    {
+      "rule_id": "survey_exclusion",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "As of September 1, 2026, TMLR no longer considers survey papers for review.",
+      "source_ref": "src_ebd91400a42414b3",
+      "requirement": "Do not submit a survey paper for review."
+    },
+    {
+      "rule_id": "template_layout",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Any changes to the stylefile or template that alters the formatting, font, or layout of the manuscript may result in rejection without review.",
+      "source_ref": "src_df0725b56f4c0ebe",
+      "requirement": "Keep the mandatory template formatting, font, and layout."
+    }
+  ],
+  "sources": {
+    "src_a671317dd4fa4971": {
+      "url": "https://jmlr.org/tmlr/author-guide.html",
+      "retrieved_at": "2026-10-19T13:16:43Z",
+      "sha256": "33a375904cfb7653a1bbd8f1ecb5a8fa5b751d8ade2de992f42401cdcf90f241",
+      "path": "sources/src_a671317dd4fa4971.txt"
+    },
+    "src_df0725b56f4c0ebe": {
+      "url": "https://jmlr.org/tmlr/submissions.html",
+      "retrieved_at": "2026-10-19T13:16:44Z",
+      "sha256": "f237dfc2fab2fe40925886b98b90a42ca0a56ea90a38deea27d57ae3c5694711",
+      "path": "sources/src_df0725b56f4c0ebe.txt"
+    },
+    "src_ba6548c481e0c08c": {
+      "url": "https://jmlr.org/tmlr/editorial-policies.html",
+      "retrieved_at": "2026-10-19T13:16:44Z",
+      "sha256": "584224ae1d369704523d795cf51085908bd9a0f62cf97913a109da43853e30f6",
+      "path": "sources/src_ba6548c481e0c08c.txt"
+    },
+    "src_ebd91400a42414b3": {
+      "url": "https://jmlr.org/tmlr/faq.html",
+      "retrieved_at": "2026-10-19T13:16:44Z",
+      "sha256": "511597dc4e1947cb0b079f7c2bae6c6ea11f48b6cd89449b89e4d377340d23ef",
+      "path": "sources/src_ebd91400a42414b3.txt"
+    },
+    "src_6d1177319c488a3e": {
+      "url": "https://jmlr.org/tmlr/acceptance-criteria.html",
+      "retrieved_at": "2026-10-19T13:16:45Z",
+      "sha256": "67474c81b09df78efe746122c89d356046c88d9c823cba7466bf5435783650ff",
+      "path": "sources/src_6d1177319c488a3e.txt"
+    }
+  }
+}
