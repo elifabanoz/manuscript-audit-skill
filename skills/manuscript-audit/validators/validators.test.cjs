@@ -18,6 +18,22 @@ const { compare } = require('./compare-runs.cjs');
 const { compare: compareProfiles } = require('./compare-profiles.cjs');
 const { adjudicate } = require('./adjudicate-profiles.cjs');
 
+test('the 20 public profile fixtures retain valid source identities', () => {
+  const directory = path.resolve(__dirname, '..', '..', '..', 'journal-profiles');
+  const files = fs.readdirSync(directory).filter(file => file.endsWith('.json')).sort();
+  assert.equal(files.length, 20);
+  for (const file of files) {
+    const profile = JSON.parse(fs.readFileSync(path.join(directory, file), 'utf8'));
+    assert.deepEqual(validateProfile(profile), [], file);
+    assert.equal(file, `${profile.issn}.json`);
+    for (const [sourceId, source] of Object.entries(profile.sources)) {
+      const expected = crypto.createHash('sha256').update(`${source.url}\0${source.sha256}`).digest('hex').slice(0, 16);
+      assert.equal(sourceId, `src_${expected}`, file);
+      assert.equal(source.path, `sources/${sourceId}.txt`, file);
+    }
+  }
+});
+
 function fixture(t) {
   const run = fs.mkdtempSync(path.join(os.tmpdir(), 'manuscript-audit-'));
   t.after(() => fs.rmSync(run, { recursive: true, force: true }));
