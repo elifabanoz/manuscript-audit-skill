@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from check_deterministic import check
+from check_deterministic import check, measure_heading_count
 from prepare_run import prepare
 
 
@@ -62,6 +62,23 @@ class DeterministicCheckTests(unittest.TestCase):
     def test_unknown_main_boundaries_remain_unresolved(self):
         output = check(self.run, "original_research")
         self.assertEqual(output["checks"][1]["status"], "unresolved")
+
+    def test_heading_count_is_provisional_and_ignores_fenced_code(self):
+        self.assertEqual(measure_heading_count("# Methods\n```md\n# Data Availability\n```\n", "Data Availability"), 0)
+        self.assertEqual(measure_heading_count("# Methods\n~~~\n# Methods\n~~~\n", "Methods"), 1)
+        source_ref = next(iter(self.profile["sources"]))
+        self.profile["rules"].append({
+            "rule_id": "abstract_heading",
+            "kind": "deterministic",
+            "check": {"metric": "heading_count", "heading": "Abstract", "op": ">=", "value": 1},
+            "quote": "Abstract limit: 2 words.",
+            "source_ref": source_ref,
+        })
+        self.save_profile()
+        output = check(self.run, "original_research")
+        self.assertEqual(output["checks"][-1]["status"], "met")
+        self.assertEqual(output["checks"][-1]["measured_value"], 1)
+        self.assertEqual(output["checks"][-1]["heading"], "Abstract")
 
     def test_markdown_link_needs_checked_extraction(self):
         manuscript = self.run / "manuscript.md"

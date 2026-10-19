@@ -60,10 +60,12 @@ function validate(profile) {
     }
     if (rule.kind === 'deterministic') {
       if ('requirement' in rule) errors.push(`${at}.requirement is only for semantic rules`);
-      if (allowedKeys(rule.check, ['metric', 'op', 'value'], `${at}.check`, errors)) {
+      if (allowedKeys(rule.check, ['metric', 'op', 'value', 'heading'], `${at}.check`, errors)) {
         requiredString(rule.check, 'metric', `${at}.check`, errors);
         if (!['<', '<=', '=', '>=', '>'].includes(rule.check.op)) errors.push(`${at}.check.op is invalid`);
         if (typeof rule.check.value !== 'number' || !Number.isFinite(rule.check.value)) errors.push(`${at}.check.value must be finite`);
+        if (rule.check.metric === 'heading_count') requiredString(rule.check, 'heading', `${at}.check`, errors);
+        else if ('heading' in rule.check) errors.push(`${at}.check.heading is only for heading_count`);
       }
     }
     if (rule.kind === 'semantic') {

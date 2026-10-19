@@ -41,8 +41,12 @@
             "properties": {
               "metric": { "type": "string", "minLength": 1 },
               "op": { "enum": ["<", "<=", "=", ">=", ">"] },
-              "value": { "type": "number" }
-            }
+              "value": { "type": "number" },
+              "heading": { "type": "string", "minLength": 1 }
+            },
+            "allOf": [
+              { "if": { "properties": { "metric": { "const": "heading_count" } } }, "then": { "required": ["heading"] }, "else": { "not": { "required": ["heading"] } } }
+            ]
           },
           "requirement": { "type": "string", "minLength": 1 }
         },

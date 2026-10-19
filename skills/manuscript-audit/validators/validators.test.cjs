@@ -122,6 +122,20 @@ test('valid records and local quotes pass', t => {
   assert.deepEqual(verify(data.run, data.profile, data.findings), []);
 });
 
+test('heading count rules require an explicit heading', t => {
+  const { profile } = fixture(t);
+  profile.rules.push({
+    rule_id: 'data_heading', kind: 'deterministic',
+    check: { metric: 'heading_count', op: '>=', value: 1 },
+    quote: 'A data availability statement is required.', source_ref: 'src_guideline'
+  });
+  assert.match(validateProfile(profile).join('\n'), /heading/);
+  profile.rules[1].check.heading = 'Data Availability';
+  assert.deepEqual(validateProfile(profile), []);
+  profile.rules[1].check.metric = 'abstract_words';
+  assert.match(validateProfile(profile).join('\n'), /only for heading_count/);
+});
+
 test('a profile cannot cite an unknown source or duplicate a rule', t => {
   const { profile } = fixture(t);
   profile.rules.push({ ...profile.rules[0], source_ref: 'missing' });

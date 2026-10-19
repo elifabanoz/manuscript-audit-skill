@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measure unambiguous Markdown word limits without issuing audit verdicts."""
+"""Measure selected Markdown limits and headings without audit verdicts."""
 
 import argparse
 import hashlib
@@ -12,6 +12,7 @@ from prepare_run import outside_git
 
 
 HEADING = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
+FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 WORD = re.compile(r"[^\W_]+(?:[-'\u2019][^\W_]+)*", re.UNICODE)
 VALIDATORS = Path(__file__).resolve().parents[1] / "validators"
 
@@ -32,11 +33,28 @@ def checked_file(run, relative, expected_hash):
 def heading_spans(text):
     lines = text.splitlines()
     headings = []
+    fence_char = None
+    fence_size = 0
     for index, line in enumerate(lines):
+        if fence_char:
+            candidate = line.strip()
+            if candidate and set(candidate) == {fence_char} and len(candidate) >= fence_size:
+                fence_char = None
+            continue
+        fence = FENCE.match(line)
+        if fence:
+            fence_char = fence.group(1)[0]
+            fence_size = len(fence.group(1))
+            continue
         match = HEADING.fullmatch(line.strip())
         if match:
             headings.append((index, len(match.group(1)), match.group(2).strip().casefold()))
     return lines, headings
+
+
+def measure_heading_count(text, heading):
+    _, headings = heading_spans(text)
+    return sum(label == heading.strip().casefold() for _, _, label in headings)
 
 
 def section_words(lines, start, end):
@@ -121,6 +139,8 @@ def check(run, article_type, main_start=None, main_end=None):
         if rule["kind"] != "deterministic":
             continue
         item = {"rule_id": rule["rule_id"], "metric": rule["check"]["metric"], "op": rule["check"]["op"], "limit": rule["check"]["value"], "source_ref": rule["source_ref"]}
+        if "heading" in rule["check"]:
+            item["heading"] = rule["check"]["heading"]
         source = profile["sources"][rule["source_ref"]]
         guideline = checked_file(run, source["path"], source["sha256"])
         if " ".join(rule["quote"].split()) not in " ".join(guideline.split()):
@@ -147,6 +167,9 @@ def check(run, article_type, main_start=None, main_end=None):
                 item.update(status="unresolved", reason=reason)
             else:
                 item.update(status="met" if compare(value, rule["check"]["op"], rule["check"]["value"]) else "triggered", measured_value=value)
+        elif rule["check"]["metric"] == "heading_count":
+            value = measure_heading_count(text, rule["check"]["heading"])
+            item.update(status="met" if compare(value, rule["check"]["op"], rule["check"]["value"]) else "triggered", measured_value=value)
         else:
             item.update(status="unresolved", reason="Metric is not implemented")
         results.append(item)
