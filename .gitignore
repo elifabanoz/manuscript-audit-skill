@@ -1,0 +1,13 @@
+.env
+*.env.local
+.env.*
+!.env.example
+run-*/
+sources/
+bench/**/raw/
+bench/**/*.pdf
+manuscripts/
+models/
+__pycache__/
+node_modules/
+.tools/
