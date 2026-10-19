@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CoverageLedger",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["unit_id", "kind", "section", "target_issn", "status", "checked_by", "source_hash"],
+    "properties": {
+      "unit_id": { "type": "string", "pattern": "^U-[0-9]+$" },
+      "kind": { "enum": ["compliance", "review"] },
+      "section": { "type": "string", "minLength": 1 },
+      "review_class": { "type": "string", "minLength": 1 },
+      "target_issn": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{3}[0-9X]$" },
+      "status": { "enum": ["pending", "covered", "stale"] },
+      "checked_by": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": { "type": "string", "minLength": 1 }
+      },
+      "source_hash": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" }
+    },
+    "allOf": [
+      { "if": { "properties": { "kind": { "const": "review" } } }, "then": { "required": ["review_class"] } },
+      { "if": { "properties": { "status": { "const": "covered" } } }, "then": { "properties": { "checked_by": { "minItems": 1 } } } }
+    ]
+  }
+}

@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Findings",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["id", "verdict", "category", "target_issn", "claim", "evidence", "provenance"],
+    "properties": {
+      "id": { "type": "string", "pattern": "^F-[0-9]+$" },
+      "verdict": { "enum": ["confirmed", "needs_validation", "rejected"] },
+      "category": { "enum": ["compliance", "review", "reference"] },
+      "severity": { "enum": ["desk_reject", "major", "minor", "note"] },
+      "target_issn": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{3}[0-9X]$" },
+      "rule_id": { "type": "string", "minLength": 1 },
+      "review_class": { "type": "string", "minLength": 1 },
+      "claim": { "type": "string", "minLength": 1 },
+      "evidence": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type", "source_ref", "quote"],
+              "properties": {
+                "type": { "const": "guideline" },
+                "source_ref": { "type": "string", "minLength": 1 },
+                "quote": { "type": "string", "minLength": 1 }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type", "path", "line_id", "quote"],
+              "properties": {
+                "type": { "const": "manuscript_quote" },
+                "path": { "type": "string", "minLength": 1 },
+                "line_id": { "type": "string", "pattern": "^L[1-9][0-9]*$" },
+                "quote": { "type": "string", "minLength": 1 }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type", "searched", "patterns"],
+              "properties": {
+                "type": { "const": "manuscript_absence" },
+                "searched": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": { "type": "string", "minLength": 1 }
+                },
+                "patterns": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": { "type": "string", "minLength": 1 }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "unresolved_fact": { "type": "string", "minLength": 1 },
+      "rejection_reason": { "type": "string", "minLength": 1 },
+      "suggested_fix": { "type": "string", "minLength": 1 },
+      "provenance": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["hunter"],
+        "properties": {
+          "hunter": { "type": "string", "minLength": 1 },
+          "validator": { "type": "string", "minLength": 1 },
+          "record_verifier": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "allOf": [
+      {
+        "if": { "properties": { "verdict": { "const": "confirmed" } } },
+        "then": {
+          "required": ["severity"],
+          "not": { "anyOf": [{ "required": ["unresolved_fact"] }, { "required": ["rejection_reason"] }] },
+          "properties": { "provenance": { "required": ["hunter", "validator", "record_verifier"] } }
+        }
+      },
+      {
+        "if": { "properties": { "verdict": { "const": "needs_validation" } } },
+        "then": { "required": ["unresolved_fact"], "not": { "anyOf": [{ "required": ["severity"] }, { "required": ["rejection_reason"] }] } }
+      },
+      {
+        "if": { "properties": { "verdict": { "const": "rejected" } } },
+        "then": { "required": ["rejection_reason"], "not": { "anyOf": [{ "required": ["severity"] }, { "required": ["unresolved_fact"] }] } }
+      }
+    ]
+  }
+}
