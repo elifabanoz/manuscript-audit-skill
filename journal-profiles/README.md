@@ -9,6 +9,7 @@ The current fixtures cover:
 | `1076-9757` | Journal of Artificial Intelligence Research |
 | `1471-0684` | Theory and Practice of Logic Programming |
 | `1532-4435` | Journal of Machine Learning Research |
+| `1548-7660` | Journal of Statistical Software |
 | `2475-9066` | Journal of Open Source Software |
 
 These profiles were compared from separate drafts against official journal pages. Disputed or conditional rules remain `needs_validation`. Requirements about submission forms or supporting files need evidence outside the manuscript; record those checks in the private coverage ledger.

@@ -1,0 +1,436 @@
+{
+  "issn": "1548-7660",
+  "title": "Journal of Statistical Software",
+  "publisher": "Foundation for Open Access Statistics",
+  "article_types": [
+    "article",
+    "code_snippet",
+    "software_review",
+    "book_review"
+  ],
+  "scope": {
+    "quote": "publishes open-source software and corresponding reproducible scholarly articles",
+    "source_ref": "src_40b123df0fd0592a"
+  },
+  "rules": [
+    {
+      "rule_id": "bibtex_references",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "References are provided in a .bib BibTeX database",
+      "source_ref": "src_edbb343128b186db",
+      "requirement": "Provide references in a BibTeX database."
+    },
+    {
+      "rule_id": "closed_source_review_contact",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "should contact the editors-in-chief prior to engaging in such work.",
+      "source_ref": "src_40b123df0fd0592a",
+      "requirement": "For closed-source software reviews or comparisons, contact the editors-in-chief before beginning.",
+      "applies_to": [
+        "software_review"
+      ]
+    },
+    {
+      "rule_id": "code_input_width",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "code input/output must fit within the normal textwidth",
+      "source_ref": "src_edbb343128b186db",
+      "requirement": "Keep code input and output within the manuscript text width."
+    },
+    {
+      "rule_id": "code_snippet_scope",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Descriptions of open-source software targeting less broad problems, for example compact yet sophisticated code to estimate novel models using existing software infrastructure, can be published as code snippets in JSS.",
+      "source_ref": "src_40b123df0fd0592a",
+      "requirement": "Reserve code snippets for compact software contributions addressing narrower problems.",
+      "applies_to": [
+        "code_snippet"
+      ]
+    },
+    {
+      "rule_id": "code_without_verbatim_comments",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "should not contain comments within the verbatim code.",
+      "source_ref": "src_edbb343128b186db",
+      "requirement": "Place explanatory comments outside verbatim code blocks."
+    },
+    {
+      "rule_id": "codesnippet_documentclass",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "\\documentclass[codesnippet]{jss}",
+      "source_ref": "src_edbb343128b186db",
+      "requirement": "Use the JSS codesnippet document class for a code snippet contribution.",
+      "applies_to": [
+        "code_snippet"
+      ]
+    },
+    {
+      "rule_id": "compare_similar_implementations",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Articles describing a novel software contribution must cover implementations with a similar scope",
+      "source_ref": "src_bac1ffada9df14be",
+      "requirement": "Discuss comparable implementations, including other languages or software environments.",
+      "applies_to": [
+        "article",
+        "code_snippet"
+      ]
+    },
+    {
+      "rule_id": "declare_software_license",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "The license(s) of the software is clearly indicated",
+      "source_ref": "src_2247f938b9341919",
+      "requirement": "Clearly identify the software license.",
+      "applies_to": [
+        "article",
+        "code_snippet"
+      ]
+    },
+    {
+      "rule_id": "describe_models_concepts",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "must present the scope of the software and the underlying models or concepts",
+      "source_ref": "src_40b123df0fd0592a",
+      "requirement": "Explain software scope and underlying models or concepts.",
+      "applies_to": [
+        "article"
+      ]
+    },
+    {
+      "rule_id": "design_and_implementation",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "A description of the design principles and the actual implementation",
+      "source_ref": "src_40b123df0fd0592a",
+      "requirement": "Describe design principles and the implementation.",
+      "applies_to": [
+        "article"
+      ]
+    },
+    {
+      "rule_id": "discuss_relative_advantages",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "discuss the advantages and disadvantages of the new contribution compared to existing implementations",
+      "source_ref": "src_bac1ffada9df14be",
+      "requirement": "Discuss advantages and disadvantages compared with existing implementations.",
+      "applies_to": [
+        "article",
+        "code_snippet"
+      ]
+    },
+    {
+      "rule_id": "english_latex",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Manuscripts must be written in English using the LaTeX text",
+      "source_ref": "src_bac1ffada9df14be",
+      "requirement": "Write the manuscript in English using LaTeX."
+    },
+    {
+      "rule_id": "figure_caption_position",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "All captions should appear below the corresponding figure/table.",
+      "source_ref": "src_edbb343128b186db",
+      "requirement": "Put captions below their figures or tables."
+    },
+    {
+      "rule_id": "figure_caption_style",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "The captions should be in sentence style and end with a period.",
+      "source_ref": "src_edbb343128b186db",
+      "requirement": "Use sentence style and a final period in captions."
+    },
+    {
+      "rule_id": "figure_table_labels",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Figures, tables and equations are marked with a \\label",
+      "source_ref": "src_edbb343128b186db",
+      "requirement": "Label figures, tables and equations, and refer to them by reference."
+    },
+    {
+      "rule_id": "figure_table_reproducibility",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "All figures, tables, and other output presented in the manuscript must be fully and exactly reproducible on at least one platform.",
+      "source_ref": "src_bac1ffada9df14be",
+      "requirement": "Make all figures, tables, and output exactly reproducible on at least one platform."
+    },
+    {
+      "rule_id": "jss_latex_style_files",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "we require all submissions to be formatted using LaTeX and the JSS style files",
+      "source_ref": "src_edbb343128b186db",
+      "requirement": "Format the manuscript with LaTeX and JSS style files."
+    },
+    {
+      "rule_id": "large_attachment_link",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "this should be explained in the submission and a link should be provided.",
+      "source_ref": "src_bac1ffada9df14be",
+      "requirement": "If attachments exceed upload capacity, explain this and link to the material."
+    },
+    {
+      "rule_id": "latex_pdf_compile",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "The manuscript can be compiled by pdfLaTeX.",
+      "source_ref": "src_edbb343128b186db",
+      "requirement": "Ensure the LaTeX manuscript compiles with pdfLaTeX."
+    },
+    {
+      "rule_id": "license_gpl_compatible",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "includes the GPL-2 or GPL-3 or a GPL-compatible license for publication in JSS",
+      "source_ref": "src_2247f938b9341919",
+      "requirement": "Use GPL-2, GPL-3, or a GPL-compatible software license.",
+      "applies_to": [
+        "article",
+        "code_snippet"
+      ]
+    },
+    {
+      "rule_id": "no_methodological_innovation",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "JSS does NOT publish methodological innovations in computational statistics.",
+      "source_ref": "src_40b123df0fd0592a",
+      "requirement": "Establish that the manuscript is primarily about software rather than a new statistical methodology.",
+      "applies_to": [
+        "article",
+        "code_snippet"
+      ]
+    },
+    {
+      "rule_id": "nonstandard_runtime_tools",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "languages requiring non-standard interpreters or compilers must include all tools necessary to run the code",
+      "source_ref": "src_40b123df0fd0592a",
+      "requirement": "For nonstandard runtimes, include the tools needed to run the software.",
+      "applies_to": [
+        "article",
+        "code_snippet"
+      ]
+    },
+    {
+      "rule_id": "nontrivial_case_study",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "must be illustrated by an enlightening non-trivial case study.",
+      "source_ref": "src_40b123df0fd0592a",
+      "requirement": "Illustrate the analysis workflow with a substantive case study.",
+      "applies_to": [
+        "article"
+      ]
+    },
+    {
+      "rule_id": "open_source_software_scope",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "publishes open-source software and corresponding reproducible scholarly articles",
+      "source_ref": "src_40b123df0fd0592a",
+      "requirement": "Describe open-source statistical software and a corresponding reproducible article.",
+      "applies_to": [
+        "article",
+        "code_snippet"
+      ]
+    },
+    {
+      "rule_id": "package_help_installation",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "the code needs to come with formatted help files and be packaged for easy installation.",
+      "source_ref": "src_bac1ffada9df14be",
+      "requirement": "For package ecosystems, provide formatted help files and an installable package.",
+      "applies_to": [
+        "article",
+        "code_snippet"
+      ]
+    },
+    {
+      "rule_id": "pdf_in_jss_style",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "I/we have prepared a PDF manuscript in JSS style.",
+      "source_ref": "src_2247f938b9341919",
+      "requirement": "Submit a PDF manuscript formatted in JSS style."
+    },
+    {
+      "rule_id": "platform_dependencies",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Please indicate any platform dependencies with the submission.",
+      "source_ref": "src_bac1ffada9df14be",
+      "requirement": "Identify platform dependencies in the submission.",
+      "applies_to": [
+        "article",
+        "code_snippet"
+      ]
+    },
+    {
+      "rule_id": "prior_method_publication",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Novel models or estimation procedures should be published elsewhere prior to the submission",
+      "source_ref": "src_40b123df0fd0592a",
+      "requirement": "Ensure novel models or estimation procedures were published separately before submitting the implementation article.",
+      "applies_to": [
+        "article"
+      ]
+    },
+    {
+      "rule_id": "random_seed",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Make sure to initialize the generator for pseudo random numbers if the results rely on some form of simulation.",
+      "source_ref": "src_bac1ffada9df14be",
+      "requirement": "Initialize the pseudorandom generator when simulation results depend on it."
+    },
+    {
+      "rule_id": "replication_all_results",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "The replication materials must enable reproducibility of all results from the manuscript",
+      "source_ref": "src_bac1ffada9df14be",
+      "requirement": "Ensure the supplied materials reproduce every reported result."
+    },
+    {
+      "rule_id": "revision_point_reply",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Revisions, in any state of the review process, must always be submitted together with a point-to-point reply",
+      "source_ref": "src_bac1ffada9df14be",
+      "requirement": "Include a point-by-point reply with any revision."
+    },
+    {
+      "rule_id": "section_sentence_case",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "\\section, \\subsection, etc. in sentence style,",
+      "source_ref": "src_edbb343128b186db",
+      "requirement": "Use sentence style for section headings."
+    },
+    {
+      "rule_id": "software_citations",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Software packages are \\cite{}d properly.",
+      "source_ref": "src_edbb343128b186db",
+      "requirement": "Cite software packages appropriately."
+    },
+    {
+      "rule_id": "software_with_article",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "Software WITHOUT a corresponding article documenting and illustrating the implementation and application of this software can not be published in JSS.",
+      "source_ref": "src_40b123df0fd0592a",
+      "requirement": "Accompany submitted software with an article documenting and illustrating it.",
+      "applies_to": [
+        "article",
+        "code_snippet"
+      ]
+    },
+    {
+      "rule_id": "source_ascii",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "Source code must be submitted in ASCII files.",
+      "source_ref": "src_bac1ffada9df14be",
+      "requirement": "Submit source code as ASCII text files.",
+      "applies_to": [
+        "article",
+        "code_snippet"
+      ]
+    },
+    {
+      "rule_id": "source_readable_commented",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "It should be readable and have comments.",
+      "source_ref": "src_bac1ffada9df14be",
+      "requirement": "Make submitted source code readable and commented.",
+      "applies_to": [
+        "article",
+        "code_snippet"
+      ]
+    },
+    {
+      "rule_id": "style_guide",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "The JSS Style Guide must be followed",
+      "source_ref": "src_bac1ffada9df14be",
+      "requirement": "Follow the JSS Style Guide when formatting the manuscript."
+    },
+    {
+      "rule_id": "submit_replication_material",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "I/we have prepared the replication materials for all results from the manuscript",
+      "source_ref": "src_2247f938b9341919",
+      "requirement": "Provide replication materials for every result in the manuscript."
+    },
+    {
+      "rule_id": "submit_software_source",
+      "status": "verified",
+      "kind": "semantic",
+      "quote": "I/we have prepared the source code for the software.",
+      "source_ref": "src_2247f938b9341919",
+      "requirement": "Provide the software source code with the submission.",
+      "applies_to": [
+        "article",
+        "code_snippet"
+      ]
+    },
+    {
+      "rule_id": "title_style",
+      "status": "needs_validation",
+      "kind": "semantic",
+      "quote": "\\title in title style",
+      "source_ref": "src_edbb343128b186db",
+      "requirement": "Format the title in title style."
+    }
+  ],
+  "sources": {
+    "src_2247f938b9341919": {
+      "url": "https://www.jstatsoft.org/about/submissions",
+      "retrieved_at": "2026-10-19T12:50:44Z",
+      "sha256": "288c03b2577b4d56158a28e068aa37c5edebf2710f96590593eaf7a544abe7e5",
+      "path": "sources/src_2247f938b9341919.txt"
+    },
+    "src_bac1ffada9df14be": {
+      "url": "https://www.jstatsoft.org/authors",
+      "retrieved_at": "2026-10-19T12:51:17Z",
+      "sha256": "00c53e3d847cd2484a26bc6f5b22f61c0e03c13bf376787f428f93583943e369",
+      "path": "sources/src_bac1ffada9df14be.txt"
+    },
+    "src_edbb343128b186db": {
+      "url": "https://www.jstatsoft.org/style",
+      "retrieved_at": "2026-10-19T12:51:25Z",
+      "sha256": "6dc9231da54deb8059b4074fc324b6f72773a739fa85874fbf9acb83071c3dd3",
+      "path": "sources/src_edbb343128b186db.txt"
+    },
+    "src_40b123df0fd0592a": {
+      "url": "https://www.jstatsoft.org/mission",
+      "retrieved_at": "2026-10-19T12:51:25Z",
+      "sha256": "0ec1a1f6fe94153f59d6ee0fdb7233abf72bab9d1d1566d5f909288f8890fd38",
+      "path": "sources/src_40b123df0fd0592a.txt"
+    }
+  }
+}
