@@ -2,7 +2,15 @@
 
 An early-stage skill for checking a manuscript against a selected journal's guidelines.
 
-The current implementation provides [skill instructions](skills/manuscript-audit/SKILL.md), JSON contracts, local validators, and a [run preparation tool](skills/manuscript-audit/tools/prepare_run.py) for UTF-8 text or Markdown. It does not yet fetch journal pages, parse PDF or DOCX manuscripts, or generate reports automatically. Private run files are created outside any Git checkout.
+The current implementation provides [skill instructions](skills/manuscript-audit/SKILL.md), JSON contracts, local validators, private report rendering, and a [run preparation tool](skills/manuscript-audit/tools/prepare_run.py) for UTF-8 text or Markdown. It does not yet fetch journal guideline pages or parse PDF or DOCX manuscripts. Private run files are created outside any Git checkout.
+
+If a journal has not been chosen, use an explicit, nonconfidential topic phrase to discover candidates from [OpenAlex](https://help.openalex.org/api/llm-quick-reference/) metadata:
+
+```sh
+python skills/manuscript-audit/tools/discover_journals.py --query "synthetic topic"
+```
+
+This writes a private `candidates.json` under `~/manuscript-audit/discovery/discovery-N/`. It contains source IDs, ISSN-L values, and matching work IDs; it does not copy article text. Set `OPENALEX_API_KEY` in the environment if you have a key. The author selects the target journal; the matching-work count is only a discovery signal.
 
 To prepare a run, supply a manuscript, a guideline text file, the actual guideline URL, and its known retrieval time:
 
