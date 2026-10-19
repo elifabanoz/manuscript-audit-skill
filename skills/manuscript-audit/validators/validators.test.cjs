@@ -338,6 +338,8 @@ test('report rendering uses validated findings and shows remaining coverage', t 
   assert.equal(counts.pending, 1);
   const report = fs.readFileSync(path.join(data.run, 'REPORT.md'), 'utf8');
   assert.match(report, /1 pending/);
+  assert.match(report, /Open coverage/);
+  assert.match(report, /U\\-1 \(pending\): rule data\\_availability; section sec\\-3/);
   assert.match(report, /data availability statement/);
   assert.match(report, /does not predict an editorial decision/);
   const plan = fs.readFileSync(path.join(data.run, 'REVISION-PLAN.md'), 'utf8');

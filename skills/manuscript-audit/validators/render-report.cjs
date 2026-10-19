@@ -67,6 +67,16 @@ function render(run, replace = false) {
     if (finding.suggested_fix) report.push(`Suggested fix: ${escapeMarkdown(finding.suggested_fix)}`, '');
   }
   report.push('## Needs validation', '', `${unresolved.length} finding(s). See NEEDS-VALIDATION.md.`, '');
+  const openUnits = ledger.filter(item => item.status !== 'covered');
+  report.push('## Open coverage', '');
+  if (!openUnits.length) report.push('None.', '');
+  for (const unit of openUnits) {
+    const work = unit.kind === 'compliance'
+      ? `rule ${escapeMarkdown(unit.rule_id)}`
+      : `review class ${escapeMarkdown(unit.review_class)}`;
+    report.push(`- ${escapeMarkdown(unit.unit_id)} (${escapeMarkdown(unit.status)}): ${work}; section ${escapeMarkdown(unit.section)}`);
+  }
+  if (openUnits.length) report.push('');
   const pendingReport = ['# Needs validation', '', `Journal: ${escapeMarkdown(profile.title)} (${escapeMarkdown(profile.issn)})`, ''];
   if (!unresolved.length) pendingReport.push('None.', '');
   for (const finding of unresolved) {
