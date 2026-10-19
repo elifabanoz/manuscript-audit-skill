@@ -2,7 +2,7 @@
 
 This scorer measures rule-level detection of controlled guideline violations. Manuscripts, guideline caches, agent records, raw candidates, and benchmark case labels stay outside Git. The repository contains only the scorer and invented tests. No empirical M1 result is claimed here.
 
-Prepare each control and mutated manuscript as a separate private run with the same `--data-freeze YYYY-MM-DD` value. Use the same journal profile and guideline snapshot for each pair. Save the phase 3 candidates as `raw-findings.json` directly in each run, with entries containing `category: "compliance"` and a known `rule_id`. Complete phases 4 and 5 in the run's `findings.json` and independent records. Every confirmed compliance rule must have appeared in the raw candidates. The scorer runs the full local validator on every run before counting a confirmed finding.
+Prepare each control and mutated manuscript as a separate private run with the same `--data-freeze YYYY-MM-DD` value. Use the same journal profile and guideline snapshot for each pair. Build a coverage ledger for the selected article type, actually check every applicable compliance rule, and save a current check record for each unit. Save the phase 3 candidates as `raw-findings.json` directly in each run, with entries containing `category: "compliance"` and a known applicable `rule_id`. Complete phases 4 and 5 in the run's `findings.json` and independent records. Every confirmed compliance rule must have appeared in the raw candidates. The scorer requires complete compliance coverage and runs the full local validator on every run before counting a confirmed finding.
 
 Write a private case manifest outside Git:
 
@@ -14,12 +14,14 @@ Write a private case manifest outside Git:
     {
       "case_id": "control-1",
       "kind": "control",
+      "article_type": "original_research",
       "run": "/absolute/private/control-run",
       "raw_findings": "/absolute/private/control-run/raw-findings.json"
     },
     {
       "case_id": "mutation-1",
       "kind": "mutation",
+      "article_type": "original_research",
       "control_case_id": "control-1",
       "expected_rule_id": "data_availability",
       "run": "/absolute/private/mutation-run",

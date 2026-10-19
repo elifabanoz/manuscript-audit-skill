@@ -15,6 +15,8 @@ ROOT = Path(__file__).resolve().parents[2]
 SCORER = Path(__file__).with_name("score.py")
 PREPARE = ROOT / "skills" / "manuscript-audit" / "tools" / "prepare_run.py"
 HASH_FINDING = ROOT / "skills" / "manuscript-audit" / "validators" / "hash-finding.cjs"
+HASH_COVERAGE = ROOT / "skills" / "manuscript-audit" / "validators" / "hash-coverage.cjs"
+BUILD_COVERAGE = ROOT / "skills" / "manuscript-audit" / "tools" / "build_coverage.py"
 
 
 class ComplianceMutationScoreTests(unittest.TestCase):
@@ -54,7 +56,23 @@ class ComplianceMutationScoreTests(unittest.TestCase):
             ],
         }
         (run / "journal-profile.json").write_text(json.dumps(profile), encoding="utf-8")
-        (run / "coverage-ledger.json").write_text("[]", encoding="utf-8")
+        subprocess.run([sys.executable, str(BUILD_COVERAGE), str(run),
+                        "--article-type", "original_research"], check=True, capture_output=True)
+        ledger_path = run / "coverage-ledger.json"
+        ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+        (run / "agents").mkdir()
+        for unit in ledger:
+            subject = subprocess.run(["node", str(HASH_COVERAGE), str(run), unit["unit_id"]],
+                                     check=True, capture_output=True, text=True).stdout.strip()
+            record_path = f"agents/coverage-{unit['unit_id']}.json"
+            (run / record_path).write_text(json.dumps({
+                "unit_id": unit["unit_id"], "decision": "checked",
+                "actor_id": f"synthetic-coverage-{unit['unit_id']}",
+                "subject_sha256": subject, "rationale": "Invented fixture checked against both rules."
+            }), encoding="utf-8")
+            unit["status"] = "covered"
+            unit["checked_by"] = [record_path]
+        ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
         (run / "raw-findings.json").write_text(json.dumps([
             {"category": "compliance", "rule_id": rule} for rule in raw_rules
         ]), encoding="utf-8")
@@ -78,7 +96,6 @@ class ComplianceMutationScoreTests(unittest.TestCase):
             })
         (run / "findings.json").write_text(json.dumps(findings), encoding="utf-8")
         if confirmed:
-            (run / "agents").mkdir()
             subject = subprocess.run(["node", str(HASH_FINDING), str(run), "F-1"],
                                      check=True, capture_output=True, text=True).stdout.strip()
             for filename, role, decision in (("hunter", "hunter", "candidate"),
@@ -97,12 +114,12 @@ class ComplianceMutationScoreTests(unittest.TestCase):
         other_control = self.make_run("other-control", "# Title\nData availability: on request.\n",
                                       raw_rules=("ethics_statement",))
         cases = [
-            {"case_id": "control", "kind": "control", "run": str(control),
+            {"case_id": "control", "kind": "control", "article_type": "original_research", "run": str(control),
              "raw_findings": str(control / "raw-findings.json")},
-            {"case_id": "mutation", "kind": "mutation", "control_case_id": "control",
+            {"case_id": "mutation", "kind": "mutation", "article_type": "original_research", "control_case_id": "control",
              "expected_rule_id": "data_availability", "run": str(mutation),
              "raw_findings": str(mutation / "raw-findings.json")},
-            {"case_id": "other-control", "kind": "control", "run": str(other_control),
+            {"case_id": "other-control", "kind": "control", "article_type": "original_research", "run": str(other_control),
              "raw_findings": str(other_control / "raw-findings.json")},
         ]
         result = score({"schema_version": 1, "data_freeze": "2026-10-19", "cases": cases})
@@ -130,9 +147,9 @@ class ComplianceMutationScoreTests(unittest.TestCase):
         mutation = self.make_run("mutation", "# Title\nNo statement here.\n",
                                  raw_rules=("data_availability",))
         cases = [
-            {"case_id": "control", "kind": "control", "run": str(control),
+            {"case_id": "control", "kind": "control", "article_type": "original_research", "run": str(control),
              "raw_findings": str(control / "raw-findings.json")},
-            {"case_id": "mutation", "kind": "mutation", "control_case_id": "control",
+            {"case_id": "mutation", "kind": "mutation", "article_type": "original_research", "control_case_id": "control",
              "expected_rule_id": "data_availability", "run": str(mutation),
              "raw_findings": str(mutation / "raw-findings.json")},
         ]
@@ -145,13 +162,32 @@ class ComplianceMutationScoreTests(unittest.TestCase):
         control = self.make_run("control", "# Title\nData availability: on request.\n")
         mutation = self.make_run("mutation", "# Title\nNo statement here.\n", confirmed=True)
         cases = [
-            {"case_id": "control", "kind": "control", "run": str(control),
+            {"case_id": "control", "kind": "control", "article_type": "original_research", "run": str(control),
              "raw_findings": str(control / "raw-findings.json")},
-            {"case_id": "mutation", "kind": "mutation", "control_case_id": "control",
+            {"case_id": "mutation", "kind": "mutation", "article_type": "original_research", "control_case_id": "control",
              "expected_rule_id": "data_availability", "run": str(mutation),
              "raw_findings": str(mutation / "raw-findings.json")},
         ]
         with self.assertRaisesRegex(ValueError, "absent from raw candidates"):
+            score({"schema_version": 1, "data_freeze": "2026-10-19", "cases": cases})
+
+    def test_pending_compliance_rule_cannot_lower_false_positive_rate(self):
+        control = self.make_run("control", "# Title\nData availability: on request.\n")
+        mutation = self.make_run("mutation", "# Title\nNo statement here.\n",
+                                 raw_rules=("data_availability",))
+        ledger_path = control / "coverage-ledger.json"
+        ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+        ledger[0]["status"] = "pending"
+        ledger[0]["checked_by"] = []
+        ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
+        cases = [
+            {"case_id": "control", "kind": "control", "article_type": "original_research",
+             "run": str(control), "raw_findings": str(control / "raw-findings.json")},
+            {"case_id": "mutation", "kind": "mutation", "article_type": "original_research",
+             "control_case_id": "control", "expected_rule_id": "data_availability",
+             "run": str(mutation), "raw_findings": str(mutation / "raw-findings.json")},
+        ]
+        with self.assertRaisesRegex(ValueError, "coverage is incomplete"):
             score({"schema_version": 1, "data_freeze": "2026-10-19", "cases": cases})
 
 

@@ -34,7 +34,7 @@ def exact_keys(value, keys, label):
 
 
 def load_case(case, freeze):
-    common = ("case_id", "kind", "run", "raw_findings")
+    common = ("case_id", "kind", "article_type", "run", "raw_findings")
     if not isinstance(case, dict) or case.get("kind") not in ("control", "mutation"):
         raise ValueError("Each case needs kind control or mutation")
     keys = common if case["kind"] == "control" else (*common, "control_case_id", "expected_rule_id")
@@ -56,16 +56,29 @@ def load_case(case, freeze):
         raise ValueError(f"{case['case_id']}: full run validation failed: {check.stderr.strip()}")
     manifest_path = run / "run-manifest.json"
     profile_path = run / "journal-profile.json"
+    ledger_path = run / "coverage-ledger.json"
     findings_path = run / "findings.json"
     manifest = read_json(manifest_path)
     profile = read_json(profile_path)
+    ledger = read_json(ledger_path)
     if manifest["data_freeze"] != freeze:
         raise ValueError(f"{case['case_id']}: data_freeze differs from benchmark")
+    if case["article_type"] not in profile["article_types"]:
+        raise ValueError(f"{case['case_id']}: article_type is absent from the profile")
+    applicable = {rule["rule_id"] for rule in profile["rules"]
+                  if case["article_type"] in rule.get("applies_to", [case["article_type"]])}
+    if not applicable or any(rule.get("status") == "needs_validation" for rule in profile["rules"]
+                             if rule["rule_id"] in applicable):
+        raise ValueError(f"{case['case_id']}: applicable journal rules are empty or unresolved")
+    coverage = [unit for unit in ledger if unit["kind"] == "compliance"]
+    if len(coverage) != len(applicable) or {unit["rule_id"] for unit in coverage} != applicable \
+            or any(unit["status"] != "covered" for unit in coverage):
+        raise ValueError(f"{case['case_id']}: applicable compliance coverage is incomplete")
     raw = read_json(raw_path)
     final = read_json(findings_path)
     if not isinstance(raw, list) or not all(isinstance(item, dict) for item in raw):
         raise ValueError(f"{case['case_id']}: raw_findings must be an array of objects")
-    known = {rule["rule_id"] for rule in profile["rules"]}
+    known = applicable
     raw_rules = set()
     for item in raw:
         if item.get("category") != "compliance" or item.get("rule_id") not in known:
@@ -86,7 +99,7 @@ def load_case(case, freeze):
         "final_rules": final_rules,
         "input_sha256": {name: sha256(file) for name, file in (
             ("manifest", manifest_path), ("profile", profile_path),
-            ("raw_findings", raw_path), ("findings", findings_path))},
+            ("coverage_ledger", ledger_path), ("raw_findings", raw_path), ("findings", findings_path))},
     }
 
 
@@ -120,6 +133,8 @@ def score(benchmark):
                 raise ValueError(f"{item['case_id']}: control_case_id is not a control case")
             if item["issn"] != control["issn"] or item["input_sha256"]["profile"] != control["input_sha256"]["profile"]:
                 raise ValueError(f"{item['case_id']}: paired control has a different journal profile")
+            if item["article_type"] != control["article_type"]:
+                raise ValueError(f"{item['case_id']}: paired control has a different article type")
             if item["sources"] != control["sources"]:
                 raise ValueError(f"{item['case_id']}: paired control has a different source snapshot")
             if item["manuscript_sha256"] == control["manuscript_sha256"]:
