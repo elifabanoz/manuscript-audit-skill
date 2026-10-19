@@ -49,13 +49,35 @@ def prepare(args):
     if sys.version_info < (3, 11):
         raise ValueError("Python 3.11 or newer is required")
     manuscript = read_text(args.manuscript, "--manuscript")
-    guideline = read_text(args.guideline_text, "--guideline-text")
+    source_record = getattr(args, "source_record", None)
+    if source_record:
+        if args.guideline_text or args.guideline_url or args.retrieved_at:
+            raise ValueError("--source-record cannot be combined with manual guideline fields")
+        source = json.loads(source_record.read_text(encoding="utf-8"))
+        if not isinstance(source, dict) or source.get("schema_version") != 1 or source.get("text_file") != "guideline.txt":
+            raise ValueError("--source-record has an invalid format")
+        guideline_path = source_record.parent / "guideline.txt"
+        if guideline_path.is_symlink():
+            raise ValueError("--source-record cannot reference a symbolic link")
+        guideline = read_text(guideline_path, "--source-record")
+        if source.get("sha256") != digest(guideline):
+            raise ValueError("--source-record text hash does not match")
+        guideline_url = source.get("url")
+        retrieved_at = source.get("retrieved_at")
+        if not isinstance(guideline_url, str) or not isinstance(retrieved_at, str):
+            raise ValueError("--source-record is missing its URL or retrieval time")
+    else:
+        if not (args.guideline_text and args.guideline_url and args.retrieved_at):
+            raise ValueError("Supply --source-record or all manual guideline fields")
+        guideline = read_text(args.guideline_text, "--guideline-text")
+        guideline_url = args.guideline_url
+        retrieved_at = args.retrieved_at
     supplementary = [(path.suffix.lower(), read_text(path, "--supplementary")) for path in args.supplementary]
     if any(not model.strip() for model in args.model):
         raise ValueError("--model must be nonempty when supplied")
     skill = SKILL_FILE.read_bytes()
-    retrieved_at = timestamp(args.retrieved_at)
-    url = urlsplit(args.guideline_url)
+    retrieved_at = timestamp(retrieved_at)
+    url = urlsplit(guideline_url)
     if url.scheme != "https" or not url.hostname or url.username or url.password:
         raise ValueError("--guideline-url must be a valid HTTPS URL without credentials")
     root = args.output_root.expanduser()
@@ -98,7 +120,7 @@ def prepare(args):
         "cross_host": False,
         "manuscript": {"path": f"manuscript{args.manuscript.suffix.lower()}", "sha256": digest(manuscript)},
         "supplementary": supplement_records,
-        "sources": {source_id: {"url": args.guideline_url, "retrieved_at": retrieved_at, "sha256": source_hash, "path": source_path}},
+        "sources": {source_id: {"url": guideline_url, "retrieved_at": retrieved_at, "sha256": source_hash, "path": source_path}},
     }
     (run / "run-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     return run
@@ -107,10 +129,11 @@ def prepare(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manuscript", type=Path, required=True)
-    parser.add_argument("--guideline-text", type=Path, required=True)
+    parser.add_argument("--guideline-text", type=Path)
     parser.add_argument("--supplementary", type=Path, action="append", default=[], help="Additional UTF-8 .md or .txt file; repeat if needed")
-    parser.add_argument("--guideline-url", required=True)
-    parser.add_argument("--retrieved-at", required=True, help="ISO 8601 time with timezone")
+    parser.add_argument("--guideline-url")
+    parser.add_argument("--retrieved-at", help="ISO 8601 time with timezone")
+    parser.add_argument("--source-record", type=Path, help="Private source.json written by fetch_guidelines.py")
     parser.add_argument("--output-root", type=Path, default=Path.home() / "manuscript-audit")
     parser.add_argument("--host", choices=("codex", "claude-code", "manual"), default="manual")
     parser.add_argument("--model", action="append", default=[], help="Model actually used; repeat if needed")

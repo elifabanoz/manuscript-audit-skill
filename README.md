@@ -2,7 +2,7 @@
 
 An early-stage skill for checking a manuscript against a selected journal's guidelines.
 
-The current implementation provides [skill instructions](skills/manuscript-audit/SKILL.md), JSON contracts, local validators, private report rendering, and a [run preparation tool](skills/manuscript-audit/tools/prepare_run.py) for UTF-8 text or Markdown. It does not yet fetch journal guideline pages or parse PDF or DOCX manuscripts. Private run files are created outside any Git checkout.
+The current implementation provides [skill instructions](skills/manuscript-audit/SKILL.md), JSON contracts, local validators, private report rendering, and a [run preparation tool](skills/manuscript-audit/tools/prepare_run.py) for UTF-8 text or Markdown. It can fetch public HTML or plain-text guideline pages, but it does not parse PDF or DOCX manuscripts. Private run files are created outside any Git checkout.
 
 If a journal has not been chosen, use an explicit, nonconfidential topic phrase to discover candidates from [OpenAlex](https://help.openalex.org/api/llm-quick-reference/) metadata:
 
@@ -12,7 +12,14 @@ python skills/manuscript-audit/tools/discover_journals.py --query "synthetic top
 
 This writes a private `candidates.json` under `~/manuscript-audit/discovery/discovery-N/`. It contains source IDs, ISSN-L values, and matching work IDs; it does not copy article text. Set `OPENALEX_API_KEY` in the environment if you have a key. The author selects the target journal; the matching-work count is only a discovery signal.
 
-To prepare a run, supply a manuscript, a guideline text file, the actual guideline URL, and its known retrieval time:
+To fetch a public guideline page and prepare a run, inspect the extracted text before using it:
+
+```sh
+python skills/manuscript-audit/tools/fetch_guidelines.py --url https://example.org/authors
+python skills/manuscript-audit/tools/prepare_run.py --manuscript /path/to/paper.md --source-record /path/to/manuscript-audit/sources/source-1/source.json
+```
+
+For manually verified guideline text, supply the actual guideline URL and its known retrieval time:
 
 ```sh
 python skills/manuscript-audit/tools/prepare_run.py --manuscript /path/to/paper.md --guideline-text /path/to/guideline.txt --guideline-url https://example.org/authors --retrieved-at 2026-10-19T09:00:00Z
