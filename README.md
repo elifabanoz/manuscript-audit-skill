@@ -2,7 +2,9 @@
 
 An early-stage skill for checking a manuscript against a selected journal's guidelines.
 
-The current implementation provides [skill instructions](skills/manuscript-audit/SKILL.md), JSON contracts, local validators, private report rendering, and a [run preparation tool](skills/manuscript-audit/tools/prepare_run.py) for UTF-8 text or Markdown. It can fetch public HTML or plain-text guideline pages, but it does not parse PDF or DOCX manuscripts. Private run files are created outside any Git checkout.
+The current implementation provides [skill instructions](skills/manuscript-audit/SKILL.md), JSON contracts, local validators, private report rendering, and a [run preparation tool](skills/manuscript-audit/tools/prepare_run.py) for UTF-8 text or Markdown. It can fetch public HTML or plain-text guideline pages and extract DOCX text locally. PDF extraction is not yet included. Private run files are created outside any Git checkout.
+
+For a DOCX manuscript, run `python skills/manuscript-audit/tools/convert_docx.py --input /path/to/paper.docx`. Inspect the private `extraction.json` warnings and `manuscript.md` before preparing the run. Tables are flattened; figures, notes, and some Word fields require separate inspection. Documents with tracked changes are rejected until those changes are resolved.
 
 If a journal has not been chosen, use an explicit, nonconfidential topic phrase to discover candidates from [OpenAlex](https://help.openalex.org/api/llm-quick-reference/) metadata:
 
