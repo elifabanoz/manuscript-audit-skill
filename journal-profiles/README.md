@@ -15,6 +15,7 @@ The current fixtures cover:
 | `1471-0684` | Theory and Practice of Logic Programming |
 | `1532-4435` | Journal of Machine Learning Research |
 | `1548-7660` | Journal of Statistical Software |
+| `1619-1366` | Software and Systems Modeling |
 | `2073-4859` | The R Journal |
 | `2169-3536` | IEEE Access |
 | `2475-9066` | Journal of Open Source Software |
