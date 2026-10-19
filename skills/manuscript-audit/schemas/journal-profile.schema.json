@@ -39,7 +39,7 @@
             "additionalProperties": false,
             "required": ["metric", "op", "value"],
             "properties": {
-              "metric": { "type": "string", "minLength": 1 },
+              "metric": { "enum": ["abstract_words", "main_text_words", "keyword_count", "heading_count"] },
               "op": { "enum": ["<", "<=", "=", ">=", ">"] },
               "value": { "type": "number" },
               "heading": { "type": "string", "minLength": 1 }

@@ -45,7 +45,6 @@ class DeterministicCheckTests(unittest.TestCase):
                 {"rule_id": "abstract_limit", "kind": "deterministic", "check": {"metric": "abstract_words", "op": "<=", "value": 2}, "quote": "Abstract limit: 2 words.", "source_ref": source_ref},
                 {"rule_id": "main_limit", "kind": "deterministic", "check": {"metric": "main_text_words", "op": "<=", "value": 5}, "quote": "Main text limit: 5 words.", "source_ref": source_ref},
                 {"rule_id": "keyword_limit", "kind": "deterministic", "check": {"metric": "keyword_count", "op": "<=", "value": 2}, "quote": "Maximum 2 keywords.", "source_ref": source_ref},
-                {"rule_id": "unknown_metric", "kind": "deterministic", "check": {"metric": "figures", "op": "<=", "value": 3}, "quote": "Main text limit: 5 words.", "source_ref": source_ref},
             ],
         }
         self.save_profile()
@@ -55,8 +54,8 @@ class DeterministicCheckTests(unittest.TestCase):
 
     def test_measures_explicit_sections_without_confirming_a_finding(self):
         output = check(self.run, "original_research", "Introduction", "References")
-        self.assertEqual([item["status"] for item in output["checks"]], ["triggered", "met", "triggered", "unresolved"])
-        self.assertEqual([item.get("measured_value") for item in output["checks"]], [3, 4, 3, None])
+        self.assertEqual([item["status"] for item in output["checks"]], ["triggered", "met", "triggered"])
+        self.assertEqual([item.get("measured_value") for item in output["checks"]], [3, 4, 3])
         self.assertEqual(json.loads((self.run / "deterministic-checks.json").read_text(encoding="utf-8")), output)
 
     def test_unknown_main_boundaries_remain_unresolved(self):

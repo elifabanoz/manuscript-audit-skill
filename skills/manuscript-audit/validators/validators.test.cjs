@@ -189,6 +189,16 @@ test('heading count rules require an explicit heading', t => {
   assert.match(validateProfile(profile).join('\n'), /only for heading_count/);
 });
 
+test('profiles reject deterministic metrics without an implementation', t => {
+  const { profile } = fixture(t);
+  profile.rules.push({
+    rule_id: 'unsupported_word_count', kind: 'deterministic',
+    check: { metric: 'word_count_excluding_tables', op: '<=', value: 5000 },
+    quote: 'A data availability statement is required.', source_ref: 'src_guideline'
+  });
+  assert.match(validateProfile(profile).join('\n'), /metric is not implemented/);
+});
+
 test('a profile cannot cite an unknown source or duplicate a rule', t => {
   const { profile } = fixture(t);
   profile.rules.push({ ...profile.rules[0], source_ref: 'missing' });
