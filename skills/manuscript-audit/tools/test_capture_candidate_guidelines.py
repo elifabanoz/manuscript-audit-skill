@@ -56,6 +56,7 @@ class CandidateGuidelineTests(unittest.TestCase):
             text = (source_path.parent / "guideline.txt").read_text(encoding="utf-8")
         self.assertEqual(locator["status"], "captured_pending_review")
         self.assertEqual(locator["domain_basis"], "journal_homepage")
+        self.assertEqual(locator["link_origin"], "doaj_metadata")
         self.assertEqual(locator["doaj_id"], "doaj-record")
         self.assertIsNone(locator["reason"])
         self.assertEqual(source["url"], "https://example.org/authors")
@@ -126,6 +127,62 @@ class CandidateGuidelineTests(unittest.TestCase):
             locator = json.loads(path.read_text(encoding="utf-8"))
             self.assertEqual(locator["status"], "needs_manual_verification")
             self.assertIn("ISSN", locator["reason"])
+
+    def test_operator_url_captures_openalex_only_journal_on_current_host(self):
+        requests = []
+
+        def opener(request, timeout):
+            self.assertEqual(timeout, 20)
+            requests.append(request.full_url)
+            if "/sources/S1" in request.full_url:
+                body = {"id": "https://openalex.org/S1", "type": "journal",
+                        "issn": ["1234-567X"], "homepage_url": "https://current.example/journal"}
+                return Response(request.full_url, json.dumps(body).encode())
+            return Response("https://current.example/authors")
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            candidate_file = root / "candidates.json"
+            record = discovery()
+            del record["candidates"][0]["doaj_id"]
+            del record["candidates"][0]["author_instructions_url"]
+            candidate_file.write_text(json.dumps(record), encoding="utf-8")
+            path = capture(candidate_file, "1234-567X", root / "sources", True, opener,
+                           guideline_url="https://current.example/authors")
+            locator = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(locator["status"], "captured_pending_review")
+            self.assertEqual(locator["domain_basis"], "openalex_journal_homepage")
+            self.assertEqual(locator["link_origin"], "operator_supplied")
+            self.assertIsNone(locator["openalex_publisher_id"])
+            self.assertEqual(len(requests), 2)
+
+    def test_operator_url_requires_network_and_current_official_host(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            candidate_file = root / "candidates.json"
+            candidate_file.write_text(json.dumps(discovery()), encoding="utf-8")
+            pending = capture(candidate_file, "1234-567X", root / "sources", False,
+                              lambda *_args, **_kwargs: self.fail("Unexpected network request"),
+                              guideline_url="https://publisher.example/authors")
+            self.assertIn("allow-network", json.loads(pending.read_text())["reason"])
+
+            responses = [
+                {"id": "https://openalex.org/S1", "type": "journal",
+                 "issn_l": "1234-567X", "homepage_url": "https://journal.example",
+                 "host_organization": "https://openalex.org/P2"},
+                {"id": "https://openalex.org/P2", "homepage_url": "https://different.example"}]
+
+            def opener(request, timeout):
+                self.assertEqual(timeout, 20)
+                return Response(request.full_url, json.dumps(responses.pop(0)).encode())
+
+            rejected = capture(candidate_file, "1234-567X", root / "sources", True, opener,
+                               guideline_url="https://publisher.example/authors")
+            locator = json.loads(rejected.read_text(encoding="utf-8"))
+            self.assertEqual(locator["status"], "needs_manual_verification")
+            self.assertIn("differs", locator["reason"])
+            self.assertIsNone(locator["source_record"])
+            self.assertEqual(responses, [])
 
     def test_network_opt_in_and_redirect_check(self):
         with tempfile.TemporaryDirectory() as temporary:
