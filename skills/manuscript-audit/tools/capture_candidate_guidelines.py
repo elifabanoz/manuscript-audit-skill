@@ -10,11 +10,13 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from urllib.request import urlopen
 
+from discover_journals import SOURCE_ID, fetch_json
 from fetch_guidelines import https_url, normalized_host, save_source
 from prepare_run import outside_git
 
 
 ISSN = re.compile(r"^\d{4}-\d{3}[\dX]$")
+PUBLISHER_ID = re.compile(r"^https://openalex\.org/P\d+$")
 
 
 def read_candidate(discovery_record, issn):
@@ -58,6 +60,32 @@ def homepage_host(homepage_url):
     return normalized_host(homepage_url)
 
 
+def publisher_host(candidate, issn, instruction_host, opener):
+    source_id = candidate.get("source_id")
+    if not isinstance(source_id, str) or not SOURCE_ID.fullmatch(source_id):
+        raise ValueError("A current OpenAlex journal record is required to verify the publisher host")
+    source, source_hash = fetch_json(
+        f"https://api.openalex.org/sources/{source_id.rsplit('/', 1)[1]}"
+        "?select=id,type,issn,issn_l,host_organization", opener)
+    if (not isinstance(source, dict) or source.get("id") != source_id
+            or source.get("type") != "journal"
+            or issn not in ([source.get("issn_l")] +
+                            (source.get("issn") if isinstance(source.get("issn"), list) else []))):
+        raise ValueError("The current OpenAlex journal identity does not match the selected ISSN")
+    publisher_id = source.get("host_organization")
+    if not isinstance(publisher_id, str) or not PUBLISHER_ID.fullmatch(publisher_id):
+        raise ValueError("OpenAlex has no usable publisher identity for this journal")
+    publisher, publisher_hash = fetch_json(
+        f"https://api.openalex.org/publishers/{publisher_id.rsplit('/', 1)[1]}"
+        "?select=id,homepage_url", opener)
+    homepage = publisher.get("homepage_url") if isinstance(publisher, dict) else None
+    if not isinstance(publisher, dict) or publisher.get("id") != publisher_id:
+        raise ValueError("The OpenAlex publisher identity could not be confirmed")
+    if homepage_host(homepage) != instruction_host:
+        raise ValueError("The author-instruction host differs from the current publisher homepage")
+    return publisher_id, homepage, source_hash, publisher_hash
+
+
 def capture(discovery_record, issn, output_root, allow_network=False, opener=urlopen):
     if not isinstance(issn, str) or not ISSN.fullmatch(issn):
         raise ValueError("--issn must be a valid ISSN-shaped identifier")
@@ -70,6 +98,8 @@ def capture(discovery_record, issn, output_root, allow_network=False, opener=url
     status = "needs_manual_verification"
     reason = None
     source_record = None
+    domain_basis = None
+    publisher_id = publisher_homepage = source_hash = publisher_hash = None
     if not candidate.get("doaj_id"):
         reason = "No DOAJ author-instruction link is attached to this candidate"
     elif not isinstance(instructions, str):
@@ -82,12 +112,20 @@ def capture(discovery_record, issn, output_root, allow_network=False, opener=url
         except ValueError:
             reason = "The author-instruction link is not a public HTTPS URL"
         else:
-            if normalized_host(instructions) != host:
-                reason = "The author-instruction link uses a different host from the journal homepage"
-            elif not allow_network:
+            instruction_host = normalized_host(instructions)
+            if not allow_network:
                 reason = "Add --allow-network to capture the linked guideline page"
-            else:
+            elif instruction_host == host:
+                domain_basis = "journal_homepage"
                 status = "capture_pending"
+            else:
+                try:
+                    publisher_id, publisher_homepage, source_hash, publisher_hash = publisher_host(
+                        candidate, issn, instruction_host, opener)
+                    domain_basis = "openalex_publisher_homepage"
+                    status = "capture_pending"
+                except (OSError, UnicodeError, ValueError) as error:
+                    reason = str(error)
     root.mkdir(parents=True, exist_ok=True)
     for number in range(1, 100000):
         directory = root / f"candidate-guidelines-{number}"
@@ -100,7 +138,8 @@ def capture(discovery_record, issn, output_root, allow_network=False, opener=url
         raise ValueError("No available candidate-guideline number")
     if status == "capture_pending":
         try:
-            source_path = save_source(instructions, directory, opener=opener, allowed_host=host)
+            source_path = save_source(instructions, directory, opener=opener,
+                                      allowed_host=normalized_host(instructions))
             source_record = str(source_path.relative_to(directory)).replace("\\", "/")
             status = "captured_pending_review"
         except (OSError, UnicodeError, ValueError) as error:
@@ -112,6 +151,10 @@ def capture(discovery_record, issn, output_root, allow_network=False, opener=url
               "journal": candidate["display_name"].strip(), "selected_issn": issn,
               "openalex_source_id": candidate.get("source_id"), "doaj_id": candidate.get("doaj_id"),
               "homepage_url": home, "author_instructions_url": instructions,
+              "domain_basis": domain_basis, "openalex_publisher_id": publisher_id,
+              "publisher_homepage_url": publisher_homepage,
+              "openalex_source_response_sha256": source_hash,
+              "openalex_publisher_response_sha256": publisher_hash,
               "status": status, "reason": reason, "source_record": source_record,
               "note": "A captured page still requires live-page review and independent source-backed profile comparison"}
     output = directory / "source-locator.json"
@@ -124,7 +167,7 @@ def main():
     parser.add_argument("--discovery-record", required=True, type=Path, help="Private candidates.json")
     parser.add_argument("--issn", required=True, help="One ISSN from the selected candidate")
     parser.add_argument("--output-root", type=Path, default=Path.home() / "manuscript-audit" / "sources")
-    parser.add_argument("--allow-network", action="store_true", help="Fetch a same-host DOAJ author-instruction page")
+    parser.add_argument("--allow-network", action="store_true", help="Fetch a DOAJ author-instruction page after journal or publisher host checks")
     args = parser.parse_args()
     try:
         print(capture(args.discovery_record, args.issn, args.output_root, args.allow_network))

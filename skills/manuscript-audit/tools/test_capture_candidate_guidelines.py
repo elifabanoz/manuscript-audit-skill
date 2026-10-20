@@ -10,8 +10,9 @@ from capture_candidate_guidelines import capture
 
 
 class Response:
-    def __init__(self, url):
+    def __init__(self, url, body=None):
         self.url = url
+        self.body = body or b"<h1>Guide</h1><p>Use a data statement.</p>"
         self.headers = Message()
         self.headers["Content-Type"] = "text/html; charset=utf-8"
 
@@ -25,7 +26,7 @@ class Response:
         return self.url
 
     def read(self, _size):
-        return b"<h1>Guide</h1><p>Use a data statement.</p>"
+        return self.body
 
 
 def discovery(home="https://example.org/journal", guide="https://www.example.org/authors"):
@@ -54,23 +55,77 @@ class CandidateGuidelineTests(unittest.TestCase):
             source = json.loads(source_path.read_text(encoding="utf-8"))
             text = (source_path.parent / "guideline.txt").read_text(encoding="utf-8")
         self.assertEqual(locator["status"], "captured_pending_review")
+        self.assertEqual(locator["domain_basis"], "journal_homepage")
         self.assertEqual(locator["doaj_id"], "doaj-record")
         self.assertIsNone(locator["reason"])
         self.assertEqual(source["url"], "https://example.org/authors")
         self.assertIn("Use a data statement.", text)
         self.assertEqual(requests, ["https://www.example.org/authors"])
 
-    def test_different_host_requires_manual_verification_without_network(self):
+    def test_publisher_host_is_verified_against_current_openalex_source(self):
+        requests = []
+
+        def opener(request, timeout):
+            self.assertEqual(timeout, 20)
+            requests.append(request.full_url)
+            if "/sources/S1" in request.full_url:
+                body = {"id": "https://openalex.org/S1", "type": "journal",
+                        "issn_l": "1234-567X", "host_organization": "https://openalex.org/P2"}
+                return Response(request.full_url, json.dumps(body).encode())
+            if "/publishers/P2" in request.full_url:
+                body = {"id": "https://openalex.org/P2", "homepage_url": "https://www.publisher.example"}
+                return Response(request.full_url, json.dumps(body).encode())
+            return Response("https://publisher.example/authors")
+
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             candidate_file = root / "candidates.json"
             candidate_file.write_text(json.dumps(discovery(guide="https://publisher.example/authors")), encoding="utf-8")
-            path = capture(candidate_file, "1234-567X", root / "sources", True,
-                           lambda *_args, **_kwargs: self.fail("Unexpected network request"))
+            path = capture(candidate_file, "1234-567X", root / "sources", True, opener)
+            locator = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(locator["status"], "captured_pending_review")
+            self.assertEqual(locator["domain_basis"], "openalex_publisher_homepage")
+            self.assertEqual(locator["openalex_publisher_id"], "https://openalex.org/P2")
+            self.assertEqual(len(locator["openalex_source_response_sha256"]), 64)
+            self.assertEqual(len(locator["openalex_publisher_response_sha256"]), 64)
+            self.assertEqual(len(requests), 3)
+
+    def test_different_host_requires_manual_verification_when_publisher_differs(self):
+        responses = [
+            {"id": "https://openalex.org/S1", "type": "journal", "issn_l": "1234-567X",
+             "host_organization": "https://openalex.org/P2"},
+            {"id": "https://openalex.org/P2", "homepage_url": "https://other.example"}]
+
+        def opener(request, timeout):
+            self.assertEqual(timeout, 20)
+            return Response(request.full_url, json.dumps(responses.pop(0)).encode())
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            candidate_file = root / "candidates.json"
+            candidate_file.write_text(json.dumps(discovery(guide="https://publisher.example/authors")), encoding="utf-8")
+            path = capture(candidate_file, "1234-567X", root / "sources", True, opener)
             locator = json.loads(path.read_text(encoding="utf-8"))
             self.assertEqual(locator["status"], "needs_manual_verification")
-            self.assertIn("different host", locator["reason"])
+            self.assertIn("differs from the current publisher homepage", locator["reason"])
             self.assertIsNone(locator["source_record"])
+            self.assertEqual(responses, [])
+
+    def test_publisher_lookup_rejects_wrong_journal_issn(self):
+        def opener(request, timeout):
+            self.assertIn("/sources/S1", request.full_url)
+            return Response(request.full_url, json.dumps({"id": "https://openalex.org/S1",
+                "type": "journal", "issn_l": "9999-9999",
+                "host_organization": "https://openalex.org/P2"}).encode())
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            candidate_file = root / "candidates.json"
+            candidate_file.write_text(json.dumps(discovery(guide="https://publisher.example/authors")), encoding="utf-8")
+            path = capture(candidate_file, "1234-567X", root / "sources", True, opener)
+            locator = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(locator["status"], "needs_manual_verification")
+            self.assertIn("ISSN", locator["reason"])
 
     def test_network_opt_in_and_redirect_check(self):
         with tempfile.TemporaryDirectory() as temporary:
