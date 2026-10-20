@@ -11,14 +11,16 @@ from collections import defaultdict
 from datetime import date, datetime, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
+from fetch_guidelines import https_url
 from prepare_run import outside_git
 
 
 API_URL = "https://api.openalex.org/works"
 SOURCE_URL = "https://api.openalex.org/sources"
+DOAJ_URL = "https://doaj.org/api/search/journals/"
 MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 ISSN = re.compile(r"^\d{4}-\d{3}[\dX]$")
 SOURCE_ID = re.compile(r"^https://openalex\.org/S\d+$")
@@ -56,24 +58,24 @@ def shortlist(payload, limit):
     return candidates[:limit]
 
 
-def fetch_json(url, opener):
+def fetch_json(url, opener, provider="OpenAlex"):
     request = Request(url, headers={"User-Agent": "manuscript-audit-skill/0.1", "Accept": "application/json"})
-    api_key = os.environ.get("OPENALEX_API_KEY")
+    api_key = os.environ.get("OPENALEX_API_KEY") if provider == "OpenAlex" else None
     if api_key:
         request.add_header("Authorization", f"Bearer {api_key}")
     try:
         with opener(request, timeout=20) as response:
             data = response.read(MAX_RESPONSE_BYTES + 1)
     except HTTPError as error:
-        raise ValueError(f"OpenAlex request failed with HTTP {error.code}") from None
+        raise ValueError(f"{provider} request failed with HTTP {error.code}") from None
     except URLError:
-        raise ValueError("Could not reach OpenAlex") from None
+        raise ValueError(f"Could not reach {provider}") from None
     if len(data) > MAX_RESPONSE_BYTES:
-        raise ValueError("OpenAlex response exceeded the size limit")
+        raise ValueError(f"{provider} response exceeded the size limit")
     try:
         payload = json.loads(data)
     except (UnicodeError, json.JSONDecodeError):
-        raise ValueError("OpenAlex returned invalid JSON") from None
+        raise ValueError(f"{provider} returned invalid JSON") from None
     return payload, hashlib.sha256(data).hexdigest()
 
 
@@ -113,7 +115,7 @@ def grouped_shortlist(query, limit, opener, field_id, published_after):
         return [], response_hash, len(groups), matching_works
     source_ids = [group["key"].rsplit("/", 1)[1] for group in ranked]
     source_params = urlencode({"filter": "ids.openalex:" + "|".join(source_ids),
-                               "select": "id,display_name,type,issn_l,works_count,homepage_url",
+                               "select": "id,display_name,type,issn_l,issn,works_count,homepage_url",
                                "per_page": 100})
     sources_payload, _ = fetch_json(f"{SOURCE_URL}?{source_params}", opener)
     sources = sources_payload.get("results") if isinstance(sources_payload, dict) else None
@@ -132,7 +134,11 @@ def grouped_shortlist(query, limit, opener, field_id, published_after):
         if not (isinstance(name, str) and name.strip() and isinstance(issn_l, str)
                 and ISSN.fullmatch(issn_l) and type(total) is int and total > 0):
             continue
+        issns = {issn_l}
+        if isinstance(source.get("issn"), list):
+            issns.update(value for value in source["issn"] if isinstance(value, str) and ISSN.fullmatch(value))
         candidates.append({"source_id": source_id, "display_name": name.strip(), "issn_l": issn_l,
+                           "issns": sorted(issns),
                            "homepage_url": source.get("homepage_url") if isinstance(source.get("homepage_url"), str) else None,
                            "matching_works": group["count"], "source_works_count": total,
                            "topic_share": round(group["count"] / total, 8), "evidence": ["openalex_grouped_works"]})
@@ -142,8 +148,92 @@ def grouped_shortlist(query, limit, opener, field_id, published_after):
     return candidates[:limit], response_hash, len(groups), matching_works
 
 
+def safe_metadata_url(value):
+    if not isinstance(value, str):
+        return None
+    try:
+        return https_url(value)
+    except ValueError:
+        return None
+
+
+def fetch_doaj_subject(subject, opener=urlopen):
+    query = quote(f"index.classification:{subject}", safe=":")
+    payload, response_hash = fetch_json(f"{DOAJ_URL}{query}?page=1&pageSize=50", opener, "DOAJ")
+    results = payload.get("results") if isinstance(payload, dict) else None
+    if not isinstance(results, list) or type(payload.get("total")) is not int:
+        raise ValueError("DOAJ returned an unexpected journal response")
+    candidates = []
+    for result in results:
+        if not isinstance(result, dict) or not isinstance(result.get("bibjson"), dict):
+            continue
+        details = result["bibjson"]
+        name = details.get("title")
+        record_id = result.get("id")
+        issns = sorted({value for value in (details.get("pissn"), details.get("eissn"))
+                        if isinstance(value, str) and ISSN.fullmatch(value)})
+        if not (isinstance(record_id, str) and record_id and isinstance(name, str)
+                and name.strip() and issns):
+            continue
+        links = details.get("ref") if isinstance(details.get("ref"), dict) else {}
+        candidates.append({"doaj_id": record_id, "display_name": name.strip(), "issns": issns,
+                           "homepage_url": safe_metadata_url(links.get("journal")),
+                           "author_instructions_url": safe_metadata_url(links.get("author_instructions"))})
+    return candidates, response_hash, payload["total"], len(results)
+
+
+def merge_doaj(openalex_candidates, doaj_candidates, limit):
+    by_issn = {}
+    ambiguous_issns = set()
+    for candidate in openalex_candidates:
+        for issn in candidate["issns"]:
+            if issn in by_issn and by_issn[issn] is not candidate:
+                ambiguous_issns.add(issn)
+            else:
+                by_issn[issn] = candidate
+    for issn in ambiguous_issns:
+        del by_issn[issn]
+    supplemental = []
+    seen_doaj = set()
+    seen_supplemental_issns = set()
+    for record in doaj_candidates:
+        if record["doaj_id"] in seen_doaj:
+            continue
+        seen_doaj.add(record["doaj_id"])
+        match = next((by_issn[issn] for issn in record["issns"] if issn in by_issn), None)
+        if match is not None:
+            if "doaj_subject" not in match["evidence"]:
+                match["evidence"].append("doaj_subject")
+            if "doaj_id" not in match:
+                match["doaj_id"] = record["doaj_id"]
+                match["author_instructions_url"] = record["author_instructions_url"]
+        else:
+            if seen_supplemental_issns.intersection(record["issns"]):
+                continue
+            seen_supplemental_issns.update(record["issns"])
+            supplemental.append({"source_id": None, "doaj_id": record["doaj_id"],
+                                 "display_name": record["display_name"], "issn_l": None,
+                                 "issns": record["issns"], "homepage_url": record["homepage_url"],
+                                 "author_instructions_url": record["author_instructions_url"],
+                                 "matching_works": None, "source_works_count": None,
+                                 "topic_share": None, "evidence": ["doaj_subject"]})
+    openalex_candidates.sort(key=lambda item: (-len(item["evidence"]),
+                                               -(item["matching_works"] / item["source_works_count"]),
+                                               -item["matching_works"], item["display_name"].casefold()))
+    supplemental.sort(key=lambda item: (item["display_name"].casefold(), item["doaj_id"]))
+    reserve = min(limit // 5, len(supplemental))
+    primary = openalex_candidates[:limit - reserve]
+    extra = supplemental[:limit - len(primary)]
+    if len(primary) + len(extra) < limit:
+        primary += openalex_candidates[len(primary):limit - len(extra)]
+    combined = primary + extra
+    for candidate in combined:
+        candidate["evidence_count"] = len(candidate["evidence"])
+    return combined
+
+
 def discover(query, output_root, per_page=50, limit=50, opener=urlopen, field_id=None,
-             published_after=None, strategy="grouped"):
+             published_after=None, strategy="grouped", doaj_subject=None):
     query = query.strip()
     if not query or len(query) > 200 or any(character in query for character in "\r\n\x00"):
         raise ValueError("--query must be a single topic phrase of 1 to 200 characters")
@@ -151,6 +241,13 @@ def discover(query, output_root, per_page=50, limit=50, opener=urlopen, field_id
         raise ValueError("--works and --limit must be between 1 and 100")
     if strategy not in {"grouped", "sample"}:
         raise ValueError("--strategy must be grouped or sample")
+    if doaj_subject is not None:
+        if strategy != "grouped":
+            raise ValueError("--doaj-subject requires --strategy grouped")
+        if (not isinstance(doaj_subject, str) or not 1 <= len(doaj_subject.strip()) <= 100
+                or not all(character.isalnum() or character in " -" for character in doaj_subject)):
+            raise ValueError("--doaj-subject must be a nonconfidential subject phrase of 1 to 100 characters")
+        doaj_subject = doaj_subject.strip()
     if field_id is not None and (isinstance(field_id, bool) or not isinstance(field_id, int) or field_id <= 0):
         raise ValueError("--field-id must be a positive OpenAlex field ID")
     if published_after is not None:
@@ -164,10 +261,18 @@ def discover(query, output_root, per_page=50, limit=50, opener=urlopen, field_id
     outside_git(root)
     if strategy == "grouped":
         candidates, response_hash, groups_seen, matching_works = grouped_shortlist(
-            query, limit, opener, field_id, published_after)
+            query, 100 if doaj_subject else limit, opener, field_id, published_after)
+        if doaj_subject:
+            doaj_candidates, doaj_hash, doaj_total, doaj_seen = fetch_doaj_subject(doaj_subject, opener)
+            candidates = merge_doaj(candidates, doaj_candidates, limit)
+        else:
+            doaj_hash = doaj_total = doaj_seen = None
+            for candidate in candidates:
+                candidate["evidence_count"] = 1
     else:
         payload, response_hash = fetch_works(query, per_page, opener, field_id, published_after)
         candidates = shortlist(payload, limit)
+        doaj_hash = doaj_total = doaj_seen = None
     root.mkdir(parents=True, exist_ok=True)
     for number in range(1, 100000):
         directory = root / f"discovery-{number}"
@@ -184,9 +289,9 @@ def discover(query, output_root, per_page=50, limit=50, opener=urlopen, field_id
     if field_id is not None:
         work_filter += " and matching primary field"
     record = {
-        "schema_version": 2,
+        "schema_version": 3,
         "retrieved_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
-        "provider": "OpenAlex",
+        "providers": ["OpenAlex", "DOAJ"] if doaj_subject else ["OpenAlex"],
         "query": query,
         "field_id": field_id,
         "published_after": published_after,
@@ -195,9 +300,16 @@ def discover(query, output_root, per_page=50, limit=50, opener=urlopen, field_id
         "works_requested": per_page if strategy == "sample" else None,
         "grouped_sources_seen": groups_seen if strategy == "grouped" else None,
         "matching_works_total": matching_works if strategy == "grouped" else None,
-        "coverage_note": "First OpenAlex group page only; candidate coverage is incomplete" if strategy == "grouped" else "Sampled works only; candidate coverage is incomplete",
+        "coverage_note": ("First OpenAlex group page and first DOAJ subject result page only; candidate coverage is incomplete"
+                          if doaj_subject else "First OpenAlex group page only; candidate coverage is incomplete")
+                         if strategy == "grouped" else "Sampled works only; candidate coverage is incomplete",
         "topic_share_denominator": "OpenAlex source works_count across all years; not restricted to the search date or article type" if strategy == "grouped" else None,
+        "selection_note": "Multiple independent indexes are listed first; up to one fifth of slots are reserved for DOAJ-only journals. Neither order nor count predicts acceptance." if doaj_subject else None,
         "response_sha256": response_hash,
+        "doaj_subject": doaj_subject,
+        "doaj_results_total": doaj_total,
+        "doaj_results_seen": doaj_seen,
+        "doaj_response_sha256": doaj_hash,
         "candidates": candidates,
     }
     output = directory / "candidates.json"
@@ -212,13 +324,14 @@ def main():
     parser.add_argument("--works", type=int, default=50, help="Works to inspect with --strategy sample (1-100)")
     parser.add_argument("--limit", type=int, default=50, help="Maximum journal candidates to retain (1-100)")
     parser.add_argument("--strategy", choices=("grouped", "sample"), default="grouped")
+    parser.add_argument("--doaj-subject", help="Optional nonconfidential DOAJ subject phrase; uses the first journal result page")
     parser.add_argument("--field-id", type=int, help="Optional OpenAlex primary field ID")
     parser.add_argument("--published-after", help="Keep only works published on or after this YYYY-MM-DD date")
     args = parser.parse_args()
     try:
         print(discover(args.query, args.output_root, args.works, args.limit,
                        field_id=args.field_id, published_after=args.published_after,
-                       strategy=args.strategy))
+                       strategy=args.strategy, doaj_subject=args.doaj_subject))
     except (OSError, ValueError) as error:
         parser.exit(1, f"Error: {error}\n")
 
