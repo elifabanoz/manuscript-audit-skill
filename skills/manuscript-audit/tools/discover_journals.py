@@ -232,8 +232,109 @@ def merge_doaj(openalex_candidates, doaj_candidates, limit):
     return combined
 
 
+def read_citation_record(path):
+    path = path.expanduser().resolve()
+    outside_git(path)
+    raw = path.read_bytes()
+    if len(raw) > 1_000_000:
+        raise ValueError("Citation record exceeds 1 MB")
+    try:
+        record = json.loads(raw)
+    except (UnicodeError, json.JSONDecodeError):
+        raise ValueError("Citation record is not valid JSON") from None
+    if (not isinstance(record, dict) or record.get("schema_version") != 1
+            or record.get("provider") != "OpenAlex" or not isinstance(record.get("candidates"), list)
+            or not isinstance(record.get("reference_input_sha256"), str)
+            or not re.fullmatch(r"[0-9a-f]{64}", record["reference_input_sha256"])):
+        raise ValueError("Citation record has an unexpected format")
+    cleaned = []
+    seen_ids = set()
+    for item in record["candidates"]:
+        if not isinstance(item, dict):
+            raise ValueError("Citation record has an invalid candidate")
+        source_id = item.get("source_id")
+        issn_l = item.get("issn_l")
+        issns = item.get("issns")
+        counts = (item.get("reference_works"), item.get("citing_works"))
+        total = item.get("source_works_count")
+        evidence = item.get("evidence")
+        if (not isinstance(source_id, str) or not SOURCE_ID.fullmatch(source_id)
+                or source_id in seen_ids or not isinstance(issn_l, str) or not ISSN.fullmatch(issn_l)
+                or not isinstance(issns, list) or issn_l not in issns
+                or any(not isinstance(value, str) or not ISSN.fullmatch(value) for value in issns)
+                or any(type(value) is not int or value < 0 for value in counts)
+                or type(total) is not int or total <= 0
+                or not isinstance(evidence, list)
+                or any(value not in {"reference_venues", "citing_venues"} for value in evidence)
+                or ("reference_venues" in evidence) != bool(counts[0])
+                or ("citing_venues" in evidence) != bool(counts[1])):
+            raise ValueError("Citation record has an invalid candidate")
+        seen_ids.add(source_id)
+        cleaned.append({"source_id": source_id, "issn_l": issn_l, "issns": issns,
+                        "display_name": item.get("display_name") if isinstance(item.get("display_name"), str) else source_id,
+                        "homepage_url": safe_metadata_url(item.get("homepage_url")),
+                        "reference_works": counts[0], "citing_works": counts[1], "source_works_count": total,
+                        "citing_share": round(counts[1] / total, 8),
+                        "citation_signal_details": [name for name in ("reference_venues", "citing_venues")
+                                                    if name in evidence]})
+    return cleaned, hashlib.sha256(raw).hexdigest(), record.get("reference_input_sha256")
+
+
+def merge_citation(candidates, citation_candidates, limit):
+    by_source = {item["source_id"]: item for item in candidates if item.get("source_id")}
+    by_issn = {}
+    ambiguous = set()
+    for item in candidates:
+        for issn in item.get("issns", []):
+            if issn in by_issn and by_issn[issn] is not item:
+                ambiguous.add(issn)
+            else:
+                by_issn[issn] = item
+    for issn in ambiguous:
+        del by_issn[issn]
+    supplemental = []
+    for item in citation_candidates:
+        match = by_source.get(item["source_id"])
+        if match is None:
+            match = next((by_issn[issn] for issn in item["issns"] if issn in by_issn), None)
+        if match is not None:
+            if "citation_graph" not in match["evidence"]:
+                match["evidence"].append("citation_graph")
+            match["reference_works"] = item["reference_works"]
+            match["citing_works"] = item["citing_works"]
+            match["citing_share"] = item["citing_share"]
+            match["citation_signal_details"] = item["citation_signal_details"]
+        else:
+            supplemental.append({**item, "matching_works": None,
+                                 "topic_share": None, "evidence": ["citation_graph"]})
+    def ranking(item):
+        return (-len(item["evidence"]), -(item.get("topic_share") or 0),
+                -(item.get("reference_works") or 0), -(item.get("citing_works") or 0),
+                -(item.get("matching_works") or 0), item["display_name"].casefold())
+    candidates.sort(key=ranking)
+    supplemental.sort(key=ranking)
+    doaj_only = [item for item in candidates if item["evidence"] == ["doaj_subject"]]
+    primary = [item for item in candidates if item["evidence"] != ["doaj_subject"]]
+    doaj_reserve = min(limit // 5, len(doaj_only))
+    citation_reserve = min(limit // 5, len(supplemental))
+    selected = primary[:limit - doaj_reserve - citation_reserve]
+    selected += doaj_only[:doaj_reserve]
+    selected += supplemental[:citation_reserve]
+    selected_ids = {id(item) for item in selected}
+    for item in sorted(candidates + supplemental, key=ranking):
+        if len(selected) == limit:
+            break
+        if id(item) not in selected_ids:
+            selected.append(item)
+            selected_ids.add(id(item))
+    selected.sort(key=ranking)
+    for item in selected:
+        item["evidence_count"] = len(item["evidence"])
+    return selected
+
+
 def discover(query, output_root, per_page=50, limit=50, opener=urlopen, field_id=None,
-             published_after=None, strategy="grouped", doaj_subject=None):
+             published_after=None, strategy="grouped", doaj_subject=None, citation_record=None):
     query = query.strip()
     if not query or len(query) > 200 or any(character in query for character in "\r\n\x00"):
         raise ValueError("--query must be a single topic phrase of 1 to 200 characters")
@@ -241,6 +342,8 @@ def discover(query, output_root, per_page=50, limit=50, opener=urlopen, field_id
         raise ValueError("--works and --limit must be between 1 and 100")
     if strategy not in {"grouped", "sample"}:
         raise ValueError("--strategy must be grouped or sample")
+    if citation_record is not None and strategy != "grouped":
+        raise ValueError("--citation-record requires --strategy grouped")
     if doaj_subject is not None:
         if strategy != "grouped":
             raise ValueError("--doaj-subject requires --strategy grouped")
@@ -259,16 +362,22 @@ def discover(query, output_root, per_page=50, limit=50, opener=urlopen, field_id
             raise ValueError("--published-after is not a valid date") from error
     root = output_root.expanduser()
     outside_git(root)
+    if citation_record is not None:
+        citation_candidates, citation_hash, reference_input_hash = read_citation_record(citation_record)
+    else:
+        citation_candidates, citation_hash, reference_input_hash = None, None, None
     if strategy == "grouped":
         candidates, response_hash, groups_seen, matching_works = grouped_shortlist(
-            query, 100 if doaj_subject else limit, opener, field_id, published_after)
+            query, 100 if doaj_subject or citation_record else limit, opener, field_id, published_after)
         if doaj_subject:
             doaj_candidates, doaj_hash, doaj_total, doaj_seen = fetch_doaj_subject(doaj_subject, opener)
-            candidates = merge_doaj(candidates, doaj_candidates, limit)
+            candidates = merge_doaj(candidates, doaj_candidates, 100 if citation_record else limit)
         else:
             doaj_hash = doaj_total = doaj_seen = None
             for candidate in candidates:
                 candidate["evidence_count"] = 1
+        if citation_record is not None:
+            candidates = merge_citation(candidates, citation_candidates, limit)
     else:
         payload, response_hash = fetch_works(query, per_page, opener, field_id, published_after)
         candidates = shortlist(payload, limit)
@@ -288,8 +397,14 @@ def discover(query, output_root, per_page=50, limit=50, opener=urlopen, field_id
         work_filter += " with journal primary location"
     if field_id is not None:
         work_filter += " and matching primary field"
+    coverage_note = "First OpenAlex group page only"
+    if doaj_subject:
+        coverage_note += "; first DOAJ subject result page only"
+    if citation_record is not None:
+        coverage_note += "; selected reference DOIs and first citing-journal group page only"
+    coverage_note += "; candidate coverage is incomplete"
     record = {
-        "schema_version": 3,
+        "schema_version": 4,
         "retrieved_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
         "providers": ["OpenAlex", "DOAJ"] if doaj_subject else ["OpenAlex"],
         "query": query,
@@ -300,16 +415,16 @@ def discover(query, output_root, per_page=50, limit=50, opener=urlopen, field_id
         "works_requested": per_page if strategy == "sample" else None,
         "grouped_sources_seen": groups_seen if strategy == "grouped" else None,
         "matching_works_total": matching_works if strategy == "grouped" else None,
-        "coverage_note": ("First OpenAlex group page and first DOAJ subject result page only; candidate coverage is incomplete"
-                          if doaj_subject else "First OpenAlex group page only; candidate coverage is incomplete")
-                         if strategy == "grouped" else "Sampled works only; candidate coverage is incomplete",
+        "coverage_note": coverage_note if strategy == "grouped" else "Sampled works only; candidate coverage is incomplete",
         "topic_share_denominator": "OpenAlex source works_count across all years; not restricted to the search date or article type" if strategy == "grouped" else None,
-        "selection_note": "Multiple independent indexes are listed first; up to one fifth of slots are reserved for DOAJ-only journals. Neither order nor count predicts acceptance." if doaj_subject else None,
+        "selection_note": "Candidates with more discovery strategies are listed first; up to one fifth of slots each are reserved for DOAJ-only and citation-only journals. Neither order nor count predicts acceptance." if doaj_subject or citation_record is not None else None,
         "response_sha256": response_hash,
         "doaj_subject": doaj_subject,
         "doaj_results_total": doaj_total,
         "doaj_results_seen": doaj_seen,
         "doaj_response_sha256": doaj_hash,
+        "citation_record_sha256": citation_hash,
+        "citation_reference_input_sha256": reference_input_hash,
         "candidates": candidates,
     }
     output = directory / "candidates.json"
@@ -325,13 +440,15 @@ def main():
     parser.add_argument("--limit", type=int, default=50, help="Maximum journal candidates to retain (1-100)")
     parser.add_argument("--strategy", choices=("grouped", "sample"), default="grouped")
     parser.add_argument("--doaj-subject", help="Optional nonconfidential DOAJ subject phrase; uses the first journal result page")
+    parser.add_argument("--citation-record", type=Path, help="Optional private citation-candidates.json from selected reference DOIs")
     parser.add_argument("--field-id", type=int, help="Optional OpenAlex primary field ID")
     parser.add_argument("--published-after", help="Keep only works published on or after this YYYY-MM-DD date")
     args = parser.parse_args()
     try:
         print(discover(args.query, args.output_root, args.works, args.limit,
                        field_id=args.field_id, published_after=args.published_after,
-                       strategy=args.strategy, doaj_subject=args.doaj_subject))
+                       strategy=args.strategy, doaj_subject=args.doaj_subject,
+                       citation_record=args.citation_record))
     except (OSError, ValueError) as error:
         parser.exit(1, f"Error: {error}\n")
 

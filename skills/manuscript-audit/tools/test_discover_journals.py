@@ -150,6 +150,56 @@ class DiscoveryTests(unittest.TestCase):
                     discover("synthetic topic", Path(temporary), doaj_subject=subject,
                              opener=lambda *_args, **_kwargs: self.fail("Unexpected network request"))
 
+    def test_citation_record_merges_with_openalex_and_doaj_by_source_or_issn(self):
+        groups = {"meta": {"count": 20}, "group_by": [
+            {"key": "https://openalex.org/S10", "count": 10}]}
+        sources = {"results": [{"id": "https://openalex.org/S10", "display_name": "Matching Journal",
+                                "type": "journal", "issn_l": "1234-567X",
+                                "issn": ["1234-567X", "2345-678X"], "works_count": 100}]}
+        doaj = {"total": 1, "results": [
+            {"id": "doaj-match", "bibjson": {"title": "Matching Journal", "eissn": "2345-678X"}}]}
+        citation = {"schema_version": 1, "provider": "OpenAlex", "reference_input_sha256": "a" * 64,
+                    "candidates": [
+                        {"source_id": "https://openalex.org/S10", "display_name": "Matching Journal",
+                         "issn_l": "1234-567X", "issns": ["1234-567X"], "reference_works": 1,
+                         "citing_works": 8, "source_works_count": 100,
+                         "evidence": ["reference_venues", "citing_venues"]},
+                        {"source_id": "https://openalex.org/S20", "display_name": "Citation Journal",
+                         "issn_l": "3456-789X", "issns": ["3456-789X"], "reference_works": 0,
+                         "citing_works": 5, "source_works_count": 50,
+                         "evidence": ["citing_venues"]}]}
+        responses = [groups, sources, doaj]
+
+        def opener(_request, timeout):
+            self.assertEqual(timeout, 20)
+            return Response(json.dumps(responses.pop(0)).encode())
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            citation_path = root / "citation-candidates.json"
+            citation_path.write_text(json.dumps(citation), encoding="utf-8")
+            output = discover("synthetic topic", root / "results", limit=3, opener=opener,
+                              doaj_subject="Computer Science", citation_record=citation_path)
+            record = json.loads(output.read_text(encoding="utf-8"))
+        self.assertEqual(record["citation_reference_input_sha256"], "a" * 64)
+        self.assertEqual(len(record["candidates"]), 2)
+        primary, supplemental = record["candidates"]
+        self.assertEqual(primary["evidence"], ["openalex_grouped_works", "doaj_subject", "citation_graph"])
+        self.assertEqual(primary["evidence_count"], 3)
+        self.assertEqual(primary["citation_signal_details"], ["reference_venues", "citing_venues"])
+        self.assertEqual(supplemental["source_id"], "https://openalex.org/S20")
+        self.assertEqual(supplemental["evidence"], ["citation_graph"])
+
+    def test_citation_record_must_be_private_and_grouped(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with self.assertRaisesRegex(ValueError, "requires --strategy grouped"):
+                discover("synthetic topic", root, strategy="sample", citation_record=root / "missing.json",
+                         opener=lambda *_args, **_kwargs: self.fail("Unexpected network request"))
+            with self.assertRaisesRegex(ValueError, "outside a Git checkout"):
+                discover("synthetic topic", root, citation_record=Path(__file__).resolve(),
+                         opener=lambda *_args, **_kwargs: self.fail("Unexpected network request"))
+
     def test_rejects_repository_output_before_network_request(self):
         root = Path(__file__).resolve().parents[3]
 
