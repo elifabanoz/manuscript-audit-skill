@@ -96,16 +96,34 @@ def make_packet(cases_path):
     return "\n".join(lines)
 
 
+def make_json_template(cases_path):
+    result = score(read_json(cases_path))
+    labels = []
+    for row in result["cases"]:
+        rule_ids = row["scored_rule_ids"] if row["kind"] == "control" else [row["target_rule_id"]]
+        for rule_id in rule_ids:
+            labels.append({"case_id": row["case_id"], "rule_id": rule_id, "verdict": None,
+                           "evidence_location": "", "rationale": "", "single_change": None,
+                           "mutation_class": None})
+    return {"schema_version": 1, "benchmark_manifest_sha256": sha256(cases_path),
+            "reviews": [{"reviewer_id": "", "reviewed_at": "", "labels": [dict(item) for item in labels]}
+                        for _ in range(2)],
+            "adjudication": {"adjudicator_id": "", "approved": False,
+                             "labels": [dict(item) for item in labels], "disagreement_resolution": ""}}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("cases", type=Path, help="Private benchmark case manifest outside Git")
     parser.add_argument("--output", type=Path, help="Private output path; defaults beside the manifest")
+    parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
     args = parser.parse_args()
-    output = args.output or args.cases.parent / "human-label-review.md"
+    output = args.output or args.cases.parent / ("human-label-review.md" if args.format == "markdown" else "human-labels.template.json")
     try:
         outside_git(args.cases)
         outside_git(output)
-        packet = make_packet(args.cases)
+        packet = make_packet(args.cases) if args.format == "markdown" else json.dumps(
+            make_json_template(args.cases), indent=2, ensure_ascii=False) + "\n"
         with output.open("x", encoding="utf-8") as handle:
             handle.write(packet)
         print(output)
