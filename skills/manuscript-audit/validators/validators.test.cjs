@@ -106,7 +106,7 @@ function fixture(t) {
     target_issn: '1234-567X',
     status: 'covered',
     checked_by: ['agents/coverage-U-1.json'],
-    source_hash: crypto.createHash('sha256').update('Methods and results').digest('hex')
+    source_hash: corpusHash(manifest)
   }];
   fs.writeFileSync(path.join(run, ledger[0].checked_by[0]), JSON.stringify({
     unit_id: 'U-1', decision: 'checked', actor_id: 'actor-coverage',
@@ -355,6 +355,18 @@ test('covered units reject missing, stale, and mismatched check records', t => {
   assert.match(validateRun(data.run, manifest, data.profile, data.ledger, data.findings).join('\n'), /checked_by/);
 });
 
+test('confirmed compliance findings require a covered unit for the same rule', t => {
+  const data = fixture(t);
+  const manifest = manifestFor(data);
+  const pending = [{ ...data.ledger[0], status: 'pending', checked_by: [] }];
+  assert.match(validateRun(data.run, manifest, data.profile, pending, data.findings).join('\n'),
+    /no covered compliance unit for its rule/);
+  const unrelated = [{ ...data.ledger[0], rule_id: 'unrelated_rule' }];
+  assert.match(validateRun(data.run, manifest, data.profile, unrelated, data.findings).join('\n'),
+    /no covered compliance unit for its rule/);
+  assert.deepEqual(validateRun(data.run, manifest, data.profile, data.ledger, data.findings), []);
+});
+
 test('confirmed findings require independent records and matching rule evidence', t => {
   const { findings, profile } = fixture(t);
   findings[0].provenance.validator = findings[0].provenance.hunter;
@@ -453,6 +465,7 @@ test('absence evidence must search every supplied manuscript file', t => {
     record.subject_sha256 = reviewSubjectHash(data.findings[0], manifest, data.profile);
     fs.writeFileSync(recordPath, JSON.stringify(record));
   }
+  data.ledger[0].source_hash = corpusHash(manifest);
   refreshCoverageRecord(data, manifest);
   assert.deepEqual(validateRun(data.run, manifest, data.profile, data.ledger, data.findings), []);
   fs.writeFileSync(path.join(data.run, 'supplementary', 'supp-1.md'), 'Data availability: available on request.\n');
@@ -546,7 +559,9 @@ test('report rendering uses validated findings and shows remaining coverage', t 
   const manifest = manifestFor(data);
   fs.writeFileSync(path.join(data.run, 'run-manifest.json'), JSON.stringify(manifest));
   fs.writeFileSync(path.join(data.run, 'journal-profile.json'), JSON.stringify(data.profile));
-  fs.writeFileSync(path.join(data.run, 'coverage-ledger.json'), JSON.stringify([{ ...data.ledger[0], status: 'pending', checked_by: [] }]));
+  const pending = { unit_id: 'U-2', kind: 'review', review_class: 'methods', section: 'Methods',
+    target_issn: data.profile.issn, status: 'pending', checked_by: [], source_hash: corpusHash(manifest) };
+  fs.writeFileSync(path.join(data.run, 'coverage-ledger.json'), JSON.stringify([...data.ledger, pending]));
   fs.writeFileSync(path.join(data.run, 'findings.json'), JSON.stringify(data.findings));
   const counts = render(data.run);
   assert.equal(counts.confirmed, 1);
@@ -554,7 +569,7 @@ test('report rendering uses validated findings and shows remaining coverage', t 
   const report = fs.readFileSync(path.join(data.run, 'REPORT.md'), 'utf8');
   assert.match(report, /1 pending/);
   assert.match(report, /Open coverage/);
-  assert.match(report, /U\\-1 \(pending\): rule data\\_availability; section sec\\-3/);
+  assert.match(report, /U\\-2 \(pending\): review class methods; section Methods/);
   assert.match(report, /data availability statement/);
   assert.match(report, /does not predict an editorial decision/);
   assert.match(report, /No verified AI policy was recorded/);
@@ -606,7 +621,8 @@ test('revision comparison shows record and coverage changes without inferring re
     fs.writeFileSync(path.join(data.run, 'findings.json'), JSON.stringify(findings));
   };
   writeRun(previous, previous.findings, previous.ledger);
-  writeRun(current, [], [{ ...current.ledger[0], status: 'pending', checked_by: [] }]);
+  writeRun(current, [], [{ ...current.ledger[0], status: 'pending', checked_by: [],
+    source_hash: corpusHash(manifestFor(current)) }]);
   const result = compare(previous.run, current.run);
   assert.equal(result.previousOnly, 1);
   assert.equal(result.currentOnly, 0);

@@ -137,13 +137,19 @@ function validate(run, manifest, profile, ledger, findings) {
           errors.push(`ledger[${index}].rule_id has not been validated`);
         }
       }
-      if ((unit?.section === 'all-supplied-files' || unit?.kind === 'review') && unit.source_hash !== corpusHash(manifest)) errors.push(`ledger[${index}].source_hash is stale for supplied files`);
+      if ((unit?.kind === 'compliance' || unit?.kind === 'review') && unit.source_hash !== corpusHash(manifest)) errors.push(`ledger[${index}].source_hash is stale for supplied files`);
       checkCoverage(run, unit, index, manifest, profile, errors);
     }
   }
   if (Array.isArray(findings)) {
     for (const [index, finding] of findings.entries()) {
       if (isObject(finding)) checkProvenance(run, finding, index, manifest, profile, errors);
+      if (finding?.verdict === 'confirmed' && finding.category === 'compliance' && Array.isArray(ledger)) {
+        const checked = ledger.some(unit => unit?.kind === 'compliance'
+          && unit.rule_id === finding.rule_id && unit.target_issn === finding.target_issn
+          && unit.status === 'covered');
+        if (!checked) errors.push(`findings[${index}] has no covered compliance unit for its rule`);
+      }
       if (!Array.isArray(finding?.evidence)) continue;
       for (const [eIndex, evidence] of finding.evidence.entries()) {
         const at = `findings[${index}].evidence[${eIndex}]`;

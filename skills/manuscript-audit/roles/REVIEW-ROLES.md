@@ -14,7 +14,7 @@ Use two fresh invocations that receive the same cached guideline sources, articl
 
 ## Compliance hunter
 
-Take one assigned compliance ledger unit and its exact quoted journal rule. Check whether the rule applies to the selected article type. Read every supplied file before asserting that a required item is absent. Quote the smallest source passage that states the rule and cite manuscript text by file and physical `line_id`. Record a candidate only when a specific claim can be supported by the allowed evidence types. After the actual check, compute `subject_sha256` with `node validators/hash-coverage.cjs <run-directory> <unit-id>` and save a separate check record matching `schemas/coverage-check.schema.json`. Mark the ledger unit covered only when `checked_by` names that record. A candidate finding also needs its hunter record with `role: "hunter"` and `decision: "candidate"`.
+Take one assigned compliance ledger unit and its exact quoted journal rule. Check whether the rule applies to the selected article type. Read every supplied file before asserting that a required item is absent. Quote the smallest source passage that states the rule and cite manuscript text by file and physical `line_id`. Record a candidate only when a specific claim can be supported by the allowed evidence types. After the actual check, compute `subject_sha256` with `node validators/hash-coverage.cjs <run-directory> <unit-id>` and save a separate check record matching `schemas/coverage-check.schema.json`. Mark the ledger unit covered only when `checked_by` names that record; a confirmed compliance finding cannot rely on a pending or stale unit. A candidate finding also needs its hunter record with `role: "hunter"` and `decision: "candidate"`.
 
 ## Review hunter
 
