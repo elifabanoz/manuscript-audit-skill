@@ -18,6 +18,8 @@ For a known field, add its OpenAlex field ID, such as `--field-id 17` for Comput
 
 Add `--doaj-subject "Computer Science"` when a separate, nonconfidential [DOAJ](https://doaj.org/docs/widgets/) subject phrase is available. This searches DOAJ's journal classifications and considers its first 50 results. Matching ISSNs add a second discovery source to an OpenAlex candidate; a limited number of DOAJ-only journals may also appear without OpenAlex work counts. The output records which source found each candidate and hashes both responses. DOAJ author-instruction links are pointers to review, not verified rule text: confirm the current official journal or publisher domain and page content before fetching guidelines or creating a profile. Neither index is exhaustive, and this shortlist is not an editorial suitability or acceptance ranking.
 
+Citation venues are a separate, optional signal. Manually select actual reference DOIs into a private JSON file outside Git, such as `{"schema_version":1,"dois":["10.1038/nature14539"]}`, then run `python skills/manuscript-audit/tools/discover_citation_journals.py --references /private/references.json --allow-network`. This sends only those DOI values to OpenAlex, groups the journals of resolved references and the first page of journals publishing works that cite them, and writes a private `citation-candidates.json`. A DOI inventory contains mentions, not a verified reference list, so do not pass it directly. The counts omit unindexed works and later group pages. Citation frequency does not establish topic fit or acceptance likelihood.
+
 To fetch a public guideline page and prepare a run, inspect the extracted text before using it:
 
 ```sh
