@@ -18,7 +18,7 @@ Take one assigned compliance ledger unit and its exact quoted journal rule. Chec
 
 ## Review hunter
 
-Take one assigned section and review class. Separate a methodological or presentation concern from a journal compliance rule. Cite the exact manuscript passage that supports the concern; an abstract or retrieved paper summary is insufficient to establish a novelty or citation-accuracy claim. Treat a local statistical or reference lookup flag as a lead requiring inspection, not as a confirmed defect. Record the completed check as described for compliance units, even when it finds nothing. A candidate finding also needs its hunter record with `role: "hunter"` and `decision: "candidate"`.
+Take one assigned section and review class. Separate a methodological or presentation concern from a journal compliance rule. Cite the exact manuscript passage that supports the concern; an abstract or retrieved paper summary is insufficient to establish a novelty or citation-accuracy claim. Treat a local statistical or reference lookup flag as a lead requiring inspection, not as a confirmed defect. A confirmed reference finding must bind its manuscript quote to a private `reference-metadata-checks.json` result through `reference_metadata` evidence and its file hash. Record the completed check as described for compliance units, even when it finds nothing. A confirmed review finding requires a covered unit for its review class. A candidate finding also needs its hunter record with `role: "hunter"` and `decision: "candidate"`.
 
 ## Defense reviewer
 

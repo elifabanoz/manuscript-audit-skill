@@ -377,6 +377,95 @@ test('confirmed findings require independent records and matching rule evidence'
   assert.match(errors, /rule's source/);
 });
 
+test('confirmed review and reference findings require manuscript evidence', t => {
+  const data = fixture(t);
+  const finding = structuredClone(data.findings[0]);
+  finding.category = 'review';
+  finding.review_class = 'methods';
+  delete finding.rule_id;
+  assert.match(validateFindings([finding], data.profile).join('\n'), /needs a manuscript quote/);
+  finding.category = 'reference';
+  delete finding.review_class;
+  assert.match(validateFindings([finding], data.profile).join('\n'), /needs a manuscript quote/);
+  finding.evidence.push({ type: 'manuscript_quote', path: 'manuscript.md', line_id: 'L3', quote: 'Methods' });
+  assert.match(validateFindings([finding], data.profile).join('\n'), /needs a private reference metadata check/);
+});
+
+test('confirmed review findings require a covered matching review class', t => {
+  const data = fixture(t);
+  const manifest = manifestFor(data);
+  const finding = { ...data.findings[0], category: 'review', review_class: 'methods',
+    evidence: [{ type: 'manuscript_quote', path: 'manuscript.md', line_id: 'L3', quote: 'Methods and results' }] };
+  delete finding.rule_id;
+  for (const file of Object.values(finding.provenance)) {
+    const recordPath = path.join(data.run, file);
+    const record = JSON.parse(fs.readFileSync(recordPath, 'utf8'));
+    record.subject_sha256 = reviewSubjectHash(finding, manifest, data.profile);
+    fs.writeFileSync(recordPath, JSON.stringify(record));
+  }
+  assert.match(validateRun(data.run, manifest, data.profile, data.ledger, [finding]).join('\n'),
+    /no covered review unit for its class/);
+  const review = { unit_id: 'U-2', kind: 'review', review_class: 'methods', section: 'Methods',
+    target_issn: data.profile.issn, status: 'covered', checked_by: ['agents/coverage-U-2.json'],
+    source_hash: corpusHash(manifest) };
+  fs.writeFileSync(path.join(data.run, review.checked_by[0]), JSON.stringify({
+    unit_id: review.unit_id, decision: 'checked', actor_id: 'actor-review-coverage',
+    subject_sha256: coverageSubjectHash(review, manifest, data.profile), rationale: 'Synthetic review check.'
+  }));
+  assert.deepEqual(validateRun(data.run, manifest, data.profile, [...data.ledger, review], [finding]), []);
+});
+
+test('confirmed reference leads bind a private check, registry record, and manuscript span', t => {
+  const data = fixture(t);
+  const line = 'Lovelace (2020). Example title. doi:10.1234/alpha';
+  fs.appendFileSync(path.join(data.run, 'manuscript.md'), `${line}\n`);
+  const manifest = manifestFor(data);
+  data.ledger[0].source_hash = corpusHash(manifest);
+  refreshCoverageRecord(data, manifest);
+  const checksum = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
+  const inventoryBytes = Buffer.from(JSON.stringify({ schema_version: 1, corpus_sha256: corpusHash(manifest),
+    dois: [{ doi: '10.1234/alpha' }] }));
+  fs.writeFileSync(path.join(data.run, 'doi-inventory.json'), inventoryBytes);
+  const metadataBytes = Buffer.from(JSON.stringify({ schema_version: 1,
+    inventory_sha256: checksum(inventoryBytes), corpus_sha256: corpusHash(manifest),
+    results: [{ doi: '10.1234/alpha', status: 'registered_in_crossref', registered_doi: '10.1234/alpha' }] }));
+  fs.writeFileSync(path.join(data.run, 'doi-metadata.json'), metadataBytes);
+  const checksBytes = Buffer.from(JSON.stringify({ schema_version: 1,
+    inventory_sha256: checksum(inventoryBytes), metadata_sha256: checksum(metadataBytes),
+    corpus_sha256: corpusHash(manifest), results: [{ doi: '10.1234/alpha', path: 'manuscript.md',
+      start_line: 4, end_line: 4, reference_span_sha256: checksum(line), status: 'needs_review',
+      checks: { year: 'review' } }] }));
+  fs.writeFileSync(path.join(data.run, 'reference-metadata-checks.json'), checksBytes);
+  const finding = { ...data.findings[0], category: 'reference',
+    claim: 'The cited year differs from the registry record.',
+    evidence: [
+      { type: 'manuscript_quote', path: 'manuscript.md', line_id: 'L4', quote: 'Lovelace (2020)' },
+      { type: 'reference_metadata', doi: '10.1234/alpha', result_index: 0, checks_sha256: checksum(checksBytes) }
+    ] };
+  delete finding.rule_id;
+  for (const file of Object.values(finding.provenance)) {
+    const recordPath = path.join(data.run, file);
+    const record = JSON.parse(fs.readFileSync(recordPath, 'utf8'));
+    record.subject_sha256 = reviewSubjectHash(finding, manifest, data.profile);
+    fs.writeFileSync(recordPath, JSON.stringify(record));
+  }
+  assert.deepEqual(validateRun(data.run, manifest, data.profile, data.ledger, [finding]), []);
+  for (const [name, value] of [
+    ['run-manifest.json', manifest], ['journal-profile.json', data.profile],
+    ['coverage-ledger.json', data.ledger], ['findings.json', [finding]]
+  ]) fs.writeFileSync(path.join(data.run, name), JSON.stringify(value));
+  render(data.run);
+  assert.match(fs.readFileSync(path.join(data.run, 'REPORT.md'), 'utf8'),
+    /Reference metadata lead: DOI 10\\.1234\/alpha/);
+  finding.evidence[1].checks_sha256 = '0'.repeat(64);
+  assert.match(validateRun(data.run, manifest, data.profile, data.ledger, [finding]).join('\n'),
+    /checks_sha256 differs/);
+  finding.evidence[1].checks_sha256 = checksum(checksBytes);
+  fs.writeFileSync(path.join(data.run, 'doi-metadata.json'), '{}');
+  assert.match(validateRun(data.run, manifest, data.profile, data.ledger, [finding]).join('\n'),
+    /stale DOI inventory or Crossref metadata/);
+});
+
 test('unresolved findings cannot carry a severity', t => {
   const { findings, profile } = fixture(t);
   findings[0].verdict = 'needs_validation';

@@ -21,6 +21,8 @@ For manuscript quote evidence, `line_id` is the physical line number in the cach
 
 For optional web-discovered journals, save only manually selected public ISSN and result URL pairs in a private `schema_version: 1` file and pass it to `discover_journals.py --web-candidates <private-file>`. The tool checks each ISSN against OpenAlex, DOAJ, or Crossref before adding a candidate. Treat the web URL as unverified; inspect the current official journal or publisher page before using it for guideline capture or a targeted audit. Do not send unpublished manuscript text to web search.
 
+For a confirmed reference finding, include a manuscript quote within the selected bibliography span and a `reference_metadata` evidence item with `doi`, zero-based `result_index` from the private `reference-metadata-checks.json`, and that file's SHA-256 as `checks_sha256`. The comparison status must be `needs_review`, and separate defense and record-verifier invocations must inspect whether the difference is a genuine defect. A confirmed review finding also requires a covered review unit for its class.
+
 For a later manuscript targeting the same journal, `python tools/prepare_cached_run.py --source-run <private-prior-run> --manuscript <new-file> --ttl-days 30` may reuse only an agreed two-draft profile and its exact private source snapshots. Check that its ISSN is the selected journal and inspect current official instructions before relying on cached rules. A TTL and matching hashes cannot prove that a publisher has not changed a rule.
 
 ## Boundaries

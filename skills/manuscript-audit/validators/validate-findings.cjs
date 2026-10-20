@@ -67,6 +67,8 @@ function validate(findings, profile) {
     }
     let guidelineSource = false;
     let manuscriptEvidence = false;
+    let manuscriptQuote = false;
+    let referenceMetadata = false;
     for (const [eIndex, evidence] of finding.evidence.entries()) {
       const ea = `${at}.evidence[${eIndex}]`;
       if (!isObject(evidence)) { errors.push(`${ea} must be an object`); continue; }
@@ -80,18 +82,33 @@ function validate(findings, profile) {
         for (const key of ['path', 'line_id', 'quote']) requiredString(evidence, key, ea, errors);
         if (nonempty(evidence.line_id) && !/^L[1-9][0-9]*$/.test(evidence.line_id)) errors.push(`${ea}.line_id must be a physical line number such as L12`);
         manuscriptEvidence = true;
+        manuscriptQuote = true;
       } else if (evidence.type === 'manuscript_absence') {
         if (!allowedKeys(evidence, ['type', 'searched', 'patterns'], ea, errors)) continue;
         stringArray(evidence.searched, `${ea}.searched`, errors, { min: 1, unique: true });
         stringArray(evidence.patterns, `${ea}.patterns`, errors, { min: 1, unique: true });
         manuscriptEvidence = true;
+      } else if (evidence.type === 'reference_metadata') {
+        if (!allowedKeys(evidence, ['type', 'doi', 'result_index', 'checks_sha256'], ea, errors)) continue;
+        requiredString(evidence, 'doi', ea, errors);
+        if (!Number.isInteger(evidence.result_index) || evidence.result_index < 0) errors.push(`${ea}.result_index must be a nonnegative integer`);
+        if (typeof evidence.checks_sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(evidence.checks_sha256)) errors.push(`${ea}.checks_sha256 must be a SHA-256 hex digest`);
+        if (finding.category !== 'reference') errors.push(`${ea} is only for reference findings`);
+        referenceMetadata = true;
       } else {
         errors.push(`${ea}.type is invalid`);
       }
     }
-    if (finding.verdict === 'confirmed' && finding.category === 'compliance') {
-      if (!guidelineSource) errors.push(`${at} needs a guideline quote from the rule's source`);
-      if (!manuscriptEvidence) errors.push(`${at} needs manuscript evidence`);
+    if (finding.verdict === 'confirmed') {
+      if (finding.category === 'compliance') {
+        if (!guidelineSource) errors.push(`${at} needs a guideline quote from the rule's source`);
+        if (!manuscriptEvidence) errors.push(`${at} needs manuscript evidence`);
+      } else if (!manuscriptQuote) {
+        errors.push(`${at} needs a manuscript quote`);
+      }
+      if (finding.category === 'reference' && !referenceMetadata) {
+        errors.push(`${at} needs a private reference metadata check`);
+      }
     }
   }
   return errors;

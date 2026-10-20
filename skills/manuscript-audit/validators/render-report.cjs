@@ -29,6 +29,9 @@ function sourceLines(finding, profile) {
     if (item.type === 'manuscript_quote') {
       return `  - Manuscript (${escapeMarkdown(item.path)}:${escapeMarkdown(item.line_id)}): ${escapeMarkdown(item.quote)}`;
     }
+    if (item.type === 'reference_metadata') {
+      return `  - Reference metadata lead: DOI ${escapeMarkdown(item.doi)}, private check ${escapeMarkdown(item.checks_sha256)}`;
+    }
     return `  - Absence check: searched ${item.searched.map(escapeMarkdown).join(', ')} for ${item.patterns.map(escapeMarkdown).join(', ')}`;
   });
 }

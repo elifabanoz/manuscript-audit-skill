@@ -60,6 +60,17 @@
                   "items": { "type": "string", "minLength": 1 }
                 }
               }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type", "doi", "result_index", "checks_sha256"],
+              "properties": {
+                "type": { "const": "reference_metadata" },
+                "doi": { "type": "string", "minLength": 1 },
+                "result_index": { "type": "integer", "minimum": 0 },
+                "checks_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+              }
             }
           ]
         }

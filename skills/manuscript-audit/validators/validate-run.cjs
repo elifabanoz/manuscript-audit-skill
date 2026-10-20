@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const fs = require('node:fs');
 const path = require('node:path');
 const { isObject, nonempty, printResult, readJson, safeFile } = require('./common.cjs');
 const { validate: validateManifest } = require('./validate-run-manifest.cjs');
@@ -101,6 +102,61 @@ function checkProvenance(run, finding, index, manifest, profile, errors) {
   }
 }
 
+function checkReferenceMetadata(run, finding, evidence, at, manifest, suppliedPaths, errors) {
+  try {
+    const checksFile = safeFile(run, 'reference-metadata-checks.json');
+    const checksBytes = fs.readFileSync(checksFile);
+    if (crypto.createHash('sha256').update(checksBytes).digest('hex') !== evidence.checks_sha256) {
+      errors.push(`${at}.checks_sha256 differs from the private reference checks`);
+      return;
+    }
+    const checks = JSON.parse(checksBytes.toString('utf8'));
+    const result = Array.isArray(checks.results) ? checks.results[evidence.result_index] : null;
+    if (checks.schema_version !== 1 || checks.corpus_sha256 !== corpusHash(manifest)
+        || !result || result.doi?.toLowerCase() !== evidence.doi?.toLowerCase()
+        || result.status !== 'needs_review' || !Object.values(result.checks || {}).includes('review')) {
+      errors.push(`${at} does not identify a current reference mismatch lead`);
+      return;
+    }
+    const inventoryBytes = fs.readFileSync(safeFile(run, 'doi-inventory.json'));
+    const metadataBytes = fs.readFileSync(safeFile(run, 'doi-metadata.json'));
+    if (checks.inventory_sha256 !== crypto.createHash('sha256').update(inventoryBytes).digest('hex')
+        || checks.metadata_sha256 !== crypto.createHash('sha256').update(metadataBytes).digest('hex')) {
+      errors.push(`${at} has stale DOI inventory or Crossref metadata`);
+      return;
+    }
+    const metadata = JSON.parse(metadataBytes.toString('utf8'));
+    const registered = Array.isArray(metadata.results) ? metadata.results.find(item =>
+      item?.doi?.toLowerCase() === evidence.doi?.toLowerCase()) : null;
+    if (metadata.inventory_sha256 !== checks.inventory_sha256
+        || metadata.corpus_sha256 !== checks.corpus_sha256
+        || registered?.status !== 'registered_in_crossref'
+        || registered.registered_doi?.toLowerCase() !== evidence.doi?.toLowerCase()) {
+      errors.push(`${at} lacks a matching Crossref registry record`);
+      return;
+    }
+    if (!suppliedPaths.has(result.path) || !Number.isInteger(result.start_line)
+        || !Number.isInteger(result.end_line) || result.start_line < 1
+        || result.end_line < result.start_line || result.end_line > result.start_line + 7) {
+      errors.push(`${at} has an invalid reference span`);
+      return;
+    }
+    const lines = fs.readFileSync(safeFile(run, result.path), 'utf8').split(/\r?\n/);
+    const span = lines.slice(result.start_line - 1, result.end_line).join('\n');
+    if (result.end_line > lines.length || !span.toLowerCase().includes(evidence.doi.toLowerCase())
+        || crypto.createHash('sha256').update(span).digest('hex') !== result.reference_span_sha256) {
+      errors.push(`${at} has a changed reference span`);
+      return;
+    }
+    const quoted = finding.evidence.some(item => item?.type === 'manuscript_quote'
+      && item.path === result.path && /^L[1-9][0-9]*$/.test(item.line_id)
+      && Number(item.line_id.slice(1)) >= result.start_line && Number(item.line_id.slice(1)) <= result.end_line);
+    if (!quoted) errors.push(`${at} needs a manuscript quote within the selected reference span`);
+  } catch (error) {
+    errors.push(`${at}: ${error.message}`);
+  }
+}
+
 function validate(run, manifest, profile, ledger, findings) {
   const errors = [
     ...validateManifest(run, manifest),
@@ -150,6 +206,12 @@ function validate(run, manifest, profile, ledger, findings) {
           && unit.status === 'covered');
         if (!checked) errors.push(`findings[${index}] has no covered compliance unit for its rule`);
       }
+      if (finding?.verdict === 'confirmed' && finding.category === 'review' && Array.isArray(ledger)) {
+        const checked = ledger.some(unit => unit?.kind === 'review'
+          && unit.review_class === finding.review_class && unit.target_issn === finding.target_issn
+          && unit.status === 'covered');
+        if (!checked) errors.push(`findings[${index}] has no covered review unit for its class`);
+      }
       if (!Array.isArray(finding?.evidence)) continue;
       for (const [eIndex, evidence] of finding.evidence.entries()) {
         const at = `findings[${index}].evidence[${eIndex}]`;
@@ -160,6 +222,9 @@ function validate(run, manifest, profile, ledger, findings) {
           const searched = new Set(evidence.searched);
           for (const file of suppliedPaths) if (!searched.has(file)) errors.push(`${at}.searched omits ${file}`);
           for (const file of searched) if (!suppliedPaths.has(file)) errors.push(`${at}.searched includes an unsupplied file: ${file}`);
+        }
+        if (evidence?.type === 'reference_metadata') {
+          checkReferenceMetadata(run, finding, evidence, at, manifest, suppliedPaths, errors);
         }
       }
     }
