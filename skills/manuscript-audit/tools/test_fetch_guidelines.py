@@ -6,8 +6,9 @@ import tempfile
 import unittest
 from email.message import Message
 from pathlib import Path
+from urllib.request import Request
 
-from fetch_guidelines import save_source
+from fetch_guidelines import HostLockedRedirect, save_source
 from prepare_run import prepare
 
 
@@ -105,6 +106,22 @@ class GuidelineFetchTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "outside a Git checkout"):
             save_source("https://example.org/authors", root / "sources", no_network)
+
+    def test_host_lock_rejects_cross_host_redirect(self):
+        handler = HostLockedRedirect("example.org")
+        with self.assertRaisesRegex(ValueError, "left the journal host"):
+            handler.redirect_request(Request("https://example.org/authors"), None, 302,
+                                     "Found", {}, "https://other.example/authors")
+        with self.assertRaisesRegex(ValueError, "left the journal host"):
+            handler.redirect_request(Request("https://example.org/authors"), None, 302,
+                                     "Found", {}, "https://example.org:8443/authors")
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "sources"
+            with self.assertRaisesRegex(ValueError, "left the journal host"):
+                save_source("https://example.org/authors", root,
+                            lambda *_args, **_kwargs: Response(b"<p>Guide</p>", "https://other.example/authors"),
+                            allowed_host="example.org")
+            self.assertFalse(root.exists())
 
 
 if __name__ == "__main__":

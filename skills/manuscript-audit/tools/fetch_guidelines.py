@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlsplit
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 
 from prepare_run import outside_git
 
@@ -35,6 +35,29 @@ def https_url(value):
     else:
         raise ValueError("A public HTTPS URL without credentials is required")
     return value
+
+
+def normalized_host(url):
+    host = urlsplit(url).hostname
+    return host.lower().removeprefix("www.") if host else None
+
+
+def same_host(url, allowed_host):
+    try:
+        return normalized_host(url) == allowed_host and urlsplit(url).port in (None, 443)
+    except ValueError:
+        return False
+
+
+class HostLockedRedirect(HTTPRedirectHandler):
+    def __init__(self, allowed_host):
+        self.allowed_host = allowed_host
+
+    def redirect_request(self, request, fp, code, message, headers, new_url):
+        https_url(new_url)
+        if not same_host(new_url, self.allowed_host):
+            raise ValueError("Guideline redirect left the journal host")
+        return super().redirect_request(request, fp, code, message, headers, new_url)
 
 
 def stable_source_url(requested, received):
@@ -79,12 +102,19 @@ class VisibleText(html.parser.HTMLParser):
         return "\n".join(line for line in lines if line) + "\n"
 
 
-def fetch(url, opener=urlopen):
+def fetch(url, opener=urlopen, allowed_host=None):
     https_url(url)
+    if allowed_host is not None:
+        if not same_host(url, allowed_host):
+            raise ValueError("Guideline URL is outside the journal host")
+        if opener is urlopen:
+            opener = build_opener(HostLockedRedirect(allowed_host)).open
     request = Request(url, headers={"User-Agent": "manuscript-audit-skill/0.1", "Accept": "text/html,text/plain"})
     try:
         with opener(request, timeout=20) as response:
             final_url = stable_source_url(url, https_url(response.geturl()))
+            if allowed_host is not None and not same_host(final_url, allowed_host):
+                raise ValueError("Guideline redirect left the journal host")
             media_type = response.headers.get_content_type()
             charset = response.headers.get_content_charset() or "utf-8"
             raw = response.read(MAX_BYTES + 1)
@@ -111,10 +141,10 @@ def fetch(url, opener=urlopen):
     return final_url, raw, extracted.encode("utf-8")
 
 
-def save_source(url, output_root, opener=urlopen):
+def save_source(url, output_root, opener=urlopen, allowed_host=None):
     root = output_root.expanduser()
     outside_git(root)
-    final_url, raw, text = fetch(url, opener)
+    final_url, raw, text = fetch(url, opener, allowed_host)
     root.mkdir(parents=True, exist_ok=True)
     for number in range(1, 100000):
         directory = root / f"source-{number}"
