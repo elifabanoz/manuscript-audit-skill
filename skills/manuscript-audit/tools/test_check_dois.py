@@ -50,6 +50,7 @@ class DoiMetadataTests(unittest.TestCase):
             return BytesIO(json.dumps({"message": {
                 "DOI": "10.1234/alpha", "title": ["Invented title"],
                 "container-title": ["Example Journal"], "type": "journal-article",
+                "author": [{"given": "Ada", "family": "Lovelace"}],
                 "published": {"date-parts": [[2024, 5, 1]]},
             }}).encode("utf-8"))
 
@@ -62,6 +63,8 @@ class DoiMetadataTests(unittest.TestCase):
                          ["registered_in_crossref", "not_found_in_crossref"])
         self.assertEqual(output["results"][0]["title"], "Invented title")
         self.assertEqual(output["results"][0]["publication_year"], 2024)
+        self.assertEqual(output["results"][0]["first_author_family"], "Lovelace")
+        self.assertEqual(len(output["results"][0]["response_sha256"]), 64)
         self.assertNotIn("# References", (self.run / "doi-metadata.json").read_text(encoding="utf-8"))
         with self.assertRaises(FileExistsError):
             check(self.run, allow_network=True, opener=fake_open, pause=lambda _: None)

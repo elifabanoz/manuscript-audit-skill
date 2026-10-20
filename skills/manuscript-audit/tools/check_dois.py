@@ -30,6 +30,14 @@ def publication_year(message):
     return None
 
 
+def first_author_family(message):
+    authors = message.get("author")
+    if not isinstance(authors, list) or not authors or not isinstance(authors[0], dict):
+        return None
+    family = authors[0].get("family")
+    return family.strip() if isinstance(family, str) and family.strip() else None
+
+
 def lookup_one(doi, opener):
     url = "https://api.crossref.org/works/" + quote(doi, safe="/")
     request = Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
@@ -46,9 +54,11 @@ def lookup_one(doi, opener):
         return {
             "status": "registered_in_crossref",
             "registered_doi": message["DOI"],
+            "response_sha256": hashlib.sha256(raw).hexdigest(),
             "title": first_text(message.get("title")),
             "container_title": first_text(message.get("container-title")),
             "publication_year": publication_year(message),
+            "first_author_family": first_author_family(message),
             "type": message.get("type") if isinstance(message.get("type"), str) else None,
         }
     except HTTPError as error:
