@@ -1,6 +1,6 @@
 # Manuscript Audit Skill
 
-An early-stage skill for checking a manuscript against a selected journal's guidelines.
+An early-stage skill for checking a manuscript against a selected journal's guidelines. See the [architecture](docs/ARCHITECTURE.md) for the evidence flow and current limits.
 
 The current implementation provides [skill instructions](skills/manuscript-audit/SKILL.md), [review role contracts](skills/manuscript-audit/roles/REVIEW-ROLES.md), JSON contracts, local validators, private report rendering, and a [run preparation tool](skills/manuscript-audit/tools/prepare_run.py) for UTF-8 text or Markdown. It can fetch public HTML or plain-text guideline pages and extract DOCX or text-based PDF content locally. Private run files are created outside any Git checkout.
 

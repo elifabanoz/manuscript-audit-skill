@@ -1,0 +1,30 @@
+# Architecture
+
+This repository is an Agent Skill. The host agent coordinates the work; local Python tools prepare evidence and Node.js validators check records. There is no hosted service or shared manuscript database. The [skill workflow](../skills/manuscript-audit/SKILL.md) is the operational entry point.
+
+## Data boundary
+
+Manuscripts, extracted text, downloaded guideline pages, model outputs, reviewer records, and reports remain in private directories outside Git. A run contains a `run-manifest.json` that binds the supplied manuscript, supplements, guideline snapshots, skill instructions, and configuration to their hashes. The manifest records the host and model names supplied for that run; it does not prove which model actually ran. Public fixtures contain only short rule quotations and source metadata. The repository uses the [PolyForm Noncommercial License](../LICENSE).
+
+External discovery requests use an explicit, nonconfidential topic phrase. Sending selected reference DOIs to OpenAlex or manuscript identifiers to Crossref or arXiv requires the author's approval. An unpublished manuscript is never sent to these discovery APIs as a search query.
+
+## Workflow
+
+1. **Discover candidates.** `discover_journals.py` groups matching OpenAlex articles by primary journal, enriches journal identity and ISSNs, and ranks an incomplete shortlist using a volume-normalized topic share. Optional DOAJ subject results and a separate, approved citation record add evidence by ISSN or OpenAlex source ID. Counts and strategy overlap explain why a journal appears; they do not estimate acceptance probability. The author selects the target after checking scope and submission status.
+2. **Capture official instructions.** `capture_candidate_guidelines.py` starts from a selected private discovery record. It accepts a DOAJ author-instruction pointer when its host matches the recorded journal homepage. For a different host, or an operator-supplied URL, it checks the selected ISSN against the current OpenAlex journal record and requires the URL host to match the current journal or linked publisher homepage. Redirects outside that host are blocked. `fetch_guidelines.py` stores extracted page text, its URL, retrieval time, and hashes privately. A successful capture is still pending human page review; an inaccessible or unmatched source remains unresolved.
+3. **Build a journal profile.** Two fresh profile builders independently read the same private guideline snapshot and use canonical rule IDs. `compare-profiles.cjs` checks their structure, source identity, quotes, and agreement. `adjudicate-profiles.cjs` requires an explicit, source-based resolution for each disagreement. A partial profile may retain disputed rules as `needs_validation`; those rules cannot support confirmed findings. The 20 Computer Science profiles in [`journal-profiles/`](../journal-profiles/README.md) are dated fixtures, not an exhaustive catalog.
+4. **Prepare and check the manuscript.** `prepare_run.py` creates the private run and manifest. The coverage ledger assigns one unit per applicable verified rule and optional section/review-class pairs. Deterministic tools measure supported Markdown counts and headings. Statistical screens and identifier lookups produce leads that need context checks. A covered unit requires a separate, fingerprinted check record. An absence claim must search every supplied file.
+5. **Review findings.** The hunter records a candidate with exact guideline or manuscript evidence. A fresh defense invocation tests the strongest counterevidence; a separate record verifier checks the final claim and evidence again. Distinct actor IDs and hashes are required in [`agent-record.schema.json`](../skills/manuscript-audit/schemas/agent-record.schema.json). The host must enforce actual independence: validators cannot prove that separate files came from separate reviewers.
+6. **Validate and report.** `validate-run.cjs` checks the manifest, profile, source hashes, coverage, findings, and review records together. `render-report.cjs` writes private `REPORT.md`, `NEEDS-VALIDATION.md`, and `REVISION-PLAN.md`. The revision plan uses confirmed findings only. `compare-runs.cjs` records changes between runs without treating a missing finding as proof of resolution.
+
+## Evidence contracts
+
+The [run manifest](../skills/manuscript-audit/schemas/run-manifest.schema.json), [journal profile](../skills/manuscript-audit/schemas/journal-profile.schema.json), [coverage ledger](../skills/manuscript-audit/schemas/coverage-ledger.schema.json), and [findings](../skills/manuscript-audit/schemas/findings.schema.json) are separate contracts. A finding identifies its target ISSN, category, verdict, claim, evidence, and provenance. Only confirmed findings have severity. Missing source text, ambiguous rules, incomplete coverage, stale hashes, or unavailable independent review must remain visible as unresolved work.
+
+Local validation establishes record consistency and reproducible quotations, not the scientific correctness of a criticism or the authority of a live page. The author and independent reviewer must inspect those judgments.
+
+## Current limits
+
+- Discovery uses the first OpenAlex journal-group page and the first optional DOAJ subject page. Citation discovery uses manually selected reference DOIs and the first citing-journal group page. Web search, publisher-specific adapters, inherited publisher profiles, and time-based profile caching are not implemented.
+- The supported deterministic profile metrics are abstract words, main-text words, keyword count, and an exact Markdown heading count. PDF extraction does not establish reliable structure for these measurements. Other statistical and reference tools are provisional screens.
+- The [compliance mutation benchmark](../bench/compliance-mutations/README.md) has a limited structural check. Broad performance estimates await more independent cases and human-reviewed control and mutation labels. No result from the current suite establishes general manuscript-compliance performance.
