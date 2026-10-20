@@ -11,7 +11,7 @@ from collections import defaultdict
 from datetime import date, datetime, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, urlencode, urlsplit
 from urllib.request import Request, urlopen
 
 from fetch_guidelines import https_url
@@ -21,6 +21,7 @@ from prepare_run import outside_git
 API_URL = "https://api.openalex.org/works"
 SOURCE_URL = "https://api.openalex.org/sources"
 DOAJ_URL = "https://doaj.org/api/search/journals/"
+CROSSREF_JOURNAL_URL = "https://api.crossref.org/journals/"
 MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 ISSN = re.compile(r"^\d{4}-\d{3}[\dX]$")
 SOURCE_ID = re.compile(r"^https://openalex\.org/S\d+$")
@@ -155,6 +156,136 @@ def safe_metadata_url(value):
         return https_url(value)
     except ValueError:
         return None
+
+
+def read_web_candidates(path):
+    path = path.expanduser().resolve()
+    outside_git(path)
+    raw = path.read_bytes()
+    if len(raw) > 32_768:
+        raise ValueError("Web candidate input exceeds 32 KB")
+    try:
+        record = json.loads(raw)
+    except (UnicodeError, json.JSONDecodeError):
+        raise ValueError("Web candidate input is not valid JSON") from None
+    entries = record.get("candidates") if isinstance(record, dict) and record.get("schema_version") == 1 else None
+    if not isinstance(entries, list) or not 1 <= len(entries) <= 20:
+        raise ValueError("Web candidate input needs 1 to 20 ISSN and URL pairs")
+    seen = set()
+    for item in entries:
+        if not isinstance(item, dict) or set(item) != {"issn", "result_url"}:
+            raise ValueError("Each web candidate needs only issn and result_url")
+        issn, url = item["issn"], item["result_url"]
+        if not isinstance(issn, str) or not ISSN.fullmatch(issn) or issn in seen:
+            raise ValueError("Web candidate ISSNs must be unique and correctly shaped")
+        if not isinstance(url, str) or len(url) > 2048 or any(value in url for value in "\r\n\x00"):
+            raise ValueError("Web candidate result_url must be a public HTTPS URL")
+        try:
+            https_url(url)
+            if urlsplit(url).port not in (None, 443):
+                raise ValueError("nonstandard port")
+        except ValueError:
+            raise ValueError("Web candidate result_url must be a public HTTPS URL") from None
+        seen.add(issn)
+    return entries, hashlib.sha256(raw).hexdigest()
+
+
+def registry_candidate(issn, result_url, opener):
+    attempts = []
+
+    def query(provider, url):
+        try:
+            payload, digest = fetch_json(url, opener, provider)
+            return payload, digest
+        except (OSError, ValueError) as error:
+            attempts.append({"provider": provider, "status": "unavailable", "reason": str(error)})
+            return None, None
+
+    params = urlencode({"filter": f"issn:{issn}",
+                        "select": "id,display_name,type,issn_l,issn,works_count,homepage_url",
+                        "per_page": 5})
+    payload, digest = query("OpenAlex", f"{SOURCE_URL}?{params}")
+    results = payload.get("results") if isinstance(payload, dict) else None
+    matches = [source for source in results if isinstance(source, dict)
+               and source.get("type") == "journal" and isinstance(source.get("id"), str)
+               and SOURCE_ID.fullmatch(source["id"])
+               and isinstance(source.get("display_name"), str) and source["display_name"].strip()
+               and issn in ([source.get("issn_l")] +
+                            (source.get("issn") if isinstance(source.get("issn"), list) else []))] if isinstance(results, list) else []
+    if digest is not None:
+        attempts.append({"provider": "OpenAlex", "status": "matched" if len(matches) == 1 else "no_unique_match",
+                         "response_sha256": digest})
+    if len(matches) == 1:
+        source = matches[0]
+        issn_l = source.get("issn_l") if isinstance(source.get("issn_l"), str) and ISSN.fullmatch(source["issn_l"]) else issn
+        issns = sorted({issn_l, issn, *(value for value in source.get("issn", [])
+                                        if isinstance(value, str) and ISSN.fullmatch(value))}) if isinstance(source.get("issn"), list) else sorted({issn_l, issn})
+        total = source.get("works_count")
+        return {"source_id": source["id"], "display_name": source["display_name"].strip(),
+                "issn_l": issn_l, "issns": issns,
+                "homepage_url": safe_metadata_url(source.get("homepage_url")),
+                "source_works_count": total if type(total) is int and total > 0 else None,
+                "registry_provider": "OpenAlex", "registry_response_sha256": digest,
+                "web_input_issn": issn,
+                "web_result_url_unverified": result_url}, attempts
+
+    query_text = quote(f"issn:{issn}", safe=":")
+    payload, digest = query("DOAJ", f"{DOAJ_URL}{query_text}?page=1&pageSize=5")
+    results = payload.get("results") if isinstance(payload, dict) else None
+    matches = [item for item in results if isinstance(item, dict)
+               and isinstance(item.get("id"), str) and item["id"]
+               and isinstance(item.get("bibjson"), dict)
+               and isinstance(item["bibjson"].get("title"), str) and item["bibjson"]["title"].strip()
+               and issn in (item["bibjson"].get("eissn"), item["bibjson"].get("pissn"))] if isinstance(results, list) else []
+    if digest is not None:
+        attempts.append({"provider": "DOAJ", "status": "matched" if len(matches) == 1 else "no_unique_match",
+                         "response_sha256": digest})
+    if len(matches) == 1:
+        item = matches[0]
+        details = item["bibjson"]
+        links = details.get("ref") if isinstance(details.get("ref"), dict) else {}
+        return {"source_id": None, "doaj_id": item["id"], "display_name": details["title"].strip(),
+                "issn_l": None, "issns": sorted({value for value in
+                    (details.get("eissn"), details.get("pissn"))
+                    if isinstance(value, str) and ISSN.fullmatch(value)}),
+                "homepage_url": safe_metadata_url(links.get("journal")),
+                "author_instructions_url": safe_metadata_url(links.get("author_instructions")),
+                "source_works_count": None, "registry_provider": "DOAJ",
+                "registry_response_sha256": digest,
+                "web_input_issn": issn,
+                "web_result_url_unverified": result_url}, attempts
+
+    payload, digest = query("Crossref", f"{CROSSREF_JOURNAL_URL}{issn}")
+    message = payload.get("message") if isinstance(payload, dict) else None
+    valid = (isinstance(message, dict) and isinstance(message.get("title"), str)
+             and message["title"].strip() and isinstance(message.get("ISSN"), list)
+             and issn in message["ISSN"])
+    if digest is not None:
+        attempts.append({"provider": "Crossref", "status": "matched" if valid else "no_match",
+                         "response_sha256": digest})
+    if valid:
+        return {"source_id": None, "display_name": message["title"].strip(),
+                "issn_l": issn, "issns": sorted({value for value in message["ISSN"]
+                                                  if isinstance(value, str) and ISSN.fullmatch(value)}),
+                "homepage_url": None, "source_works_count": None,
+                "registry_provider": "Crossref", "registry_response_sha256": digest,
+                "web_input_issn": issn,
+                "web_result_url_unverified": result_url}, attempts
+    return None, attempts
+
+
+def verify_web_candidates(entries, opener):
+    verified = []
+    rejected = []
+    checks = []
+    for item in entries:
+        candidate, attempts = registry_candidate(item["issn"], item["result_url"], opener)
+        checks.append({"issn": item["issn"], "registry_checks": attempts})
+        if candidate is None:
+            rejected.append({"issn": item["issn"], "registry_checks": attempts})
+        else:
+            verified.append(candidate)
+    return verified, rejected, checks
 
 
 def fetch_doaj_subject(subject, opener=urlopen):
@@ -333,8 +464,87 @@ def merge_citation(candidates, citation_candidates, limit):
     return selected
 
 
+def merge_web(candidates, web_candidates, limit):
+    by_source = {item["source_id"]: item for item in candidates if item.get("source_id")}
+    by_issn = {}
+    ambiguous_issns = set()
+    for candidate in candidates:
+        for issn in candidate.get("issns", []):
+            if issn in by_issn and by_issn[issn] is not candidate:
+                ambiguous_issns.add(issn)
+            else:
+                by_issn[issn] = candidate
+    for issn in ambiguous_issns:
+        del by_issn[issn]
+    supplemental = []
+    rejected = []
+    for item in web_candidates:
+        match = by_source.get(item.get("source_id")) if item.get("source_id") else None
+        if match is None:
+            match = next((by_issn[issn] for issn in item["issns"] if issn in by_issn), None)
+        if match is not None and item.get("source_id") and match.get("source_id") \
+                and item["source_id"] != match["source_id"]:
+            rejected.append({"issn": item["web_input_issn"],
+                             "reason": "Conflicting OpenAlex source identities"})
+            continue
+        evidence = {"issn": item["web_input_issn"], "provider": item["registry_provider"],
+                    "response_sha256": item["registry_response_sha256"]}
+        if match is not None:
+            if item.get("source_id") and not match.get("source_id"):
+                match["source_id"] = item["source_id"]
+                match["issn_l"] = item["issn_l"]
+                match["source_works_count"] = item["source_works_count"]
+                if not match.get("homepage_url"):
+                    match["homepage_url"] = item["homepage_url"]
+                by_source[item["source_id"]] = match
+            if "web_registry_verified" not in match["evidence"]:
+                match["evidence"].append("web_registry_verified")
+            match.setdefault("web_results_unverified", []).append(item["web_result_url_unverified"])
+            match.setdefault("web_registry_matches", []).append(evidence)
+        else:
+            supplemental.append({**item, "matching_works": None, "topic_share": None,
+                                 "evidence": ["web_registry_verified"],
+                                 "web_results_unverified": [item["web_result_url_unverified"]],
+                                 "web_registry_matches": [evidence]})
+            del supplemental[-1]["web_result_url_unverified"]
+            del supplemental[-1]["registry_provider"]
+            del supplemental[-1]["registry_response_sha256"]
+            del supplemental[-1]["web_input_issn"]
+            if item.get("source_id"):
+                by_source[item["source_id"]] = supplemental[-1]
+            for issn in item["issns"]:
+                if issn not in ambiguous_issns:
+                    if issn in by_issn and by_issn[issn] is not supplemental[-1]:
+                        del by_issn[issn]
+                        ambiguous_issns.add(issn)
+                    else:
+                        by_issn[issn] = supplemental[-1]
+    all_candidates = candidates + supplemental
+    def ranking(item):
+        return (-len(item["evidence"]), -(item.get("topic_share") or 0),
+                -(item.get("reference_works") or 0), -(item.get("citing_works") or 0),
+                -(item.get("matching_works") or 0), item["display_name"].casefold())
+    reserved = []
+    for signal in ("doaj_subject", "citation_graph", "web_registry_verified"):
+        pool = sorted((item for item in all_candidates if item["evidence"] == [signal]), key=ranking)
+        reserved.extend(pool[:min(limit // 5, len(pool))])
+    selected = []
+    seen = set()
+    for item in reserved + sorted(all_candidates, key=ranking):
+        if len(selected) == limit:
+            break
+        if id(item) not in seen:
+            selected.append(item)
+            seen.add(id(item))
+    selected.sort(key=ranking)
+    for item in selected:
+        item["evidence_count"] = len(item["evidence"])
+    return selected, rejected
+
+
 def discover(query, output_root, per_page=50, limit=50, opener=urlopen, field_id=None,
-             published_after=None, strategy="grouped", doaj_subject=None, citation_record=None):
+             published_after=None, strategy="grouped", doaj_subject=None, citation_record=None,
+             web_candidates=None):
     query = query.strip()
     if not query or len(query) > 200 or any(character in query for character in "\r\n\x00"):
         raise ValueError("--query must be a single topic phrase of 1 to 200 characters")
@@ -344,6 +554,8 @@ def discover(query, output_root, per_page=50, limit=50, opener=urlopen, field_id
         raise ValueError("--strategy must be grouped or sample")
     if citation_record is not None and strategy != "grouped":
         raise ValueError("--citation-record requires --strategy grouped")
+    if web_candidates is not None and strategy != "grouped":
+        raise ValueError("--web-candidates requires --strategy grouped")
     if doaj_subject is not None:
         if strategy != "grouped":
             raise ValueError("--doaj-subject requires --strategy grouped")
@@ -366,22 +578,39 @@ def discover(query, output_root, per_page=50, limit=50, opener=urlopen, field_id
         citation_candidates, citation_hash, reference_input_hash = read_citation_record(citation_record)
     else:
         citation_candidates, citation_hash, reference_input_hash = None, None, None
+    if web_candidates is not None:
+        web_entries, web_input_hash = read_web_candidates(web_candidates)
+    else:
+        web_entries, web_input_hash = None, None
     if strategy == "grouped":
         candidates, response_hash, groups_seen, matching_works = grouped_shortlist(
-            query, 100 if doaj_subject or citation_record else limit, opener, field_id, published_after)
+            query, 100 if doaj_subject or citation_record or web_entries else limit, opener, field_id, published_after)
         if doaj_subject:
             doaj_candidates, doaj_hash, doaj_total, doaj_seen = fetch_doaj_subject(doaj_subject, opener)
-            candidates = merge_doaj(candidates, doaj_candidates, 100 if citation_record else limit)
+            candidates = merge_doaj(candidates, doaj_candidates, 100 if citation_record or web_entries else limit)
         else:
             doaj_hash = doaj_total = doaj_seen = None
             for candidate in candidates:
                 candidate["evidence_count"] = 1
         if citation_record is not None:
-            candidates = merge_citation(candidates, citation_candidates, limit)
+            candidates = merge_citation(candidates, citation_candidates, 100 if web_entries else limit)
+        if web_entries is not None:
+            verified_web, rejected_web, web_checks = verify_web_candidates(web_entries, opener)
+            candidates, merge_rejected = merge_web(candidates, verified_web, limit)
+            rejected_web += merge_rejected
+            web_providers = sorted({attempt["provider"] for item in web_checks
+                                    for attempt in item["registry_checks"]})
+        else:
+            verified_web = rejected_web = None
+            web_checks = None
+            web_providers = []
     else:
         payload, response_hash = fetch_works(query, per_page, opener, field_id, published_after)
         candidates = shortlist(payload, limit)
         doaj_hash = doaj_total = doaj_seen = None
+        verified_web = rejected_web = None
+        web_checks = None
+        web_providers = []
     root.mkdir(parents=True, exist_ok=True)
     for number in range(1, 100000):
         directory = root / f"discovery-{number}"
@@ -402,11 +631,13 @@ def discover(query, output_root, per_page=50, limit=50, opener=urlopen, field_id
         coverage_note += "; first DOAJ subject result page only"
     if citation_record is not None:
         coverage_note += "; selected reference DOIs and first citing-journal group page only"
+    if web_entries is not None:
+        coverage_note += "; manually selected web candidates checked by ISSN registry, not by editorial scope"
     coverage_note += "; candidate coverage is incomplete"
     record = {
         "schema_version": 4,
         "retrieved_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
-        "providers": ["OpenAlex", "DOAJ"] if doaj_subject else ["OpenAlex"],
+        "providers": list(dict.fromkeys(["OpenAlex"] + (["DOAJ"] if doaj_subject else []) + web_providers)),
         "query": query,
         "field_id": field_id,
         "published_after": published_after,
@@ -417,7 +648,7 @@ def discover(query, output_root, per_page=50, limit=50, opener=urlopen, field_id
         "matching_works_total": matching_works if strategy == "grouped" else None,
         "coverage_note": coverage_note if strategy == "grouped" else "Sampled works only; candidate coverage is incomplete",
         "topic_share_denominator": "OpenAlex source works_count across all years; not restricted to the search date or article type" if strategy == "grouped" else None,
-        "selection_note": "Candidates with more discovery strategies are listed first; up to one fifth of slots each are reserved for DOAJ-only and citation-only journals. Neither order nor count predicts acceptance." if doaj_subject or citation_record is not None else None,
+        "selection_note": "Candidates with more discovery strategies are listed first; up to one fifth of slots each are reserved for DOAJ-only, citation-only, and registry-verified web-only journals. Neither order nor count predicts acceptance." if doaj_subject or citation_record is not None or web_entries is not None else None,
         "response_sha256": response_hash,
         "doaj_subject": doaj_subject,
         "doaj_results_total": doaj_total,
@@ -425,6 +656,11 @@ def discover(query, output_root, per_page=50, limit=50, opener=urlopen, field_id
         "doaj_response_sha256": doaj_hash,
         "citation_record_sha256": citation_hash,
         "citation_reference_input_sha256": reference_input_hash,
+        "web_input_sha256": web_input_hash,
+        "web_submitted_count": len(web_entries) if web_entries is not None else None,
+        "web_verified_count": len(verified_web) if verified_web is not None else None,
+        "web_registry_checks": web_checks,
+        "web_rejected": rejected_web,
         "candidates": candidates,
     }
     output = directory / "candidates.json"
@@ -441,6 +677,7 @@ def main():
     parser.add_argument("--strategy", choices=("grouped", "sample"), default="grouped")
     parser.add_argument("--doaj-subject", help="Optional nonconfidential DOAJ subject phrase; uses the first journal result page")
     parser.add_argument("--citation-record", type=Path, help="Optional private citation-candidates.json from selected reference DOIs")
+    parser.add_argument("--web-candidates", type=Path, help="Optional private ISSN and web-result URL pairs for registry verification")
     parser.add_argument("--field-id", type=int, help="Optional OpenAlex primary field ID")
     parser.add_argument("--published-after", help="Keep only works published on or after this YYYY-MM-DD date")
     args = parser.parse_args()
@@ -448,7 +685,7 @@ def main():
         print(discover(args.query, args.output_root, args.works, args.limit,
                        field_id=args.field_id, published_after=args.published_after,
                        strategy=args.strategy, doaj_subject=args.doaj_subject,
-                       citation_record=args.citation_record))
+                       citation_record=args.citation_record, web_candidates=args.web_candidates))
     except (OSError, ValueError) as error:
         parser.exit(1, f"Error: {error}\n")
 

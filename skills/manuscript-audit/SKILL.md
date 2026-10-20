@@ -19,6 +19,8 @@ Help the author prepare a manuscript for a specific journal. Keep the manuscript
 
 For manuscript quote evidence, `line_id` is the physical line number in the cached text file (for example, `L12`). Absence patterns are literal, case-insensitive fragments; list every supplied manuscript or supplementary file that was searched.
 
+For optional web-discovered journals, save only manually selected public ISSN and result URL pairs in a private `schema_version: 1` file and pass it to `discover_journals.py --web-candidates <private-file>`. The tool checks each ISSN against OpenAlex, DOAJ, or Crossref before adding a candidate. Treat the web URL as unverified; inspect the current official journal or publisher page before using it for guideline capture or a targeted audit. Do not send unpublished manuscript text to web search.
+
 ## Boundaries
 
 - Do not send full unpublished manuscripts to literature or journal APIs. Ask before using an additional model provider.
