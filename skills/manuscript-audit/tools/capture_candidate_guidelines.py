@@ -7,10 +7,10 @@ import json
 import re
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 from urllib.request import urlopen
 
-from discover_journals import SOURCE_ID, fetch_json
+from discover_journals import DOAJ_URL, SOURCE_ID, fetch_json
 from fetch_guidelines import https_url, normalized_host, save_source
 from prepare_run import outside_git
 
@@ -88,6 +88,28 @@ def openalex_host(candidate, issn, instruction_host, opener):
     return "openalex_publisher_homepage", publisher_id, homepage, source_hash, publisher_hash
 
 
+def current_doaj_journal(candidate, issn, opener):
+    record_id = candidate.get("doaj_id")
+    if not isinstance(record_id, str) or not record_id or len(record_id) > 128:
+        raise ValueError("A DOAJ journal identity is required")
+    query = quote(f"issn:{issn}", safe=":")
+    payload, response_hash = fetch_json(f"{DOAJ_URL}{query}?page=1&pageSize=5", opener, "DOAJ")
+    results = payload.get("results") if isinstance(payload, dict) else None
+    if (not isinstance(payload, dict) or type(payload.get("total")) is not int or payload["total"] != 1
+            or not isinstance(results, list) or len(results) != 1):
+        raise ValueError("The current DOAJ journal identity is not unique")
+    record = results[0]
+    details = record.get("bibjson") if isinstance(record, dict) else None
+    if (not isinstance(details, dict) or record.get("id") != record_id
+            or issn not in (details.get("pissn"), details.get("eissn"))):
+        raise ValueError("The current DOAJ journal identity does not match the selected ISSN")
+    links = details.get("ref") if isinstance(details.get("ref"), dict) else {}
+    host = homepage_host(links.get("journal"))
+    if host is None:
+        raise ValueError("DOAJ has no usable current journal homepage")
+    return host, links.get("author_instructions"), response_hash
+
+
 def capture(discovery_record, issn, output_root, allow_network=False, opener=urlopen,
             guideline_url=None):
     if not isinstance(issn, str) or not ISSN.fullmatch(issn):
@@ -98,12 +120,12 @@ def capture(discovery_record, issn, output_root, allow_network=False, opener=url
     home = candidate.get("homepage_url")
     instructions = guideline_url if guideline_url is not None else candidate.get("author_instructions_url")
     link_origin = "operator_supplied" if guideline_url is not None else "doaj_metadata"
-    host = homepage_host(home)
     status = "needs_manual_verification"
     reason = None
     source_record = None
     domain_basis = None
     publisher_id = publisher_homepage = source_hash = publisher_hash = None
+    doaj_hash = None
     if guideline_url is None and not candidate.get("doaj_id"):
         reason = "No DOAJ author-instruction link is attached to this candidate"
     elif not isinstance(instructions, str):
@@ -117,13 +139,18 @@ def capture(discovery_record, issn, output_root, allow_network=False, opener=url
             instruction_host = normalized_host(instructions)
             if not allow_network:
                 reason = "Add --allow-network to capture the linked guideline page"
-            elif guideline_url is None and instruction_host == host:
-                domain_basis = "journal_homepage"
-                status = "capture_pending"
             else:
                 try:
-                    domain_basis, publisher_id, publisher_homepage, source_hash, publisher_hash = openalex_host(
-                        candidate, issn, instruction_host, opener)
+                    doaj_host = None
+                    if guideline_url is None or not candidate.get("source_id"):
+                        doaj_host, current_link, doaj_hash = current_doaj_journal(candidate, issn, opener)
+                        if guideline_url is None and current_link != instructions:
+                            raise ValueError("The DOAJ author-instruction link changed since discovery")
+                    if doaj_host == instruction_host:
+                        domain_basis = "current_doaj_journal_homepage"
+                    else:
+                        domain_basis, publisher_id, publisher_homepage, source_hash, publisher_hash = openalex_host(
+                            candidate, issn, instruction_host, opener)
                     status = "capture_pending"
                 except (OSError, UnicodeError, ValueError) as error:
                     reason = str(error)
@@ -157,6 +184,7 @@ def capture(discovery_record, issn, output_root, allow_network=False, opener=url
               "publisher_homepage_url": publisher_homepage,
               "openalex_source_response_sha256": source_hash,
               "openalex_publisher_response_sha256": publisher_hash,
+              "doaj_response_sha256": doaj_hash,
               "status": status, "reason": reason, "source_record": source_record,
               "note": "A captured page still requires live-page review and independent source-backed profile comparison"}
     output = directory / "source-locator.json"

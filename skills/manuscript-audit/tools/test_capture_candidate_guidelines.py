@@ -36,6 +36,12 @@ def discovery(home="https://example.org/journal", guide="https://www.example.org
          "homepage_url": home, "author_instructions_url": guide}]}
 
 
+def doaj_result(home="https://example.org/journal", guide="https://www.example.org/authors",
+                issn="1234-567X", record_id="doaj-record"):
+    return {"total": 1, "results": [{"id": record_id, "bibjson": {
+        "pissn": issn, "ref": {"journal": home, "author_instructions": guide}}}]}
+
+
 class CandidateGuidelineTests(unittest.TestCase):
     def test_captures_same_host_page_but_leaves_profile_review_pending(self):
         requests = []
@@ -43,6 +49,8 @@ class CandidateGuidelineTests(unittest.TestCase):
         def opener(request, timeout):
             self.assertEqual(timeout, 20)
             requests.append(request.full_url)
+            if "doaj.org/api/search/journals/" in request.full_url:
+                return Response(request.full_url, json.dumps(doaj_result()).encode())
             return Response("https://example.org/authors")
 
         with tempfile.TemporaryDirectory() as temporary:
@@ -55,13 +63,85 @@ class CandidateGuidelineTests(unittest.TestCase):
             source = json.loads(source_path.read_text(encoding="utf-8"))
             text = (source_path.parent / "guideline.txt").read_text(encoding="utf-8")
         self.assertEqual(locator["status"], "captured_pending_review")
-        self.assertEqual(locator["domain_basis"], "journal_homepage")
+        self.assertEqual(locator["domain_basis"], "current_doaj_journal_homepage")
         self.assertEqual(locator["link_origin"], "doaj_metadata")
         self.assertEqual(locator["doaj_id"], "doaj-record")
         self.assertIsNone(locator["reason"])
+        self.assertEqual(len(locator["doaj_response_sha256"]), 64)
         self.assertEqual(source["url"], "https://example.org/authors")
         self.assertIn("Use a data statement.", text)
-        self.assertEqual(requests, ["https://www.example.org/authors"])
+        self.assertEqual(len(requests), 2)
+        self.assertIn("doaj.org/api/search/journals/", requests[0])
+        self.assertEqual(requests[1], "https://www.example.org/authors")
+
+    def test_doaj_only_candidate_uses_current_journal_identity(self):
+        requests = []
+
+        def opener(request, timeout):
+            requests.append(request.full_url)
+            if "doaj.org/api/search/journals/" in request.full_url:
+                return Response(request.full_url, json.dumps(doaj_result()).encode())
+            return Response("https://example.org/authors")
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            candidate_file = root / "candidates.json"
+            record = discovery()
+            record["candidates"][0]["source_id"] = None
+            candidate_file.write_text(json.dumps(record), encoding="utf-8")
+            path = capture(candidate_file, "1234-567X", root / "sources", True, opener)
+            locator = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(locator["status"], "captured_pending_review")
+            self.assertEqual(locator["domain_basis"], "current_doaj_journal_homepage")
+            self.assertIsNone(locator["openalex_source_response_sha256"])
+            self.assertEqual(len(requests), 2)
+
+    def test_operator_url_for_doaj_only_journal_requires_current_host(self):
+        def opener(request, timeout):
+            if "doaj.org/api/search/journals/" in request.full_url:
+                return Response(request.full_url, json.dumps(doaj_result()).encode())
+            if request.full_url == "https://example.org/updated-authors":
+                return Response(request.full_url)
+            self.fail("An unverified host was fetched")
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            candidate_file = root / "candidates.json"
+            record = discovery()
+            record["candidates"][0]["source_id"] = None
+            candidate_file.write_text(json.dumps(record), encoding="utf-8")
+            accepted = capture(candidate_file, "1234-567X", root / "sources", True, opener,
+                               guideline_url="https://example.org/updated-authors")
+            self.assertEqual(json.loads(accepted.read_text())["status"], "captured_pending_review")
+            rejected = capture(candidate_file, "1234-567X", root / "sources", True, opener,
+                               guideline_url="https://untrusted.example/authors")
+            locator = json.loads(rejected.read_text())
+            self.assertEqual(locator["status"], "needs_manual_verification")
+            self.assertIsNone(locator["source_record"])
+
+    def test_stale_or_forged_doaj_link_does_not_fetch_guidelines(self):
+        for current in (doaj_result(), doaj_result(record_id="another-record"),
+                        doaj_result(issn="9999-9999")):
+            with self.subTest(current=current):
+                requests = []
+
+                def opener(request, timeout):
+                    requests.append(request.full_url)
+                    if "doaj.org/api/search/journals/" in request.full_url:
+                        return Response(request.full_url, json.dumps(current).encode())
+                    self.fail("Guideline URL was fetched before current DOAJ verification")
+
+                with tempfile.TemporaryDirectory() as temporary:
+                    root = Path(temporary)
+                    candidate_file = root / "candidates.json"
+                    candidate_file.write_text(json.dumps(discovery(
+                        home="https://untrusted.example/journal",
+                        guide="https://untrusted.example/authors")), encoding="utf-8")
+                    path = capture(candidate_file, "1234-567X", root / "sources", True, opener)
+                    locator = json.loads(path.read_text(encoding="utf-8"))
+                    self.assertEqual(locator["status"], "needs_manual_verification")
+                    self.assertIsNone(locator["source_record"])
+                    self.assertEqual(len(requests), 1)
 
     def test_publisher_host_is_verified_against_current_openalex_source(self):
         requests = []
@@ -69,6 +149,9 @@ class CandidateGuidelineTests(unittest.TestCase):
         def opener(request, timeout):
             self.assertEqual(timeout, 20)
             requests.append(request.full_url)
+            if "doaj.org/api/search/journals/" in request.full_url:
+                return Response(request.full_url, json.dumps(doaj_result(
+                    guide="https://publisher.example/authors")).encode())
             if "/sources/S1" in request.full_url:
                 body = {"id": "https://openalex.org/S1", "type": "journal",
                         "issn_l": "1234-567X", "host_organization": "https://openalex.org/P2"}
@@ -89,10 +172,11 @@ class CandidateGuidelineTests(unittest.TestCase):
             self.assertEqual(locator["openalex_publisher_id"], "https://openalex.org/P2")
             self.assertEqual(len(locator["openalex_source_response_sha256"]), 64)
             self.assertEqual(len(locator["openalex_publisher_response_sha256"]), 64)
-            self.assertEqual(len(requests), 3)
+            self.assertEqual(len(requests), 4)
 
     def test_different_host_requires_manual_verification_when_publisher_differs(self):
         responses = [
+            doaj_result(guide="https://publisher.example/authors"),
             {"id": "https://openalex.org/S1", "type": "journal", "issn_l": "1234-567X",
              "host_organization": "https://openalex.org/P2"},
             {"id": "https://openalex.org/P2", "homepage_url": "https://other.example"}]
@@ -123,7 +207,13 @@ class CandidateGuidelineTests(unittest.TestCase):
             root = Path(temporary)
             candidate_file = root / "candidates.json"
             candidate_file.write_text(json.dumps(discovery(guide="https://publisher.example/authors")), encoding="utf-8")
-            path = capture(candidate_file, "1234-567X", root / "sources", True, opener)
+            def with_doaj(request, timeout):
+                if "doaj.org/api/search/journals/" in request.full_url:
+                    return Response(request.full_url, json.dumps(doaj_result(
+                        guide="https://publisher.example/authors")).encode())
+                return opener(request, timeout)
+
+            path = capture(candidate_file, "1234-567X", root / "sources", True, with_doaj)
             locator = json.loads(path.read_text(encoding="utf-8"))
             self.assertEqual(locator["status"], "needs_manual_verification")
             self.assertIn("ISSN", locator["reason"])
@@ -192,8 +282,12 @@ class CandidateGuidelineTests(unittest.TestCase):
             pending = capture(candidate_file, "1234-567X", root / "sources", False,
                               lambda *_args, **_kwargs: self.fail("Unexpected network request"))
             self.assertIn("allow-network", json.loads(pending.read_text())["reason"])
-            redirected = capture(candidate_file, "1234-567X", root / "sources", True,
-                                 lambda *_args, **_kwargs: Response("https://other.example/authors"))
+            def redirected_opener(request, timeout):
+                if "doaj.org/api/search/journals/" in request.full_url:
+                    return Response(request.full_url, json.dumps(doaj_result()).encode())
+                return Response("https://other.example/authors")
+
+            redirected = capture(candidate_file, "1234-567X", root / "sources", True, redirected_opener)
             locator = json.loads(redirected.read_text(encoding="utf-8"))
             self.assertEqual(locator["status"], "needs_manual_verification")
             self.assertIn("left the journal host", locator["reason"])
