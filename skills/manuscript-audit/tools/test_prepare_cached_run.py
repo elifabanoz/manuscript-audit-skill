@@ -9,7 +9,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from prepare_cached_run import prepare_cached
+from prepare_cached_run import find_cached_source, prepare_cached
 from prepare_run import prepare
 
 
@@ -56,6 +56,48 @@ class CachedRunTests(unittest.TestCase):
         self.assertEqual(new_manifest["sources"], original_manifest["sources"])
         self.assertEqual(json.loads((run / "profile-reuse.json").read_text())["profile_sha256"],
                          hashlib.sha256(original_profile).hexdigest())
+        reuse = json.loads((run / "profile-reuse.json").read_text(encoding="utf-8"))
+        self.assertEqual(reuse["source_run"], str(self.original))
+        self.assertEqual(reuse["selected_issn"], "1234-567X")
+
+    def test_finds_only_agreed_profile_for_selected_issn(self):
+        self.compare()
+        self.args.source_run = None
+        self.args.cache_root = self.root / "old"
+        self.args.issn = "1234-567X"
+        self.assertEqual(find_cached_source(self.args.cache_root, self.args.issn, 30), self.original)
+        run = prepare_cached(self.args)
+        self.assertEqual((run / "journal-profile.json").read_bytes(),
+                         (self.original / "journal-profile.json").read_bytes())
+        self.args.issn = "9999-9999"
+        with self.assertRaisesRegex(ValueError, "No fresh"):
+            prepare_cached(self.args)
+        self.args.issn = "invalid"
+        with self.assertRaisesRegex(ValueError, "ISSN-shaped"):
+            prepare_cached(self.args)
+
+    def test_does_not_choose_between_different_agreed_profiles(self):
+        self.compare()
+        second_paper = self.root / "other.md"
+        second_paper.write_text("# Another example\n", encoding="utf-8")
+        second = prepare(argparse.Namespace(
+            manuscript=second_paper, extraction_record=None, source_record=[],
+            guideline_text=self.guideline, guideline_url="https://journal.example/authors",
+            retrieved_at=self.retrieved_at, supplementary=[], output_root=self.root / "old",
+            host="manual", model=[], data_freeze=None))
+        profile = json.loads((self.original / "journal-profile.json").read_text(encoding="utf-8"))
+        profile["rules"][0]["requirement"] = "Include the required data statement."
+        for name in ("profile-a.json", "profile-b.json"):
+            (second / name).write_text(json.dumps(profile) + "\n", encoding="utf-8")
+        script = Path(__file__).resolve().parents[1] / "validators" / "compare-profiles.cjs"
+        subprocess.run(["node", str(script), str(second), "profile-a.json", "profile-b.json", "--promote"],
+                       capture_output=True, text=True, check=True)
+        self.args.source_run = None
+        self.args.cache_root = self.root / "old"
+        self.args.issn = "1234-567X"
+        with self.assertRaisesRegex(ValueError, "Multiple different fresh profiles"):
+            prepare_cached(self.args)
+        self.assertFalse(self.args.output_root.exists())
 
     def test_rejects_uncompared_stale_or_changed_profile(self):
         with self.assertRaisesRegex(ValueError, "journal-profile.json"):

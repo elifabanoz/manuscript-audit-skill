@@ -4,6 +4,7 @@
 import argparse
 import hashlib
 import json
+import re
 import subprocess
 import tempfile
 from datetime import datetime, timezone
@@ -13,18 +14,69 @@ from prepare_run import outside_git, prepare
 
 
 VALIDATOR = Path(__file__).resolve().parents[1] / "validators" / "validate-cached-profile.cjs"
+ISSN = re.compile(r"^\d{4}-\d{3}[\dX]$")
+RUN_DIRECTORY = re.compile(r"^run-\d+$")
 
 
-def prepare_cached(args):
-    source_run = args.source_run.expanduser().resolve()
-    outside_git(source_run)
-    output_root = args.output_root.expanduser()
-    outside_git(output_root)
-    check = subprocess.run(["node", str(VALIDATOR), str(source_run), str(args.ttl_days)],
+def validate_source_run(source_run, ttl_days):
+    check = subprocess.run(["node", str(VALIDATOR), str(source_run), str(ttl_days)],
                            capture_output=True, text=True, check=False)
     if check.returncode:
         raise ValueError(check.stderr.strip() or "Cached profile validation failed")
-    approval = json.loads(check.stdout)
+    return json.loads(check.stdout)
+
+
+def find_cached_source(cache_root, issn, ttl_days):
+    if not isinstance(issn, str) or not ISSN.fullmatch(issn):
+        raise ValueError("--issn must be an ISSN-shaped identifier")
+    if cache_root.is_symlink():
+        raise ValueError("Cache root cannot be a symbolic link")
+    root = cache_root.expanduser().resolve()
+    outside_git(root)
+    if not root.is_dir():
+        raise ValueError("--cache-root must be an existing private directory")
+
+    matches = []
+    for paper in root.iterdir():
+        if not paper.is_dir() or paper.is_symlink():
+            continue
+        for run in paper.iterdir():
+            if not RUN_DIRECTORY.fullmatch(run.name) or not run.is_dir() or run.is_symlink():
+                continue
+            profile_path = run / "journal-profile.json"
+            if not profile_path.is_file() or profile_path.is_symlink() or profile_path.stat().st_size > 2_000_000:
+                continue
+            try:
+                profile = json.loads(profile_path.read_text(encoding="utf-8"))
+                if not isinstance(profile, dict) or profile.get("issn") != issn:
+                    continue
+                approval = validate_source_run(run, ttl_days)
+            except (OSError, UnicodeError, ValueError, KeyError, json.JSONDecodeError):
+                continue
+            if approval.get("issn") == issn:
+                matches.append((run, approval))
+    if not matches:
+        raise ValueError("No fresh, independently agreed cached profile matches the selected ISSN")
+    if len({approval["profile_sha256"] for _, approval in matches}) != 1:
+        raise ValueError("Multiple different fresh profiles match the ISSN; select --source-run explicitly")
+    return max(matches, key=lambda item: (item[1]["oldest_source_retrieved_at"], str(item[0])))[0]
+
+
+def prepare_cached(args):
+    cache_root = getattr(args, "cache_root", None)
+    issn = getattr(args, "issn", None)
+    if args.source_run is not None:
+        if cache_root is not None or issn is not None:
+            raise ValueError("Use --source-run or both --cache-root and --issn")
+        source_run = args.source_run.expanduser().resolve()
+    elif cache_root is not None and issn is not None:
+        source_run = find_cached_source(cache_root, issn, args.ttl_days)
+    else:
+        raise ValueError("Use --source-run or both --cache-root and --issn")
+    outside_git(source_run)
+    output_root = args.output_root.expanduser()
+    outside_git(output_root)
+    approval = validate_source_run(source_run, args.ttl_days)
     manifest_bytes = (source_run / "run-manifest.json").read_bytes()
     if hashlib.sha256(manifest_bytes).hexdigest() != approval["manifest_sha256"]:
         raise ValueError("Cached manifest changed after validation")
@@ -69,6 +121,7 @@ def prepare_cached(args):
         raise ValueError("Prepared source records differ from the cached profile")
     (run / "journal-profile.json").write_bytes(profile_bytes)
     reuse = {"schema_version": 1, "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+             "source_run": str(source_run), "selected_issn": profile["issn"],
              "source_manifest_sha256": approval["manifest_sha256"],
              "profile_sha256": approval["profile_sha256"],
              "oldest_source_retrieved_at": approval["oldest_source_retrieved_at"],
@@ -79,7 +132,9 @@ def prepare_cached(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source-run", required=True, type=Path, help="Private run containing two agreed profile drafts")
+    parser.add_argument("--source-run", type=Path, help="Private run containing two agreed profile drafts")
+    parser.add_argument("--cache-root", type=Path, help="Private run root to search for an agreed profile")
+    parser.add_argument("--issn", help="Selected ISSN when searching --cache-root")
     parser.add_argument("--manuscript", required=True, type=Path)
     parser.add_argument("--extraction-record", type=Path)
     parser.add_argument("--supplementary", action="append", type=Path, default=[])
