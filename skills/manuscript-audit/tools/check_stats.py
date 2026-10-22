@@ -10,6 +10,7 @@ from pathlib import Path
 
 from build_coverage import corpus_hash
 from list_dois import read_corpus
+from screenable_lines import screenable_lines
 
 
 NUMBER = r"[+-]?(?:\d+(?:\.\d+)?|\.\d+)"
@@ -106,7 +107,7 @@ def check(run):
     manifest, files = read_corpus(run)
     checks = []
     for path, content in files:
-        for line_number, line in enumerate(content.splitlines(), start=1):
+        for line_number, line, context in screenable_lines(path, content):
             if CONTEXT_EXCLUSION.search(line):
                 continue
             for kind, pattern in PATTERNS.items():
@@ -116,17 +117,23 @@ def check(run):
                     dfs = [int(match.group("df1"))]
                     if kind == "F":
                         dfs.append(int(match.group("df2")))
+                    decision = (evaluate(kind, match.group("value"), dfs,
+                                         match.group("relation"), match.group("p"), stats)
+                                if context == "prose" else
+                                {"status": "unresolved", "reason": (
+                                    "Opening Markdown metadata has no closing delimiter"
+                                    if context == "ambiguous_frontmatter" else
+                                    "Indented Markdown may be code or list prose")})
                     checks.append({"path": path, "line_id": f"L{line_number}",
                                    "statistic": kind, "reported_value": match.group("value"),
                                    "degrees_of_freedom": dfs,
                                    "p_relation": match.group("relation"),
                                    "reported_p": match.group("p"),
-                                   **evaluate(kind, match.group("value"), dfs,
-                                              match.group("relation"), match.group("p"), stats)})
+                                   **decision})
     output = {"schema_version": 1, "corpus_sha256": corpus_hash(manifest),
               "scipy_version": scipy_version,
               "method": "Distribution tails over the rounding interval of each printed statistic and p value",
-              "note": "Only explicit same-line patterns are screened; every flag requires review of the original test, tail, corrections, and assumptions",
+              "note": "Only explicit same-line patterns are screened; closed Markdown metadata, fenced code, and BibTeX are excluded. Unclosed metadata and indented Markdown matches stay unresolved. Every flag requires review of the original test, tail, corrections, and assumptions",
               "checks": checks}
     output_path = run.resolve() / "statistical-checks.json"
     with output_path.open("x", encoding="utf-8") as handle:

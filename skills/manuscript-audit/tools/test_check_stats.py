@@ -17,8 +17,12 @@ class StatisticalScreenTests(unittest.TestCase):
         root = Path(temporary.name)
         manuscript = root / "paper.md"
         supplement = root / "appendix.md"
+        bibliography = root / "references.bib"
         guideline = root / "guideline.txt"
         manuscript.write_text(
+            "---\n"
+            "example: two-sided t(18) = 3.00, p = .500\n"
+            "---\n"
             "# Results\n"
             "two-sided t(18) = 2.10, p = .050\n"
             "F(2, 20) = 10.00, p = .500\n"
@@ -27,13 +31,19 @@ class StatisticalScreenTests(unittest.TestCase):
             "one-sided t(18) = 3.00, p = .500\n"
             "adjusted F(2, 20) = 10.00, p = .500\n"
             "not two-sided t(18) = 3.00, p = .500\n"
-            "t(18) = 3.00, p = .500\n",
+            "t(18) = 3.00, p = .500\n"
+            "```text\n"
+            "two-sided t(18) = 3.00, p = .500\n"
+            "```\n"
+            "    F(2, 20) = 10.00, p = .500\n"
+            "<!-- two-sided t(18) = 3.00, p = .500 -->\n",
             encoding="utf-8",
         )
         supplement.write_text("two-sided t(18) = -1.00, p = .200\n", encoding="utf-8")
+        bibliography.write_text("@misc{x, note={F(2, 20) = 10.00, p = .500}}\n", encoding="utf-8")
         guideline.write_text("Report statistical results.\n", encoding="utf-8")
         self.run = prepare(argparse.Namespace(
-            manuscript=manuscript, guideline_text=guideline, supplementary=[supplement],
+            manuscript=manuscript, guideline_text=guideline, supplementary=[supplement, bibliography],
             guideline_url="https://example.org/authors", retrieved_at="2026-10-19T09:00:00Z",
             output_root=root / "runs", host="manual", model=[]))
 
@@ -41,14 +51,15 @@ class StatisticalScreenTests(unittest.TestCase):
         output = check(self.run)
         self.assertEqual([(item["statistic"], item["line_id"], item["status"])
                           for item in output["checks"]], [
-            ("t", "L2", "compatible"),
-            ("F", "L3", "needs_review"),
-            ("chi_square", "L4", "compatible"),
-            ("pearson_r", "L5", "needs_review"),
+            ("t", "L5", "compatible"),
+            ("F", "L6", "needs_review"),
+            ("chi_square", "L7", "compatible"),
+            ("pearson_r", "L8", "needs_review"),
+            ("F", "L16", "unresolved"),
             ("t", "L1", "needs_review"),
         ])
         self.assertEqual([item.get("severity_proposed") for item in output["checks"]],
-                         [None, "major", None, "major", "minor"])
+                         [None, "major", None, "major", None, "minor"])
         self.assertEqual(json.loads((self.run / "statistical-checks.json").read_text()), output)
         with self.assertRaises(FileExistsError):
             check(self.run)

@@ -10,6 +10,7 @@ from pathlib import Path
 
 from build_coverage import corpus_hash
 from list_dois import read_corpus
+from screenable_lines import screenable_lines
 
 
 PAIR = re.compile(
@@ -56,13 +57,18 @@ def check(run):
     manifest, files = read_corpus(run)
     results = []
     for path, content in files:
-        for line_number, line in enumerate(content.splitlines(), start=1):
+        for line_number, line, context in screenable_lines(path, content):
             if re.search(r"\bone[- ](?:sided|tailed)\b", line, re.IGNORECASE):
                 continue
             for match in PAIR.finditer(line):
                 if re.search(r"\bnot\s+$", line[:match.start()], re.IGNORECASE):
                     continue
-                result = evaluate(match.group("z"), match.group("relation"), match.group("p"))
+                result = (evaluate(match.group("z"), match.group("relation"), match.group("p"))
+                          if context == "prose" else
+                          {"status": "unresolved", "reason": (
+                              "Opening Markdown metadata has no closing delimiter"
+                              if context == "ambiguous_frontmatter" else
+                              "Indented Markdown may be code or list prose")})
                 results.append({
                     "path": path,
                     "line_id": f"L{line_number}",
@@ -75,7 +81,7 @@ def check(run):
         "schema_version": 1,
         "corpus_sha256": corpus_hash(manifest),
         "method": "Two-sided normal-tail probability with rounding intervals for printed z and equality p values",
-        "note": "Only explicit same-line two-sided z/p pairs are screened; review every flag against the original manuscript and test assumptions",
+        "note": "Only explicit same-line two-sided z/p pairs are screened; closed Markdown metadata, fenced code, and BibTeX are excluded. Unclosed metadata and indented Markdown matches stay unresolved. Review every flag against the original manuscript and test assumptions",
         "checks": results,
     }
     output_path = run.resolve() / "z-checks.json"

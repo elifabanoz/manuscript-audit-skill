@@ -29,6 +29,8 @@ For a later manuscript targeting the same journal, `python tools/prepare_cached_
 
 After preparing a private run, use `python tools/build_manuscript_profile.py <run-directory>` to map observable sections, line IDs, literal figure/table markers, and DOI mentions into private `manuscript-profile.json`. This inventory is not a compliance verdict or a complete reference list. PDF section and reference structure remains unresolved; compare converted content with the original document.
 
+The statistical screens exclude closed Markdown metadata, fenced code, comment lines, and BibTeX entries. Treat matches in unclosed metadata or indented Markdown as unresolved because their context is ambiguous. An absent screen result does not establish statistical consistency.
+
 ## Boundaries
 
 - Do not send full unpublished manuscripts to literature or journal APIs. Ask before using an additional model provider.
