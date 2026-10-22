@@ -8,8 +8,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from score import check_control_deterministic, score
+from score import checked_scope_record, check_control_deterministic, score, sha256
 from prepare_label_review import make_packet
+from prepare_scope_review import prepare as prepare_scope_review
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -111,6 +112,61 @@ class ComplianceMutationScoreTests(unittest.TestCase):
                           "rationale": "Invented benchmark fixture."}
                 (run / "agents" / f"{filename}.json").write_text(json.dumps(record), encoding="utf-8")
         return run
+
+    def test_scope_record_requires_every_rule_and_pinned_inputs(self):
+        run = self.make_run("scope-control", "# Title\nData availability: on request.\n",
+                            unresolved_ethics=True)
+        manifest_path = run / "run-manifest.json"
+        profile_path = run / "journal-profile.json"
+        profile = json.loads(profile_path.read_text(encoding="utf-8"))
+        applicable = {rule["rule_id"]: rule for rule in profile["rules"]}
+        path = run / "scope-review.json"
+        record = {
+            "schema_version": 1, "manifest_sha256": sha256(manifest_path),
+            "profile_sha256": sha256(profile_path), "article_type": "original_research",
+            "rules": [
+                {"rule_id": "data_availability", "decision": "score",
+                 "reason": "The submitted manuscript can show the required statement."},
+                {"rule_id": "ethics_statement", "decision": "exclude",
+                 "reason": "The source interpretation still needs independent validation."},
+            ],
+        }
+        path.write_text(json.dumps(record), encoding="utf-8")
+        scored, excluded, digest, reasons = checked_scope_record(
+            str(path), run, manifest_path, profile_path, "original_research", applicable, "control")
+        self.assertEqual(scored, {"data_availability"})
+        self.assertEqual(excluded, {"ethics_statement"})
+        self.assertEqual(digest, sha256(path))
+        self.assertIn("source interpretation", reasons["ethics_statement"])
+        changed = json.loads(path.read_text(encoding="utf-8"))
+        changed["rules"][1]["decision"] = "score"
+        path.write_text(json.dumps(changed), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "unresolved source rule"):
+            checked_scope_record(str(path), run, manifest_path, profile_path,
+                                 "original_research", applicable, "control")
+        changed["rules"] = changed["rules"][:1]
+        path.write_text(json.dumps(changed), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "every applicable rule"):
+            checked_scope_record(str(path), run, manifest_path, profile_path,
+                                 "original_research", applicable, "control")
+        changed["profile_sha256"] = "0" * 64
+        path.write_text(json.dumps(changed), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "differs from the scored inputs"):
+            checked_scope_record(str(path), run, manifest_path, profile_path,
+                                 "original_research", applicable, "control")
+
+    def test_scope_template_is_unfilled_and_bound_to_private_run(self):
+        run = self.make_run("scope-template", "# Title\nData availability: on request.\n")
+        output = prepare_scope_review(run, "original_research")
+        template = json.loads(output.read_text(encoding="utf-8"))
+        self.assertEqual(template["manifest_sha256"], sha256(run / "run-manifest.json"))
+        self.assertEqual(template["profile_sha256"], sha256(run / "journal-profile.json"))
+        self.assertEqual({item["rule_id"] for item in template["rules"]},
+                         {"data_availability", "ethics_statement"})
+        self.assertTrue(all(item["decision"] is None and item["reason"] == ""
+                            for item in template["rules"]))
+        with self.assertRaises(FileExistsError):
+            prepare_scope_review(run, "original_research")
 
     def test_scores_paired_mutations_and_validation_ablation(self):
         control = self.make_run("control", "# Title\nData availability: on request.\n")
@@ -297,6 +353,68 @@ class ComplianceMutationScoreTests(unittest.TestCase):
         raw_path.write_text(json.dumps(candidates), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "needs quoted evidence"):
             score(benchmark)
+
+    def test_version_five_excludes_verified_rule_needing_external_evidence(self):
+        control = self.make_run("control-v5", "# Title\nData availability: on request.\n")
+        mutation = self.make_run("mutation-v5", "# Title\nNo statement here.\n")
+        for run in (control, mutation):
+            ledger_path = run / "coverage-ledger.json"
+            ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+            for unit in ledger:
+                if unit["rule_id"] == "ethics_statement":
+                    unit["status"] = "pending"
+                    unit["checked_by"] = []
+            ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
+            scope = {
+                "schema_version": 1,
+                "manifest_sha256": sha256(run / "run-manifest.json"),
+                "profile_sha256": sha256(run / "journal-profile.json"),
+                "article_type": "original_research",
+                "rules": [
+                    {"rule_id": "data_availability", "decision": "score",
+                     "reason": "The manuscript can show the data availability statement."},
+                    {"rule_id": "ethics_statement", "decision": "exclude",
+                     "reason": "This test supplied no independent ethics approval evidence."},
+                ],
+            }
+            (run / "scope-review.json").write_text(json.dumps(scope), encoding="utf-8")
+        proposal_dir = self.root / "proposal-v5"
+        proposal_dir.mkdir()
+        (proposal_dir / "mutation.md").write_bytes((mutation / "manuscript.md").read_bytes())
+        control_manifest = json.loads((control / "run-manifest.json").read_text(encoding="utf-8"))
+        mutation_manifest = json.loads((mutation / "run-manifest.json").read_text(encoding="utf-8"))
+        proposal_path = proposal_dir / "proposals.json"
+        proposal_path.write_text(json.dumps({
+            "schema_version": 1, "status": "unreviewed_proposal",
+            "control_run": str(control), "article_type": "original_research",
+            "control_manifest_sha256": sha256(control / "run-manifest.json"),
+            "control_manuscript_sha256": control_manifest["manuscript"]["sha256"],
+            "profile_sha256": sha256(control / "journal-profile.json"),
+            "rule_id": "data_availability", "mutation_class_proposed": "semantic",
+            "file": "mutation.md", "manuscript_sha256": mutation_manifest["manuscript"]["sha256"],
+        }), encoding="utf-8")
+        cases = [
+            {"case_id": "control", "kind": "control", "article_type": "original_research",
+             "run": str(control), "raw_findings": str(control / "raw-findings.json"),
+             "scope_record": str(control / "scope-review.json")},
+            {"case_id": "mutation", "kind": "mutation", "article_type": "original_research",
+             "control_case_id": "control", "expected_rule_id": "data_availability",
+             "mutation_class": "semantic", "run": str(mutation),
+             "raw_findings": str(mutation / "raw-findings.json"),
+             "proposal_record": str(proposal_path), "proposal_file": "mutation.md",
+             "scope_record": str(mutation / "scope-review.json")},
+        ]
+        result = score({"schema_version": 5, "data_freeze": "2026-10-19", "cases": cases})
+        self.assertEqual(result["cases"][0]["scored_rule_ids"], ["data_availability"])
+        self.assertEqual(result["cases"][0]["excluded_rule_ids"], ["ethics_statement"])
+        self.assertEqual(result["cases"][1]["scored_rule_ids"], ["data_availability"])
+        self.assertEqual(result["quote_audit"]["raw_quotes"], 0)
+        self.assertEqual(result["mutations"]["validated_recall"], 0)
+        changed = json.loads((control / "scope-review.json").read_text(encoding="utf-8"))
+        changed["manifest_sha256"] = "0" * 64
+        (control / "scope-review.json").write_text(json.dumps(changed), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "scope record differs"):
+            score({"schema_version": 5, "data_freeze": "2026-10-19", "cases": cases})
 
     def test_rejects_a_mutation_already_flagged_in_its_control(self):
         control = self.make_run("control", "# Title\nData availability: on request.\n",

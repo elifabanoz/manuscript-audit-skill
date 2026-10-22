@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 from finalize_labels import finalize, validate_labels, verify_profile_agreements
 from prepare_label_review import make_json_template
-from score import sha256
+from score import scope_review_sha256, sha256
 
 
 SCORED = {"schema_version": 2, "data_freeze": "2026-10-20", "cases": [
@@ -39,6 +39,28 @@ def complete(template):
 
 
 class HumanLabelTests(unittest.TestCase):
+    def test_version_five_requires_both_reviewers_to_approve_scope_hash(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            cases = Path(temporary) / "cases.json"
+            cases.write_text("{}", encoding="utf-8")
+            scored = copy.deepcopy(SCORED)
+            scored["schema_version"] = 5
+            for index, row in enumerate(scored["cases"]):
+                row["input_sha256"] = {"scope_record": f"{index + 1:064x}"}
+            with patch("prepare_label_review.score", return_value=scored):
+                labels = complete(make_json_template(cases))
+            self.assertEqual(labels["schema_version"], 3)
+            with self.assertRaisesRegex(ValueError, "scoring scope"):
+                validate_labels(scored, labels, sha256(cases))
+            scope_hash = scope_review_sha256(scored)
+            for record in (*labels["reviews"], labels["adjudication"]):
+                record["scope_review_sha256"] = scope_hash
+            result = validate_labels(scored, labels, sha256(cases))
+            self.assertEqual(result["scope_review_sha256"], scope_hash)
+            labels["reviews"][1]["scope_review_sha256"] = "0" * 64
+            with self.assertRaisesRegex(ValueError, "scoring scope"):
+                validate_labels(scored, labels, sha256(cases))
+
     def test_human_rates_require_an_agreed_profile_matching_scored_inputs(self):
         with tempfile.TemporaryDirectory() as temporary:
             run = Path(temporary)

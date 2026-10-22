@@ -7,7 +7,7 @@ import json
 import re
 from pathlib import Path
 
-from score import outside_git, read_json, score, scored_inputs_sha256, sha256
+from score import outside_git, read_json, score, scope_review_sha256, scored_inputs_sha256, sha256
 
 
 def data(value):
@@ -31,6 +31,9 @@ def make_packet(cases_path):
         f"Data freeze: `{result['data_freeze']}`",
         f"Case manifest SHA-256: `{sha256(cases_path)}`",
         f"Scored inputs SHA-256: `{scored_inputs_sha256(result)}`",
+        *([f"Scope records SHA-256: `{scope_review_sha256(result)}`",
+           "Each reviewer must inspect and approve the scoring scope, including every excluded rule."]
+          if result["schema_version"] >= 5 else []),
         "Reviewer name or ID: ",
         "Review date: ",
         "",
@@ -105,9 +108,14 @@ def make_packet(cases_path):
         if row["excluded_rule_ids"]:
             lines.extend([
                 f"Excluded from scoring: {', '.join('`' + rule_id + '`' for rule_id in row['excluded_rule_ids'])}",
-                "These rules require source/profile validation; this worksheet does not count them as reviewed.",
-                "",
             ])
+            if result["schema_version"] >= 5:
+                lines.extend(f"- `{rule_id}`: {reason}" for rule_id, reason in row["scope_exclusions"].items())
+            else:
+                lines.append("These rules require source/profile validation; this worksheet does not count them as reviewed.")
+            lines.append("")
+        if result["schema_version"] >= 5:
+            lines.extend(["Scoring scope approved after reviewing every rule: [ ] Yes  [ ] No", ""])
     lines.extend([
         "## Adjudication",
         "",
@@ -128,12 +136,15 @@ def make_json_template(cases_path):
             labels.append({"case_id": row["case_id"], "rule_id": rule_id, "verdict": None,
                            "evidence_location": "", "rationale": "", "single_change": None,
                            "mutation_class": None})
-    return {"schema_version": 2, "benchmark_manifest_sha256": sha256(cases_path),
+    scope = result["schema_version"] >= 5
+    return {"schema_version": 3 if scope else 2, "benchmark_manifest_sha256": sha256(cases_path),
             "scored_inputs_sha256": scored_inputs_sha256(result),
-            "reviews": [{"reviewer_id": "", "reviewed_at": "", "labels": [dict(item) for item in labels]}
+            "reviews": [{"reviewer_id": "", "reviewed_at": "", "labels": [dict(item) for item in labels],
+                         **({"scope_review_sha256": ""} if scope else {})}
                         for _ in range(2)],
             "adjudication": {"adjudicator_id": "", "approved": False,
-                             "labels": [dict(item) for item in labels], "disagreement_resolution": ""}}
+                             "labels": [dict(item) for item in labels], "disagreement_resolution": "",
+                             **({"scope_review_sha256": ""} if scope else {})}}
 
 
 def main():

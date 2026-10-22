@@ -9,7 +9,7 @@ import subprocess
 from datetime import date
 from pathlib import Path
 
-from score import MUTATION_CLASSES, outside_git, score, scored_inputs_sha256, sha256
+from score import MUTATION_CLASSES, outside_git, score, scope_review_sha256, scored_inputs_sha256, sha256
 
 
 PROFILE_AGREEMENT_VALIDATOR = Path(__file__).resolve().parents[2] / "skills" / "manuscript-audit" / "validators" / "validate-profile-agreement.cjs"
@@ -66,9 +66,11 @@ def checked_labels(labels, expected, reviewer, final=False):
 
 
 def validate_labels(scored, labels, manifest_hash):
+    scope_required = scored["schema_version"] >= 5
+    expected_schema = 3 if scope_required else 2
     if (not isinstance(labels, dict) or set(labels) != {"schema_version", "benchmark_manifest_sha256",
                                                       "scored_inputs_sha256", "reviews", "adjudication"}
-            or labels["schema_version"] != 2 or labels["benchmark_manifest_sha256"] != manifest_hash):
+            or labels["schema_version"] != expected_schema or labels["benchmark_manifest_sha256"] != manifest_hash):
         raise ValueError("Human labels do not match this benchmark manifest")
     if labels["scored_inputs_sha256"] != scored_inputs_sha256(scored):
         raise ValueError("Human labels do not match the scored input files")
@@ -78,9 +80,15 @@ def validate_labels(scored, labels, manifest_hash):
     expected = expected_labels(scored)
     reviewers = []
     reviewed = []
+    scope_hash = scope_review_sha256(scored) if scope_required else None
     for number, record in enumerate(reviews, start=1):
-        if not isinstance(record, dict) or set(record) != {"reviewer_id", "reviewed_at", "labels"}:
+        expected_keys = {"reviewer_id", "reviewed_at", "labels"}
+        if scope_required:
+            expected_keys.add("scope_review_sha256")
+        if not isinstance(record, dict) or set(record) != expected_keys:
             raise ValueError(f"Reviewer {number} record has an unexpected format")
+        if scope_required and record["scope_review_sha256"] != scope_hash:
+            raise ValueError(f"Reviewer {number} has not approved the current scoring scope")
         identifier = record["reviewer_id"]
         if not isinstance(identifier, str) or not identifier.strip():
             raise ValueError(f"Reviewer {number} needs a name or identifier")
@@ -93,12 +101,17 @@ def validate_labels(scored, labels, manifest_hash):
     if reviewers[0].casefold() == reviewers[1].casefold():
         raise ValueError("The two human reviewer identifiers must differ")
     adjudication = labels["adjudication"]
+    adjudication_keys = {"adjudicator_id", "approved", "labels", "disagreement_resolution"}
+    if scope_required:
+        adjudication_keys.add("scope_review_sha256")
     if (not isinstance(adjudication, dict)
-            or set(adjudication) != {"adjudicator_id", "approved", "labels", "disagreement_resolution"}
+            or set(adjudication) != adjudication_keys
             or not isinstance(adjudication["adjudicator_id"], str)
             or not adjudication["adjudicator_id"].strip()
             or adjudication["approved"] is not True):
         raise ValueError("Human adjudication is incomplete or not approved")
+    if scope_required and adjudication["scope_review_sha256"] != scope_hash:
+        raise ValueError("Adjudication has not approved the current scoring scope")
     final = checked_labels(adjudication["labels"], expected, "Adjudication", final=True)
     def decision(item):
         return item["verdict"], item["single_change"], item["mutation_class"]
@@ -109,7 +122,8 @@ def validate_labels(scored, labels, manifest_hash):
                           or not adjudication["disagreement_resolution"].strip()):
         raise ValueError("Reviewer disagreements need an evidence-based resolution")
     return {"reviewer_ids": reviewers, "adjudicator_id": adjudication["adjudicator_id"].strip(),
-            "labels_checked": len(final), "disagreements": len(disagreements)}
+            "labels_checked": len(final), "disagreements": len(disagreements),
+            **({"scope_review_sha256": scope_hash} if scope_required else {})}
 
 
 def verify_profile_agreements(benchmark, scored):

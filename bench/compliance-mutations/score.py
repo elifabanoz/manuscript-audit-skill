@@ -37,6 +37,13 @@ def scored_inputs_sha256(scored):
     return hashlib.sha256(encoded).hexdigest()
 
 
+def scope_review_sha256(scored):
+    entries = [(row["case_id"], row["input_sha256"]["scope_record"])
+               for row in scored["cases"]]
+    encoded = json.dumps(sorted(entries), separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def exact_keys(value, keys, label):
     if not isinstance(value, dict) or set(value) != set(keys):
         raise ValueError(f"{label} must contain exactly: {', '.join(keys)}")
@@ -152,6 +159,45 @@ def check_control_deterministic(run, manifest, profile, article_type, scored, ca
         raise ValueError(f"{case_id}: control has unmet deterministic rules: {', '.join(failed)}")
 
 
+def checked_scope_record(path, run, manifest_path, profile_path, article_type, applicable, case_id):
+    if not isinstance(path, str) or not Path(path).is_absolute():
+        raise ValueError(f"{case_id}: scope_record must be an absolute private path")
+    scope_path = Path(path).resolve()
+    outside_git(scope_path)
+    if scope_path.parent != run or scope_path.name != "scope-review.json":
+        raise ValueError(f"{case_id}: scope_record must be scope-review.json directly inside its run")
+    scope_hash = sha256(scope_path)
+    record = read_json(scope_path)
+    exact_keys(record, ("schema_version", "manifest_sha256", "profile_sha256", "article_type", "rules"),
+               f"{case_id}: scope record")
+    if (record["schema_version"] != 1 or record["manifest_sha256"] != sha256(manifest_path)
+            or record["profile_sha256"] != sha256(profile_path) or record["article_type"] != article_type):
+        raise ValueError(f"{case_id}: scope record differs from the scored inputs")
+    if not isinstance(record["rules"], list):
+        raise ValueError(f"{case_id}: scope rules must be a list")
+    decisions = {}
+    for entry in record["rules"]:
+        exact_keys(entry, ("rule_id", "decision", "reason"), f"{case_id}: scope rule")
+        rule_id = entry["rule_id"]
+        if not isinstance(rule_id, str) or rule_id not in applicable or rule_id in decisions:
+            raise ValueError(f"{case_id}: scope rule is unknown or duplicated")
+        if entry["decision"] not in ("score", "exclude"):
+            raise ValueError(f"{case_id}: scope decision must be score or exclude")
+        if not isinstance(entry["reason"], str) or len(entry["reason"].strip()) < 20:
+            raise ValueError(f"{case_id}: each scope decision needs a concrete reason")
+        if entry["decision"] == "score" and applicable[rule_id].get("status") == "needs_validation":
+            raise ValueError(f"{case_id}: an unresolved source rule cannot be scored: {rule_id}")
+        decisions[rule_id] = entry
+    if set(decisions) != set(applicable):
+        raise ValueError(f"{case_id}: scope record does not cover every applicable rule")
+    if sha256(scope_path) != scope_hash:
+        raise ValueError(f"{case_id}: scope record changed during scoring")
+    scored = {rule_id for rule_id, entry in decisions.items() if entry["decision"] == "score"}
+    excluded = set(applicable) - scored
+    reasons = {rule_id: decisions[rule_id]["reason"] for rule_id in sorted(excluded)}
+    return scored, excluded, scope_hash, reasons
+
+
 def load_case(case, freeze, schema_version):
     common = ("case_id", "kind", "article_type", "run", "raw_findings")
     if not isinstance(case, dict) or case.get("kind") not in ("control", "mutation"):
@@ -161,6 +207,8 @@ def load_case(case, freeze, schema_version):
         keys = (*keys, "mutation_class")
     if case["kind"] == "mutation" and schema_version >= 3:
         keys = (*keys, "proposal_record", "proposal_file")
+    if schema_version >= 5:
+        keys = (*keys, "scope_record")
     exact_keys(case, keys, f"case {case.get('case_id', '<unknown>')}")
     if schema_version >= 2 and case["kind"] == "mutation" and (
             not isinstance(case["mutation_class"], str) or case["mutation_class"] not in MUTATION_CLASSES):
@@ -198,8 +246,13 @@ def load_case(case, freeze, schema_version):
         raise ValueError(f"{case['case_id']}: article_type is absent from the profile")
     applicable = {rule["rule_id"]: rule for rule in profile["rules"]
                   if case["article_type"] in rule.get("applies_to", [case["article_type"]])}
-    scored = {rule_id for rule_id, rule in applicable.items() if rule.get("status") != "needs_validation"}
-    excluded = set(applicable) - scored
+    if schema_version >= 5:
+        scored, excluded, scope_hash, scope_exclusions = checked_scope_record(
+            case["scope_record"], run, manifest_path, profile_path, case["article_type"],
+            applicable, case["case_id"])
+    else:
+        scored = {rule_id for rule_id, rule in applicable.items() if rule.get("status") != "needs_validation"}
+        excluded = set(applicable) - scored
     if not scored:
         raise ValueError(f"{case['case_id']}: no verified applicable rules can be scored")
     coverage = [unit for unit in ledger if unit["kind"] == "compliance"]
@@ -231,6 +284,11 @@ def load_case(case, freeze, schema_version):
     }
     if (run / "deterministic-checks.json").is_file():
         input_files["deterministic_checks"] = run / "deterministic-checks.json"
+    if schema_version >= 5:
+        input_files["scope_record"] = run / "scope-review.json"
+    input_hashes = {name: sha256(file) for name, file in input_files.items()}
+    if schema_version >= 5 and input_hashes["scope_record"] != scope_hash:
+        raise ValueError(f"{case['case_id']}: scope record changed during scoring")
     return {
         **case,
         "issn": profile["issn"],
@@ -238,9 +296,10 @@ def load_case(case, freeze, schema_version):
         "manuscript_sha256": manifest["manuscript"]["sha256"],
         "scored_rule_ids": sorted(scored),
         "excluded_rule_ids": sorted(excluded),
+        **({"scope_exclusions": scope_exclusions} if schema_version >= 5 else {}),
         "raw_rules": raw_rules,
         "final_rules": final_rules,
-        "input_sha256": {name: sha256(file) for name, file in input_files.items()},
+        "input_sha256": input_hashes,
         **({"quote_audit": quote_audit} if quote_audit is not None else {}),
     }
 
@@ -286,7 +345,7 @@ def verify_proposal(case, control):
 def score(benchmark):
     exact_keys(benchmark, ("schema_version", "data_freeze", "cases"), "benchmark")
     schema_version = benchmark["schema_version"]
-    if schema_version not in (1, 2, 3, 4):
+    if schema_version not in (1, 2, 3, 4, 5):
         raise ValueError("Unsupported benchmark schema_version")
     freeze = benchmark["data_freeze"]
     if not isinstance(freeze, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", freeze):
@@ -318,6 +377,8 @@ def score(benchmark):
                 raise ValueError(f"{item['case_id']}: paired control has a different article type")
             if item["sources"] != control["sources"]:
                 raise ValueError(f"{item['case_id']}: paired control has a different source snapshot")
+            if schema_version >= 5 and item["scored_rule_ids"] != control["scored_rule_ids"]:
+                raise ValueError(f"{item['case_id']}: paired control has a different scoring scope")
             if item["manuscript_sha256"] == control["manuscript_sha256"]:
                 raise ValueError(f"{item['case_id']}: mutation has the same manuscript hash as its control")
             proposal_hash = verify_proposal(item, control) if schema_version >= 3 else None
@@ -344,6 +405,8 @@ def score(benchmark):
             row["proposal_record_sha256"] = proposal_hash
         if schema_version >= 4:
             row["quote_audit"] = item["quote_audit"]
+        if schema_version >= 5:
+            row["scope_exclusions"] = item["scope_exclusions"]
         rows.append(row)
     def rate(numerator, denominator):
         return numerator / denominator
