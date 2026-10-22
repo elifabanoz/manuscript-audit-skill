@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from convert_tex import convert
 from prepare_run import prepare
@@ -27,8 +28,8 @@ Invented method with \cite{sample}.
 """
 
 
-@unittest.skipUnless(shutil.which("pandoc"), "Pandoc is not installed")
 class ConvertTexTests(unittest.TestCase):
+    @unittest.skipUnless(shutil.which("pandoc"), "Pandoc is not installed")
     def test_converts_title_abstract_heading_and_citation_privately(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -45,6 +46,7 @@ class ConvertTexTests(unittest.TestCase):
             self.assertEqual(record["markdown_sha256"], hashlib.sha256(markdown.encode()).hexdigest())
             self.assertFalse((output.parent / "paper.tex").exists())
 
+    @unittest.skipUnless(shutil.which("pandoc"), "Pandoc is not installed")
     def test_prepared_run_binds_original_tex_hash(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -63,6 +65,21 @@ class ConvertTexTests(unittest.TestCase):
             self.assertEqual(manifest["extraction"]["source_sha256"], hashlib.sha256(original.read_bytes()).hexdigest())
             validator = Path(__file__).resolve().parents[1] / "validators" / "validate-run-manifest.cjs"
             self.assertEqual(subprocess.run(["node", str(validator), str(run)], capture_output=True).returncode, 0)
+
+    def test_uses_standalone_markdown_conversion_and_records_hashes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            original = root / "paper.tex"
+            original.write_text(PAPER, encoding="utf-8")
+            expected = "---\ntitle: Invented Study\n---\n\n# Methods\nInvented method.\n"
+            with patch("convert_tex.subprocess.run", return_value=subprocess.CompletedProcess([], 0, expected, "")) as run:
+                output = convert(original, root / "private", pandoc="pandoc")
+            self.assertEqual(run.call_args.args[0], ["pandoc", "-s", "-f", "latex", "-t", "markdown", "--wrap=none"])
+            self.assertEqual(run.call_args.kwargs["input"].replace("\r\n", "\n"), PAPER)
+            self.assertEqual((output.parent / "manuscript.md").read_text(encoding="utf-8"), expected)
+            record = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(record["source_sha256"], hashlib.sha256(original.read_bytes()).hexdigest())
+            self.assertEqual(record["markdown_sha256"], hashlib.sha256(expected.encode()).hexdigest())
 
     def test_rejects_external_source_before_creating_output(self):
         with tempfile.TemporaryDirectory() as temporary:
