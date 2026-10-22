@@ -76,6 +76,16 @@ function prepare(run, findingId, role) {
       sha256: crypto.createHash('sha256').update(fs.readFileSync(safeFile(run, file))).digest('hex'),
       record: readJson(safeFile(run, file))
     }]));
+    const metadata = packet.reference_checks['doi-metadata.json'].record;
+    packet.crossref_snapshots = Object.fromEntries(finding.evidence
+      .filter(item => item.type === 'reference_metadata')
+      .map(item => {
+        const registered = metadata.results.find(record => record.doi.toLowerCase() === item.doi.toLowerCase());
+        const bytes = fs.readFileSync(safeFile(run, registered.response_path));
+        return [item.doi.toLowerCase(), { path: registered.response_path,
+          sha256: crypto.createHash('sha256').update(bytes).digest('hex'),
+          record: JSON.parse(bytes.toString('utf8')) }];
+      }));
   }
   if (role === 'record_verifier') {
     const defense = readJson(safeFile(run, provenance.validator));

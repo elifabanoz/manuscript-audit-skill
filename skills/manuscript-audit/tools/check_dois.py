@@ -58,35 +58,61 @@ def publication_updates(message):
     return "reported", signals
 
 
+def parse_response(raw, doi):
+    message = json.loads(raw)["message"]
+    if not isinstance(message, dict) or not isinstance(message.get("DOI"), str):
+        raise ValueError("Crossref response lacks a DOI")
+    if message["DOI"].casefold() != doi.casefold():
+        raise ValueError("Crossref returned a different DOI")
+    update_status, update_signals = publication_updates(message)
+    return {
+        "status": "registered_in_crossref",
+        "registered_doi": message["DOI"],
+        "response_sha256": hashlib.sha256(raw).hexdigest(),
+        "title": first_text(message.get("title")),
+        "container_title": first_text(message.get("container-title")),
+        "publication_year": publication_year(message),
+        "first_author_family": first_author_family(message),
+        "type": message.get("type") if isinstance(message.get("type"), str) else None,
+        "update_metadata_status": update_status,
+        "update_signals": update_signals,
+    }
+
+
 def lookup_one(doi, opener):
     url = crossref_url("https://api.crossref.org/works/" + quote(doi, safe="/"))
     request = Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
     try:
         raw = read_response(request, opener, timeout=10, max_bytes=2_000_000).body
-        message = json.loads(raw)["message"]
-        if not isinstance(message, dict) or not isinstance(message.get("DOI"), str):
-            raise ValueError("Crossref response lacks a DOI")
-        if message["DOI"].casefold() != doi.casefold():
-            return {"status": "lookup_failed", "reason": "Crossref returned a different DOI"}
-        update_status, update_signals = publication_updates(message)
-        return {
-            "status": "registered_in_crossref",
-            "registered_doi": message["DOI"],
-            "response_sha256": hashlib.sha256(raw).hexdigest(),
-            "title": first_text(message.get("title")),
-            "container_title": first_text(message.get("container-title")),
-            "publication_year": publication_year(message),
-            "first_author_family": first_author_family(message),
-            "type": message.get("type") if isinstance(message.get("type"), str) else None,
-            "update_metadata_status": update_status,
-            "update_signals": update_signals,
-        }
+        try:
+            return parse_response(raw, doi), raw
+        except ValueError as error:
+            return {"status": "lookup_failed", "reason": str(error)}, None
     except HTTPError as error:
         if error.code == 404:
-            return {"status": "not_found_in_crossref"}
-        return {"status": "lookup_failed", "reason": f"Crossref HTTP {error.code}"}
+            return {"status": "not_found_in_crossref"}, None
+        return {"status": "lookup_failed", "reason": f"Crossref HTTP {error.code}"}, None
     except (OSError, UnicodeError, ValueError, KeyError, TypeError):
-        return {"status": "lookup_failed", "reason": "Crossref request or response failed"}
+        return {"status": "lookup_failed", "reason": "Crossref request or response failed"}, None
+
+
+def cache_response(run, raw):
+    directory = run / "sources" / "crossref"
+    if (run / "sources").is_symlink() or directory.is_symlink():
+        raise ValueError("Crossref cache cannot use a symbolic link")
+    directory.mkdir(exist_ok=True)
+    if not directory.resolve().is_relative_to(run):
+        raise ValueError("Crossref cache must remain inside the private run")
+    digest = hashlib.sha256(raw).hexdigest()
+    relative = f"sources/crossref/{digest}.json"
+    target = run / relative
+    try:
+        with target.open("xb") as handle:
+            handle.write(raw)
+    except FileExistsError:
+        if target.is_symlink() or target.read_bytes() != raw:
+            raise ValueError("Existing private Crossref snapshot differs from the response") from None
+    return relative
 
 
 def check(run, allow_network=False, opener=urlopen, pause=time.sleep):
@@ -94,8 +120,8 @@ def check(run, allow_network=False, opener=urlopen, pause=time.sleep):
         raise ValueError("Crossref lookup requires --allow-network; DOI values leave this computer")
     run = run.resolve()
     inventory_path = run / "doi-inventory.json"
-    raw = inventory_path.read_bytes()
-    saved = json.loads(raw)
+    inventory_bytes = inventory_path.read_bytes()
+    saved = json.loads(inventory_bytes)
     current = collect(run)
     if saved != current:
         raise ValueError("DOI inventory differs from the current run; prepare a new inventory")
@@ -108,10 +134,13 @@ def check(run, allow_network=False, opener=urlopen, pause=time.sleep):
     for index, item in enumerate(current["dois"]):
         if index:
             pause(0.2)
-        results.append({"doi": item["doi"], **lookup_one(item["doi"], opener)})
+        registry, response_raw = lookup_one(item["doi"], opener)
+        if response_raw is not None:
+            registry["response_path"] = cache_response(run, response_raw)
+        results.append({"doi": item["doi"], **registry})
     output = {
         "schema_version": 1,
-        "inventory_sha256": hashlib.sha256(raw).hexdigest(),
+        "inventory_sha256": hashlib.sha256(inventory_bytes).hexdigest(),
         "corpus_sha256": current["corpus_sha256"],
         "checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
         "source": "Crossref REST API",

@@ -485,9 +485,18 @@ test('confirmed reference leads bind a private check, registry record, and manus
   const inventoryBytes = Buffer.from(JSON.stringify({ schema_version: 1, corpus_sha256: corpusHash(manifest),
     dois: [{ doi: '10.1234/alpha' }] }));
   fs.writeFileSync(path.join(data.run, 'doi-inventory.json'), inventoryBytes);
+  const responseBytes = Buffer.from(JSON.stringify({ message: { DOI: '10.1234/alpha',
+    title: ['Example title'], published: { 'date-parts': [[2021, 1]] } } }));
+  const responseSha = checksum(responseBytes);
+  const responsePath = `sources/crossref/${responseSha}.json`;
+  fs.mkdirSync(path.join(data.run, 'sources', 'crossref'), { recursive: true });
+  fs.writeFileSync(path.join(data.run, responsePath), responseBytes);
   const metadataBytes = Buffer.from(JSON.stringify({ schema_version: 1,
     inventory_sha256: checksum(inventoryBytes), corpus_sha256: corpusHash(manifest),
-    results: [{ doi: '10.1234/alpha', status: 'registered_in_crossref', registered_doi: '10.1234/alpha' }] }));
+    results: [{ doi: '10.1234/alpha', status: 'registered_in_crossref', registered_doi: '10.1234/alpha',
+      response_sha256: responseSha, response_path: responsePath, title: 'Example title',
+      container_title: null, publication_year: 2021, first_author_family: null, type: null,
+      update_metadata_status: 'not_reported', update_signals: [] }] }));
   fs.writeFileSync(path.join(data.run, 'doi-metadata.json'), metadataBytes);
   const checksBytes = Buffer.from(JSON.stringify({ schema_version: 1,
     inventory_sha256: checksum(inventoryBytes), metadata_sha256: checksum(metadataBytes),
@@ -522,6 +531,7 @@ test('confirmed reference leads bind a private check, registry record, and manus
   const packet = JSON.parse(fs.readFileSync(prepareReviewPacket(data.run, 'F-1', 'record_verifier').path, 'utf8'));
   assert.equal(packet.reference_checks['reference-metadata-checks.json'].record.results[0].doi, '10.1234/alpha');
   assert.equal(packet.reference_checks['doi-metadata.json'].record.results[0].status, 'registered_in_crossref');
+  assert.equal(packet.crossref_snapshots['10.1234/alpha'].record.message.DOI, '10.1234/alpha');
   fs.writeFileSync(verifierPath, verifierBytes);
   finding.evidence[1].checks_sha256 = '0'.repeat(64);
   assert.match(validateRun(data.run, manifest, data.profile, data.ledger, [finding]).join('\n'),
@@ -531,6 +541,10 @@ test('confirmed reference leads bind a private check, registry record, and manus
   assert.match(validateRun(data.run, manifest, data.profile, data.ledger, [finding]).join('\n'),
     /stale DOI inventory or Crossref metadata/);
   fs.writeFileSync(path.join(data.run, 'doi-metadata.json'), metadataBytes);
+  fs.writeFileSync(path.join(data.run, responsePath), '{}');
+  assert.match(validateRun(data.run, manifest, data.profile, data.ledger, [finding]).join('\n'),
+    /differs from the private Crossref response snapshot/);
+  fs.writeFileSync(path.join(data.run, responsePath), responseBytes);
   const fabricatedChecks = JSON.parse(checksBytes.toString('utf8'));
   fabricatedChecks.results[0].checks.post_publication_update = 'review';
   const fabricatedBytes = Buffer.from(JSON.stringify(fabricatedChecks));

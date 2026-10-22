@@ -121,6 +121,44 @@ function checkProvenance(run, finding, index, manifest, profile, errors, options
   }
 }
 
+function crossrefSnapshotMatches(registered, bytes, doi) {
+  const message = JSON.parse(bytes.toString('utf8')).message;
+  if (!message || typeof message !== 'object' || Array.isArray(message)
+      || typeof message.DOI !== 'string' || message.DOI.toLowerCase() !== doi.toLowerCase()) return false;
+  const first = value => Array.isArray(value) && typeof value[0] === 'string' ? value[0] : null;
+  const parts = message.published && typeof message.published === 'object' && !Array.isArray(message.published)
+    ? message.published['date-parts'] : null;
+  const year = Array.isArray(parts) && Array.isArray(parts[0]) ? parts[0][0] : null;
+  const family = Array.isArray(message.author) && message.author[0]
+    && typeof message.author[0] === 'object' && !Array.isArray(message.author[0])
+    ? message.author[0].family : null;
+  const updates = message['updated-by'];
+  let updateStatus = 'not_reported';
+  let signals = [];
+  if (updates !== undefined && !(Array.isArray(updates) && updates.length === 0)) {
+    if (!Array.isArray(updates) || updates.length > 100 || updates.some(item =>
+      !item || typeof item !== 'object' || Array.isArray(item)
+      || typeof item.type !== 'string' || !item.type.trim() || item.type.trim().length > 64
+      || typeof item.DOI !== 'string' || !item.DOI.trim() || item.DOI.trim().length > 255)) {
+      updateStatus = 'unusable';
+    } else {
+      updateStatus = 'reported';
+      signals = updates.map(item => ({ type: item.type.trim().toLowerCase(), notice_doi: item.DOI.trim(),
+        source: ['publisher', 'retraction-watch'].includes(item.source) ? item.source : null }));
+    }
+  }
+  const expected = {
+    status: 'registered_in_crossref', registered_doi: message.DOI,
+    response_sha256: crypto.createHash('sha256').update(bytes).digest('hex'),
+    title: first(message.title), container_title: first(message['container-title']),
+    publication_year: Number.isInteger(year) ? year : null,
+    first_author_family: typeof family === 'string' && family.trim() ? family.trim() : null,
+    type: typeof message.type === 'string' ? message.type : null,
+    update_metadata_status: updateStatus, update_signals: signals
+  };
+  return Object.entries(expected).every(([key, value]) => JSON.stringify(registered[key]) === JSON.stringify(value));
+}
+
 function checkReferenceMetadata(run, finding, evidence, at, manifest, suppliedPaths, errors) {
   try {
     const checksFile = safeFile(run, 'reference-metadata-checks.json');
@@ -152,6 +190,19 @@ function checkReferenceMetadata(run, finding, evidence, at, manifest, suppliedPa
         || registered?.status !== 'registered_in_crossref'
         || registered.registered_doi?.toLowerCase() !== evidence.doi?.toLowerCase()) {
       errors.push(`${at} lacks a matching Crossref registry record`);
+      return;
+    }
+    const responseSha = registered.response_sha256;
+    if (typeof responseSha !== 'string' || !/^[a-f0-9]{64}$/.test(responseSha)
+        || registered.response_path !== `sources/crossref/${responseSha}.json`) {
+      errors.push(`${at} lacks a private Crossref response snapshot`);
+      return;
+    }
+    const responseBytes = fs.readFileSync(safeFile(run, registered.response_path));
+    if (responseBytes.length > 2_000_000
+        || crypto.createHash('sha256').update(responseBytes).digest('hex') !== responseSha
+        || !crossrefSnapshotMatches(registered, responseBytes, evidence.doi)) {
+      errors.push(`${at} differs from the private Crossref response snapshot`);
       return;
     }
     if (result.checks?.post_publication_update === 'review'

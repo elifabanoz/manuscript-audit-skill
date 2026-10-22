@@ -21,6 +21,8 @@ Public metadata and guideline GETs use `http_client.py` for caller-specific resp
 
 ## Evidence contracts
 
+Crossref DOI lookups save each successful raw response only in the private run, under `sources/crossref/` with a content hash. The selected metadata is replayed against that snapshot before a bibliography comparison, and the confirmed-reference gate checks the same snapshot before issuing a defense or verifier packet. A saved hash without its response body is insufficient for a new reference comparison.
+
 The [run manifest](../skills/manuscript-audit/schemas/run-manifest.schema.json), [journal profile](../skills/manuscript-audit/schemas/journal-profile.schema.json), [coverage ledger](../skills/manuscript-audit/schemas/coverage-ledger.schema.json), and [findings](../skills/manuscript-audit/schemas/findings.schema.json) are separate contracts. A finding identifies its target ISSN, category, verdict, claim, evidence, and provenance. Only confirmed findings have severity. Missing source text, ambiguous rules, incomplete coverage, stale hashes, or unavailable independent review must remain visible as unresolved work.
 
 Local validation establishes record consistency and reproducible quotations, not the scientific correctness of a criticism or the authority of a live page. The author and independent reviewer must inspect those judgments.

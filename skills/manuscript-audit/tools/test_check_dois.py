@@ -1,6 +1,7 @@
 """Crossref lookup tests use invented DOI values and no network."""
 
 import argparse
+import hashlib
 import json
 import tempfile
 import unittest
@@ -72,6 +73,10 @@ class DoiMetadataTests(unittest.TestCase):
         self.assertEqual(output["results"][0]["update_signals"], [
             {"type": "retraction", "notice_doi": "10.1234/notice", "source": "retraction-watch"}])
         self.assertEqual(len(output["results"][0]["response_sha256"]), 64)
+        snapshot = self.run / output["results"][0]["response_path"]
+        self.assertTrue(snapshot.is_file())
+        self.assertEqual(hashlib.sha256(snapshot.read_bytes()).hexdigest(),
+                         output["results"][0]["response_sha256"])
         self.assertNotIn("# References", (self.run / "doi-metadata.json").read_text(encoding="utf-8"))
         with self.assertRaises(FileExistsError):
             check(self.run, allow_network=True, opener=fake_open, pause=lambda _: None)

@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from difflib import SequenceMatcher
 from pathlib import Path
 
+from check_dois import parse_response
 from list_dois import collect, read_corpus
 from prepare_run import outside_git
 
@@ -59,6 +60,26 @@ def selected_cases(path):
     return cases, hashlib.sha256(raw).hexdigest()
 
 
+def verify_crossref_snapshot(run, doi, registry):
+    digest = registry.get("response_sha256")
+    relative = registry.get("response_path")
+    if not isinstance(digest, str) or not re.fullmatch(r"[a-f0-9]{64}", digest) \
+            or relative != f"sources/crossref/{digest}.json":
+        raise ValueError("Registered Crossref result lacks a private response snapshot")
+    target = run / relative
+    if target.is_symlink() or not target.is_file() or not target.resolve().is_relative_to(run):
+        raise ValueError("Private Crossref response snapshot is missing or outside the run")
+    raw = target.read_bytes()
+    if hashlib.sha256(raw).hexdigest() != digest:
+        raise ValueError("Private Crossref response snapshot hash differs")
+    try:
+        replayed = parse_response(raw, doi)
+    except (UnicodeError, ValueError, KeyError, TypeError) as error:
+        raise ValueError("Private Crossref response snapshot cannot be replayed") from error
+    if any(registry.get(key) != value for key, value in replayed.items()):
+        raise ValueError("Saved Crossref metadata differs from its private response snapshot")
+
+
 def compare(run, cases_path):
     run = run.resolve()
     outside_git(run)
@@ -93,6 +114,8 @@ def compare(run, cases_path):
                 or not isinstance(item.get("response_sha256"), str)
                 or not re.fullmatch(r"[a-f0-9]{64}", item["response_sha256"])):
             raise ValueError("Registered Crossref result lacks matching DOI provenance")
+        if item.get("status") == "registered_in_crossref":
+            verify_crossref_snapshot(run, doi, item)
 
     results = []
     for item in cases:

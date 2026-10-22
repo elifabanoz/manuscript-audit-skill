@@ -7,7 +7,7 @@ import unittest
 from io import BytesIO
 from pathlib import Path
 
-from check_dois import check
+from check_dois import cache_response, check, parse_response
 from check_reference_metadata import compare
 from list_dois import inventory
 from prepare_run import prepare
@@ -91,14 +91,28 @@ class ReferenceMetadataTests(unittest.TestCase):
     def test_post_publication_update_is_a_review_lead_with_matching_bibliography(self):
         metadata_path = self.run / "doi-metadata.json"
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-        metadata["results"][0]["update_metadata_status"] = "reported"
-        metadata["results"][0]["update_signals"] = [
-            {"type": "retraction", "notice_doi": "10.1234/notice", "source": "publisher"}]
+        raw = json.dumps({"message": {
+            "DOI": "10.1234/alpha", "title": ["Invented title"],
+            "published": {"date-parts": [[2024, 1]]},
+            "author": [{"family": "Lovelace"}],
+            "updated-by": [{"type": "retraction", "DOI": "10.1234/notice",
+                            "source": "publisher"}],
+        }}).encode("utf-8")
+        metadata["results"][0].update(parse_response(raw, "10.1234/alpha"))
+        metadata["results"][0]["response_path"] = cache_response(self.run, raw)
         metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
         result = compare(self.run, self.cases)
         self.assertEqual(result["results"][0]["status"], "needs_review")
         self.assertEqual(result["results"][0]["checks"]["post_publication_update"], "review")
         self.assertEqual(result["results"][0]["checks"]["title"], "same")
+
+    def test_rejects_changed_private_crossref_snapshot(self):
+        metadata = json.loads((self.run / "doi-metadata.json").read_text(encoding="utf-8"))
+        snapshot = self.run / metadata["results"][0]["response_path"]
+        snapshot.write_text('{"message":{"DOI":"10.1234/alpha"}}', encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "snapshot hash differs"):
+            compare(self.run, self.cases)
+        self.assertFalse((self.run / "reference-metadata-checks.json").exists())
 
 
 if __name__ == "__main__":
