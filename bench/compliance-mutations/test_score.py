@@ -245,6 +245,59 @@ class ComplianceMutationScoreTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "proposal does not match"):
             score(benchmark)
 
+    def test_version_four_audits_raw_quotes_without_publishing_them(self):
+        control = self.make_run("control", "# Title\nData availability: on request.\n")
+        mutation = self.make_run("mutation", "# Title\nNo statement here.\n",
+                                 raw_rules=("data_availability",), confirmed=True)
+        source_ref = next(iter(json.loads((mutation / "run-manifest.json").read_text(encoding="utf-8"))["sources"]))
+        candidates = [{"category": "compliance", "rule_id": "data_availability", "evidence": [
+            {"type": "guideline", "source_ref": source_ref,
+             "quote": "A data availability statement is required."},
+            {"type": "guideline", "source_ref": source_ref,
+             "quote": "Invented requirement absent from the guideline."},
+            {"type": "manuscript_quote", "path": "manuscript.md", "line_id": "L2",
+             "quote": "Invented manuscript sentence."},
+        ]}]
+        raw_path = mutation / "raw-findings.json"
+        raw_path.write_text(json.dumps(candidates), encoding="utf-8")
+        proposal_dir = self.root / "proposal"
+        proposal_dir.mkdir()
+        (proposal_dir / "mutation.md").write_bytes((mutation / "manuscript.md").read_bytes())
+        control_manifest = json.loads((control / "run-manifest.json").read_text(encoding="utf-8"))
+        mutation_manifest = json.loads((mutation / "run-manifest.json").read_text(encoding="utf-8"))
+        proposal = {
+            "schema_version": 1, "status": "unreviewed_proposal",
+            "control_run": str(control), "article_type": "original_research",
+            "control_manifest_sha256": hashlib.sha256((control / "run-manifest.json").read_bytes()).hexdigest(),
+            "control_manuscript_sha256": control_manifest["manuscript"]["sha256"],
+            "profile_sha256": hashlib.sha256((control / "journal-profile.json").read_bytes()).hexdigest(),
+            "rule_id": "data_availability", "mutation_class_proposed": "semantic",
+            "file": "mutation.md", "manuscript_sha256": mutation_manifest["manuscript"]["sha256"],
+        }
+        record_path = proposal_dir / "proposals.json"
+        record_path.write_text(json.dumps(proposal), encoding="utf-8")
+        cases = [
+            {"case_id": "control", "kind": "control", "article_type": "original_research",
+             "run": str(control), "raw_findings": str(control / "raw-findings.json")},
+            {"case_id": "mutation", "kind": "mutation", "article_type": "original_research",
+             "control_case_id": "control", "expected_rule_id": "data_availability",
+             "mutation_class": "semantic", "run": str(mutation), "raw_findings": str(raw_path),
+             "proposal_record": str(record_path), "proposal_file": "mutation.md"},
+        ]
+        benchmark = {"schema_version": 4, "data_freeze": "2026-10-19", "cases": cases}
+        result = score(benchmark)
+        self.assertEqual(result["quote_audit"], {
+            "raw_quotes": 3, "raw_unsupported_quotes": 2,
+            "raw_unsupported_quote_rate": 2 / 3,
+            "validated_confirmed_quotes": 1, "validated_unsupported_quotes": 0,
+        })
+        self.assertEqual(result["cases"][1]["quote_audit"]["raw_unsupported_quotes"], 2)
+        self.assertNotIn("Invented requirement", json.dumps(result))
+        candidates[0]["evidence"] = []
+        raw_path.write_text(json.dumps(candidates), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "needs quoted evidence"):
+            score(benchmark)
+
     def test_rejects_a_mutation_already_flagged_in_its_control(self):
         control = self.make_run("control", "# Title\nData availability: on request.\n",
                                 raw_rules=("data_availability",))

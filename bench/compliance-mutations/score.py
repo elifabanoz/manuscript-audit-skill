@@ -14,6 +14,7 @@ from pathlib import Path
 VALIDATOR = Path(__file__).resolve().parents[2] / "skills" / "manuscript-audit" / "validators" / "validate-run.cjs"
 DETERMINISTIC_CHECKER = Path(__file__).resolve().parents[2] / "skills" / "manuscript-audit" / "tools" / "check_deterministic.py"
 MUTATION_CLASSES = {"structural", "semantic", "numerical_format"}
+QUOTE_TYPES = {"guideline", "manuscript_quote"}
 
 
 def outside_git(path):
@@ -39,6 +40,79 @@ def scored_inputs_sha256(scored):
 def exact_keys(value, keys, label):
     if not isinstance(value, dict) or set(value) != set(keys):
         raise ValueError(f"{label} must contain exactly: {', '.join(keys)}")
+
+
+def audit_quotes(run, manifest, raw, final, case_id):
+    """Count unsupported quoted evidence without changing the raw candidates."""
+    source_cache = {}
+    allowed_files = {manifest["manuscript"]["path"]: manifest["manuscript"]["sha256"]}
+    allowed_files.update({item["path"]: item["sha256"] for item in manifest.get("supplementary", [])})
+
+    def pinned_text(relative, expected):
+        path = run / relative
+        resolved = path.resolve()
+        if run not in resolved.parents or path.is_symlink():
+            raise ValueError(f"{case_id}: quoted evidence path escaped the private run")
+        content = resolved.read_bytes()
+        if hashlib.sha256(content).hexdigest() != expected:
+            raise ValueError(f"{case_id}: quoted evidence input changed after run validation")
+        return content.decode("utf-8")
+
+    def supported(evidence):
+        quote = evidence["quote"]
+        normalized_quote = re.sub(r"\s+", " ", quote).strip()
+        if evidence["type"] == "guideline":
+            source = manifest["sources"].get(evidence["source_ref"])
+            if source is None:
+                return False
+            key = evidence["source_ref"]
+            if key not in source_cache:
+                source_cache[key] = pinned_text(source["path"], source["sha256"])
+            text = source_cache[key]
+        else:
+            relative = evidence["path"]
+            if relative not in allowed_files or not re.fullmatch(r"L[1-9][0-9]*", evidence["line_id"]):
+                return False
+            if relative not in source_cache:
+                source_cache[relative] = pinned_text(relative, allowed_files[relative])
+            lines = re.split(r"\r?\n", source_cache[relative])
+            number = int(evidence["line_id"][1:])
+            if number > len(lines):
+                return False
+            text = lines[number - 1]
+        return normalized_quote in re.sub(r"\s+", " ", text).strip()
+
+    raw_count = 0
+    raw_unsupported = 0
+    for index, candidate in enumerate(raw):
+        exact_keys(candidate, ("category", "rule_id", "evidence"), f"{case_id}: raw candidate {index}")
+        evidence_items = candidate["evidence"]
+        if not isinstance(evidence_items, list) or not evidence_items:
+            raise ValueError(f"{case_id}: raw candidate {index} needs quoted evidence")
+        if not any(isinstance(item, dict) and item.get("type") == "guideline" for item in evidence_items):
+            raise ValueError(f"{case_id}: raw candidate {index} needs a guideline quote")
+        for evidence in evidence_items:
+            if not isinstance(evidence, dict) or evidence.get("type") not in QUOTE_TYPES:
+                raise ValueError(f"{case_id}: raw candidate {index} has unsupported evidence")
+            keys = ("type", "source_ref", "quote") if evidence["type"] == "guideline" else (
+                "type", "path", "line_id", "quote")
+            exact_keys(evidence, keys, f"{case_id}: raw candidate {index} evidence")
+            if any(not isinstance(evidence[key], str) or not evidence[key].strip() for key in keys):
+                raise ValueError(f"{case_id}: raw candidate {index} evidence has an empty field")
+            raw_count += 1
+            raw_unsupported += not supported(evidence)
+
+    validated_count = 0
+    for finding in final:
+        if finding.get("verdict") != "confirmed" or finding.get("category") != "compliance":
+            continue
+        for evidence in finding["evidence"]:
+            if evidence["type"] in QUOTE_TYPES:
+                validated_count += 1
+                if not supported(evidence):
+                    raise ValueError(f"{case_id}: confirmed finding contains an unsupported quote")
+    return {"raw_quotes": raw_count, "raw_unsupported_quotes": raw_unsupported,
+            "validated_confirmed_quotes": validated_count, "validated_unsupported_quotes": 0}
 
 
 def check_control_deterministic(run, manifest, profile, article_type, scored, case_id):
@@ -145,6 +219,7 @@ def load_case(case, freeze, schema_version):
     final_rules = {item["rule_id"] for item in final if item["category"] == "compliance" and item["verdict"] == "confirmed"}
     if not final_rules.issubset(raw_rules):
         raise ValueError(f"{case['case_id']}: validated findings include rules absent from raw candidates")
+    quote_audit = audit_quotes(run, manifest, raw, final, case["case_id"]) if schema_version >= 4 else None
     if case["kind"] == "mutation" and (not isinstance(case["expected_rule_id"], str)
                                        or case["expected_rule_id"] not in known):
         raise ValueError(f"{case['case_id']}: expected_rule_id is absent from the profile")
@@ -166,6 +241,7 @@ def load_case(case, freeze, schema_version):
         "raw_rules": raw_rules,
         "final_rules": final_rules,
         "input_sha256": {name: sha256(file) for name, file in input_files.items()},
+        **({"quote_audit": quote_audit} if quote_audit is not None else {}),
     }
 
 
@@ -210,7 +286,7 @@ def verify_proposal(case, control):
 def score(benchmark):
     exact_keys(benchmark, ("schema_version", "data_freeze", "cases"), "benchmark")
     schema_version = benchmark["schema_version"]
-    if schema_version not in (1, 2, 3):
+    if schema_version not in (1, 2, 3, 4):
         raise ValueError("Unsupported benchmark schema_version")
     freeze = benchmark["data_freeze"]
     if not isinstance(freeze, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", freeze):
@@ -266,6 +342,8 @@ def score(benchmark):
             row["mutation_class"] = item["mutation_class"]
         if schema_version >= 3 and item["kind"] == "mutation":
             row["proposal_record_sha256"] = proposal_hash
+        if schema_version >= 4:
+            row["quote_audit"] = item["quote_audit"]
         rows.append(row)
     def rate(numerator, denominator):
         return numerator / denominator
@@ -311,6 +389,17 @@ def score(benchmark):
                     class_raw_false_alarms - class_validated_false_alarms, len(class_controls)),
             }
         result["by_mutation_class"] = by_class
+    if schema_version >= 4:
+        raw_quotes = sum(row["quote_audit"]["raw_quotes"] for row in rows)
+        raw_unsupported = sum(row["quote_audit"]["raw_unsupported_quotes"] for row in rows)
+        validated_quotes = sum(row["quote_audit"]["validated_confirmed_quotes"] for row in rows)
+        result["quote_audit"] = {
+            "raw_quotes": raw_quotes,
+            "raw_unsupported_quotes": raw_unsupported,
+            "raw_unsupported_quote_rate": raw_unsupported / raw_quotes if raw_quotes else None,
+            "validated_confirmed_quotes": validated_quotes,
+            "validated_unsupported_quotes": 0,
+        }
     return result
 
 
