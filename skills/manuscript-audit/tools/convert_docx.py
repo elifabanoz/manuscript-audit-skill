@@ -16,6 +16,7 @@ from prepare_run import outside_git
 WORD = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 MAX_ARCHIVE_BYTES = 100 * 1024 * 1024
 MAX_XML_BYTES = 20 * 1024 * 1024
+MAX_STYLES_BYTES = 10 * 1024 * 1024
 MAX_UNCOMPRESSED_BYTES = 200 * 1024 * 1024
 UNSUPPORTED = {"ins", "del", "moveFrom", "moveTo", "altChunk", "txbxContent"}
 
@@ -38,6 +39,64 @@ def heading_level(paragraph):
     style_id = style.get(WORD + "val", "") if style is not None else ""
     match = re.fullmatch(r"Heading([1-6])", style_id, flags=re.IGNORECASE)
     return int(match.group(1)) if match else None
+
+
+def visibility_markers(properties):
+    if properties is None:
+        return set()
+    markers = set()
+    for name in ("vanish", "webHidden"):
+        element = properties.find(WORD + name)
+        if element is not None and element.get(WORD + "val", "true").lower() not in ("0", "false", "off"):
+            markers.add(name)
+    for name in ("sz", "szCs"):
+        element = properties.find(WORD + name)
+        if element is not None and element.get(WORD + "val") == "0":
+            markers.add("zero font size")
+    color = properties.find(WORD + "color")
+    if color is not None and color.get(WORD + "val", "").lstrip("#").lower() == "ffffff":
+        markers.add("white font color")
+    return markers
+
+
+def check_text_visibility(body, styles_root):
+    styles = {} if styles_root is None else {
+        style.get(WORD + "styleId"): style
+        for style in styles_root.iter(WORD + "style") if style.get(WORD + "styleId")
+    }
+    defaults = None if styles_root is None else styles_root.find(
+        WORD + "docDefaults/" + WORD + "rPrDefault/" + WORD + "rPr")
+
+    def style_markers(style_id):
+        markers, visited = set(), set()
+        while style_id and style_id not in visited:
+            visited.add(style_id)
+            style = styles.get(style_id)
+            if style is None:
+                break
+            markers.update(visibility_markers(style.find(WORD + "rPr")))
+            based_on = style.find(WORD + "basedOn")
+            style_id = based_on.get(WORD + "val") if based_on is not None else None
+        return markers
+
+    for paragraph in body.iter(WORD + "p"):
+        paragraph_properties = paragraph.find(WORD + "pPr")
+        paragraph_style = paragraph_properties.find(WORD + "pStyle") if paragraph_properties is not None else None
+        paragraph_style_id = paragraph_style.get(WORD + "val") if paragraph_style is not None else None
+        paragraph_run_properties = paragraph_properties.find(WORD + "rPr") if paragraph_properties is not None else None
+        for run in paragraph.iter(WORD + "r"):
+            if not any(item.text and item.text.strip() for item in run.iter(WORD + "t")):
+                continue
+            properties = run.find(WORD + "rPr")
+            character_style = properties.find(WORD + "rStyle") if properties is not None else None
+            character_style_id = character_style.get(WORD + "val") if character_style is not None else None
+            markers = visibility_markers(defaults)
+            markers.update(style_markers(paragraph_style_id))
+            markers.update(visibility_markers(paragraph_run_properties))
+            markers.update(style_markers(character_style_id))
+            markers.update(visibility_markers(properties))
+            if markers:
+                raise ValueError("DOCX contains text with hidden or low-visibility formatting: " + ", ".join(sorted(markers)))
 
 
 def render_body(body):
@@ -75,12 +134,19 @@ def extract(path):
                 raise ValueError("DOCX document XML exceeds the size limit")
             xml = archive.read(info)
             names = set(archive.namelist())
+            styles_xml = None
+            if "word/styles.xml" in names:
+                styles_info = archive.getinfo("word/styles.xml")
+                if styles_info.file_size > MAX_STYLES_BYTES:
+                    raise ValueError("DOCX styles XML exceeds the size limit")
+                styles_xml = archive.read(styles_info)
     except (zipfile.BadZipFile, KeyError, RuntimeError):
         raise ValueError("DOCX is unreadable or missing word/document.xml") from None
-    if b"<!DOCTYPE" in xml.upper():
-        raise ValueError("DOCX document XML contains a document type declaration")
+    if b"<!DOCTYPE" in xml.upper() or (styles_xml and b"<!DOCTYPE" in styles_xml.upper()):
+        raise ValueError("DOCX XML contains a document type declaration")
     try:
         root = ElementTree.fromstring(xml)
+        styles_root = ElementTree.fromstring(styles_xml) if styles_xml else None
     except ElementTree.ParseError:
         raise ValueError("DOCX document XML is invalid") from None
     present = {item.tag.removeprefix(WORD) for item in root.iter() if item.tag.startswith(WORD)}
@@ -90,6 +156,7 @@ def extract(path):
     body = root.find(WORD + "body")
     if body is None:
         raise ValueError("DOCX has no document body")
+    check_text_visibility(body, styles_root)
     markdown, tables = render_body(body)
     if not markdown.strip():
         raise ValueError("DOCX has no extractable body text")

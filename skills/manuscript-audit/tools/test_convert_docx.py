@@ -16,10 +16,12 @@ from prepare_run import prepare
 NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
 
-def make_docx(path, body):
+def make_docx(path, body, styles=None):
     document = f'<w:document xmlns:w="{NAMESPACE}"><w:body>{body}</w:body></w:document>'
     with zipfile.ZipFile(path, "w") as archive:
         archive.writestr("word/document.xml", document)
+        if styles is not None:
+            archive.writestr("word/styles.xml", f'<w:styles xmlns:w="{NAMESPACE}">{styles}</w:styles>')
 
 
 class ConvertDocxTests(unittest.TestCase):
@@ -69,6 +71,60 @@ class ConvertDocxTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "unsupported revision"):
                 convert(original, root / "private")
             self.assertFalse((root / "private").exists())
+
+    def test_rejects_hidden_or_low_visibility_text_before_writing(self):
+        cases = [
+            ('<w:rPr><w:vanish/></w:rPr>', 'vanish'),
+            ('<w:rPr><w:webHidden/></w:rPr>', 'webHidden'),
+            ('<w:rPr><w:sz w:val="0"/></w:rPr>', 'zero font size'),
+            ('<w:rPr><w:color w:val="FFFFFF"/></w:rPr>', 'white font color'),
+        ]
+        for properties, marker in cases:
+            with self.subTest(marker=marker), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                original = root / "paper.docx"
+                make_docx(original, f'<w:p><w:r>{properties}<w:t>Hidden instruction</w:t></w:r></w:p>')
+                with self.assertRaisesRegex(ValueError, marker):
+                    convert(original, root / "private")
+                self.assertFalse((root / "private").exists())
+
+    def test_rejects_hidden_text_from_an_applied_style(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            original = root / "paper.docx"
+            styles = ('<w:style w:styleId="Base"><w:rPr><w:vanish/></w:rPr></w:style>'
+                      '<w:style w:styleId="Concealed"><w:basedOn w:val="Base"/></w:style>')
+            make_docx(original,
+                      '<w:p><w:pPr><w:pStyle w:val="Concealed"/></w:pPr>'
+                      '<w:r><w:t>Hidden instruction</w:t></w:r></w:p>', styles)
+            with self.assertRaisesRegex(ValueError, "vanish"):
+                convert(original, root / "private")
+            self.assertFalse((root / "private").exists())
+
+    def test_rejects_hidden_text_from_default_and_character_styles(self):
+        cases = [
+            ('<w:docDefaults><w:rPrDefault><w:rPr><w:vanish/></w:rPr></w:rPrDefault></w:docDefaults>',
+             '<w:p><w:r><w:t>Hidden text</w:t></w:r></w:p>'),
+            ('<w:style w:styleId="Concealed"><w:rPr><w:vanish/></w:rPr></w:style>',
+             '<w:p><w:r><w:rPr><w:rStyle w:val="Concealed"/></w:rPr><w:t>Hidden text</w:t></w:r></w:p>'),
+        ]
+        for styles, body in cases:
+            with self.subTest(styles=styles), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                original = root / "paper.docx"
+                make_docx(original, body, styles)
+                with self.assertRaisesRegex(ValueError, "vanish"):
+                    convert(original, root / "private")
+
+    def test_explicitly_disabled_hidden_property_is_allowed(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            original = root / "paper.docx"
+            make_docx(original,
+                      '<w:p><w:r><w:rPr><w:vanish w:val="0"/></w:rPr>'
+                      '<w:t>Visible text</w:t></w:r></w:p>')
+            output = convert(original, root / "private")
+            self.assertEqual((output.parent / "manuscript.md").read_text(encoding="utf-8"), "Visible text\n")
 
     def test_rejects_output_inside_git_checkout(self):
         with tempfile.TemporaryDirectory() as temporary:
