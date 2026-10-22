@@ -27,6 +27,8 @@ For a confirmed reference finding, include a manuscript quote within the selecte
 
 For a later manuscript targeting the same journal, `python tools/prepare_cached_run.py --source-run <private-prior-run> --manuscript <new-file> --ttl-days 30` may reuse a profile backed by an agreed two-draft comparison or a replayable, source-backed adjudication record, together with its exact private source snapshots. Partial profiles do not qualify. Use `--cache-root <private-run-root> --issn <selected-issn>` instead to locate an eligible profile; different fresh profiles for that ISSN require explicit selection. Add `--verify-live` to compare each current guideline URL and extracted text with the cached source before creating a new run. Otherwise, check current official instructions yourself. A TTL and matching local hashes cannot prove that a publisher has not changed a rule.
 
+After preparing a private run, use `python tools/build_manuscript_profile.py <run-directory>` to map observable sections, line IDs, literal figure/table markers, and DOI mentions into private `manuscript-profile.json`. This inventory is not a compliance verdict or a complete reference list. PDF section and reference structure remains unresolved; compare converted content with the original document.
+
 ## Boundaries
 
 - Do not send full unpublished manuscripts to literature or journal APIs. Ask before using an additional model provider.
