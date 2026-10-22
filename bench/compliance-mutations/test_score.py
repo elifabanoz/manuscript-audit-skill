@@ -385,6 +385,8 @@ class ComplianceMutationScoreTests(unittest.TestCase):
         packet = make_packet(cases_path)
         control_manifest = json.loads((control / "run-manifest.json").read_text(encoding="utf-8"))
         self.assertIn(control_manifest["manuscript"]["sha256"], packet)
+        self.assertIn('Submitted filename: "control.md"', packet)
+        self.assertIn('Submitted filename: "mutation.md"', packet)
         self.assertIn(next(iter(control_manifest["sources"].values()))["sha256"], packet)
         self.assertIn("A data availability statement is required.", packet)
         self.assertIn("- [ ] Compliant", packet)

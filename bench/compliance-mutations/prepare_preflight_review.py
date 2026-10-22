@@ -51,6 +51,8 @@ def prepare(control_run, article_type, proposal_records):
         "",
         f"Control run: {data(str(run))}",
         f"Control manifest SHA-256: `{control['input_sha256']['manifest']}`",
+        f"Control file in private run: {data(str(run / manifest['manuscript']['path']))}",
+        f"Submitted filename: {data(manifest['manuscript'].get('submitted_filename', 'not recorded; verify separately'))}",
         f"Control manuscript SHA-256: `{control['manuscript_sha256']}`",
         f"Journal profile SHA-256: `{control['input_sha256']['profile']}`",
         f"Journal: {data(profile['title'])} (ISSN {data(profile['issn'])})",
@@ -84,6 +86,7 @@ def prepare(control_run, article_type, proposal_records):
     else:
         lines.append("None.")
     lines.extend(["", "## Proposed single-change mutations", ""])
+    lines.extend(["Proposal filenames are local output names; verify each intended submission filename separately.", ""])
     seen = set()
     for record_path in proposal_records:
         record_path = record_path.expanduser().resolve()

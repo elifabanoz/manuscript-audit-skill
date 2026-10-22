@@ -55,6 +55,8 @@ class PreflightReviewTests(unittest.TestCase):
         self.assertIn("Adjudicated decision", packet)
         self.assertIn("Explain who can use the tool", packet)
         self.assertIn(hashlib.sha256((self.run / "run-manifest.json").read_bytes()).hexdigest(), packet)
+        self.assertIn("Submitted filename: \"paper.md\"", packet)
+        self.assertIn("Proposal filenames are local output names", packet)
         self.assertNotIn("The tool helps students learn safely.", packet)
         self.assertNotIn("benchmark result: 1", packet)
 
@@ -74,6 +76,11 @@ class PreflightReviewTests(unittest.TestCase):
     def test_unreviewed_control_without_proposals_is_allowed(self):
         packet = prepare(self.run, "article", [])
         self.assertIn("No proposals supplied", packet)
+        manifest_path = self.run / "run-manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        del manifest["manuscript"]["submitted_filename"]
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        self.assertIn("not recorded; verify separately", prepare(self.run, "article", []))
         with self.assertRaisesRegex(ValueError, "Article type is absent"):
             prepare(self.run, "different", [])
 

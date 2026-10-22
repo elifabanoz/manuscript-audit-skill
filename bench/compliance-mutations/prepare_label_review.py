@@ -2,10 +2,17 @@
 """Prepare a private, unfilled human-label worksheet for benchmark cases."""
 
 import argparse
+import html
 import json
+import re
 from pathlib import Path
 
 from score import outside_git, read_json, score, scored_inputs_sha256, sha256
+
+
+def data(value):
+    encoded = html.escape(json.dumps(value, ensure_ascii=False), quote=False)
+    return re.sub(r"([`*_\[\]()])", r"\\\1", encoded)
 
 
 def make_packet(cases_path):
@@ -41,6 +48,7 @@ def make_packet(cases_path):
             f"Journal: {profile['title']} (ISSN {profile['issn']})",
             f"Article type: {case['article_type']}",
             f"Manuscript: `{run / manifest['manuscript']['path']}`",
+            f"Submitted filename: {data(manifest['manuscript'].get('submitted_filename', 'not recorded; verify separately'))}",
             f"Manuscript SHA-256: `{manifest['manuscript']['sha256']}`",
             f"Run manifest SHA-256: `{row['run_manifest_sha256']}`",
             f"Profile SHA-256: `{row['input_sha256']['profile']}`",
