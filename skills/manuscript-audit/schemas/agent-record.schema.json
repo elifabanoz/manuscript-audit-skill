@@ -4,11 +4,14 @@
   "type": "object",
   "additionalProperties": false,
   "required": ["role", "finding_id", "decision", "actor_id", "subject_sha256", "rationale"],
+  "dependentRequired": { "host": ["model"], "model": ["host"] },
   "properties": {
     "role": { "enum": ["hunter", "defense", "record_verifier"] },
     "finding_id": { "type": "string", "pattern": "^F-[0-9]+$" },
     "decision": { "enum": ["candidate", "confirmed", "needs_validation", "rejected"] },
     "actor_id": { "type": "string", "minLength": 1 },
+    "host": { "enum": ["codex", "claude-code", "manual"] },
+    "model": { "type": "string", "minLength": 1 },
     "subject_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
     "rationale": { "type": "string", "minLength": 1 }
   }

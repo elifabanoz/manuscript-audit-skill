@@ -88,7 +88,7 @@ function checkProvenance(run, finding, index, manifest, profile, errors, options
     }
     try {
       const record = readJson(safeFile(run, file));
-      if (!isObject(record) || Object.keys(record).some(field => !['role', 'finding_id', 'decision', 'actor_id', 'subject_sha256', 'rationale'].includes(field))) {
+      if (!isObject(record) || Object.keys(record).some(field => !['role', 'finding_id', 'decision', 'actor_id', 'host', 'model', 'subject_sha256', 'rationale'].includes(field))) {
         errors.push(`${at} must be an agent record with known fields`);
         continue;
       }
@@ -99,6 +99,18 @@ function checkProvenance(run, finding, index, manifest, profile, errors, options
       if (!nonempty(record.actor_id)) errors.push(`${at}.actor_id must be nonempty`);
       else if (actors.has(record.actor_id)) errors.push(`${at}.actor_id must differ from other roles`);
       else actors.add(record.actor_id);
+      if (record.host !== undefined || record.model !== undefined) {
+        if (!['codex', 'claude-code', 'manual'].includes(record.host) || !nonempty(record.model)) {
+          errors.push(`${at}.host and .model must identify the actual invocation together`);
+        } else {
+          if (manifest.host !== 'manual' && record.host !== manifest.host && !manifest.cross_host) {
+            errors.push(`${at}.host differs from the local run host`);
+          }
+          if (!Array.isArray(manifest.models) || !manifest.models.includes(record.model)) {
+            errors.push(`${at}.model is absent from manifest.models`);
+          }
+        }
+      }
       if (record.subject_sha256 !== reviewSubjectHash(finding, manifest, profile)) errors.push(`${at}.subject_sha256 differs from the current review inputs`);
       if (!nonempty(record.rationale)) errors.push(`${at}.rationale must be nonempty`);
     } catch (error) {

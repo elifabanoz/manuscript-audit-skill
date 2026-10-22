@@ -662,6 +662,36 @@ test('the full run gate rejects reused actor identities', t => {
   assert.match(validateRun(data.run, manifest, data.profile, data.ledger, data.findings).join('\n'), /actor_id must differ/);
 });
 
+test('review records can pin each actual model and host without asserting independence from metadata alone', t => {
+  const data = fixture(t);
+  const manifest = manifestFor(data);
+  manifest.host = 'codex';
+  manifest.models = ['fast-model', 'strong-model'];
+  for (const [file, model] of [['hunter.json', 'fast-model'], ['defense.json', 'strong-model'], ['record-verifier.json', 'strong-model']]) {
+    const recordPath = path.join(data.run, 'agents', file);
+    const record = JSON.parse(fs.readFileSync(recordPath, 'utf8'));
+    record.host = 'codex';
+    record.model = model;
+    fs.writeFileSync(recordPath, JSON.stringify(record));
+  }
+  assert.deepEqual(validateRun(data.run, manifest, data.profile, data.ledger, data.findings), []);
+
+  const file = path.join(data.run, 'agents', 'defense.json');
+  const record = JSON.parse(fs.readFileSync(file, 'utf8'));
+  record.model = 'unlisted-model';
+  fs.writeFileSync(file, JSON.stringify(record));
+  assert.match(validateRun(data.run, manifest, data.profile, data.ledger, data.findings).join('\n'), /model is absent from manifest.models/);
+
+  record.model = 'strong-model';
+  record.host = 'claude-code';
+  fs.writeFileSync(file, JSON.stringify(record));
+  assert.match(validateRun(data.run, manifest, data.profile, data.ledger, data.findings).join('\n'), /host differs from the local run host/);
+
+  delete record.host;
+  fs.writeFileSync(file, JSON.stringify(record));
+  assert.match(validateRun(data.run, manifest, data.profile, data.ledger, data.findings).join('\n'), /host and .model must identify/);
+});
+
 test('whole-corpus coverage becomes stale when its fingerprint differs', t => {
   const data = fixture(t);
   const manifest = manifestFor(data);
