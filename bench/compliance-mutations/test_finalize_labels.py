@@ -26,10 +26,11 @@ def complete(template):
         review["reviewer_id"] = f"human-reviewer-{number}"
         review["reviewed_at"] = "2026-10-20"
         for item in review["labels"]:
-            item["verdict"] = "compliant" if item["case_id"] == "control-1" else "noncompliant"
+            target = item["case_id"] == "mutation-1" and item["rule_id"] == "required_heading"
+            item["verdict"] = "noncompliant" if target else "compliant"
             item["evidence_location"] = "paper.md:L1-L20"
             item["rationale"] = "The heading marker was checked against the cited rule."
-            if item["case_id"] == "mutation-1":
+            if target:
                 item["single_change"] = True
                 item["mutation_class"] = "structural"
     labels["adjudication"]["adjudicator_id"] = "human-reviewer-2"
@@ -49,7 +50,7 @@ class HumanLabelTests(unittest.TestCase):
                 row["input_sha256"] = {"scope_record": f"{index + 1:064x}"}
             with patch("prepare_label_review.score", return_value=scored):
                 labels = complete(make_json_template(cases))
-            self.assertEqual(labels["schema_version"], 3)
+            self.assertEqual(labels["schema_version"], 4)
             with self.assertRaisesRegex(ValueError, "scoring scope"):
                 validate_labels(scored, labels, sha256(cases))
             scope_hash = scope_review_sha256(scored)
@@ -60,6 +61,41 @@ class HumanLabelTests(unittest.TestCase):
             labels["reviews"][1]["scope_review_sha256"] = "0" * 64
             with self.assertRaisesRegex(ValueError, "scoring scope"):
                 validate_labels(scored, labels, sha256(cases))
+
+    def test_version_five_requires_labels_for_every_mutation_rule(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            cases = Path(temporary) / "cases.json"
+            cases.write_text("{}", encoding="utf-8")
+            scored = copy.deepcopy(SCORED)
+            scored["schema_version"] = 5
+            for index, row in enumerate(scored["cases"]):
+                row["scored_rule_ids"] = ["required_heading", "secondary_rule"]
+                row["input_sha256"] = {"scope_record": f"{index + 1:064x}"}
+            with patch("prepare_label_review.score", return_value=scored):
+                labels = complete(make_json_template(cases))
+            scope_hash = scope_review_sha256(scored)
+            for record in (*labels["reviews"], labels["adjudication"]):
+                record["scope_review_sha256"] = scope_hash
+            self.assertEqual(len(labels["reviews"][0]["labels"]), 4)
+            review = validate_labels(scored, labels, sha256(cases))
+            self.assertEqual(review["labels_checked"], 4)
+            self.assertEqual(review["off_target_labels_checked"], 1)
+            missing = copy.deepcopy(labels)
+            missing["reviews"][0]["labels"].pop()
+            with self.assertRaisesRegex(ValueError, "incomplete"):
+                validate_labels(scored, missing, sha256(cases))
+            invalid = copy.deepcopy(labels)
+            off_target = next(item for item in invalid["adjudication"]["labels"]
+                              if item["case_id"] == "mutation-1" and item["rule_id"] == "secondary_rule")
+            off_target["verdict"] = "noncompliant"
+            with self.assertRaisesRegex(ValueError, "off-target.*not human-labeled compliant"):
+                validate_labels(scored, invalid, sha256(cases))
+            malformed = copy.deepcopy(labels)
+            off_target = next(item for item in malformed["reviews"][0]["labels"]
+                              if item["case_id"] == "mutation-1" and item["rule_id"] == "secondary_rule")
+            off_target["single_change"] = True
+            with self.assertRaisesRegex(ValueError, "off-target.*mutation metadata"):
+                validate_labels(scored, malformed, sha256(cases))
 
     def test_human_rates_require_an_agreed_profile_matching_scored_inputs(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -171,6 +207,46 @@ class HumanLabelTests(unittest.TestCase):
                 self.assertEqual(result["profile_agreements"], [{"control_case_id": "control-1"}])
                 with self.assertRaises(FileExistsError):
                     finalize(cases, labels_path)
+
+    def test_off_target_rate_requires_approved_labels_for_every_scored_rule(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            cases = root / "cases.json"
+            cases.write_text("{}", encoding="utf-8")
+            scored = copy.deepcopy(SCORED)
+            scored["schema_version"] = 5
+            for index, row in enumerate(scored["cases"]):
+                row["scored_rule_ids"] = ["required_heading", "secondary_rule"]
+                row["input_sha256"] = {"scope_record": f"{index + 1:064x}"}
+            scored["cases"][1]["off_target_raw_rule_ids"] = ["secondary_rule"]
+            scored["cases"][1]["off_target_validated_rule_ids"] = []
+            with patch("prepare_label_review.score", return_value=scored):
+                labels = complete(make_json_template(cases))
+            scope_hash = scope_review_sha256(scored)
+            for record in (*labels["reviews"], labels["adjudication"]):
+                record["scope_review_sha256"] = scope_hash
+            labels_path = root / "human-labels.json"
+            labels_path.write_text(json.dumps(labels), encoding="utf-8")
+            with patch("finalize_labels.score", return_value=scored), patch(
+                    "finalize_labels.verify_profile_agreements", return_value=[{"control_case_id": "control-1"}]):
+                output = finalize(cases, labels_path)
+            result = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(result["human_review"]["off_target_labels_checked"], 1)
+            rates = result["human_reviewed_off_target"]
+            self.assertEqual(rates["rule_opportunities"], 1)
+            self.assertEqual(rates["raw_false_positive_rate"], 1)
+            self.assertEqual(rates["validated_false_positive_rate"], 0)
+            self.assertEqual(rates["by_mutation_class"]["structural"]["raw_flagged_rules"], 1)
+            invalid = copy.deepcopy(labels)
+            off_target = next(item for item in invalid["adjudication"]["labels"]
+                              if item["case_id"] == "mutation-1" and item["rule_id"] == "secondary_rule")
+            off_target["verdict"] = "noncompliant"
+            labels_path.write_text(json.dumps(invalid), encoding="utf-8")
+            with patch("finalize_labels.score", return_value=scored), patch(
+                    "finalize_labels.verify_profile_agreements", return_value=[{"control_case_id": "control-1"}]):
+                with self.assertRaisesRegex(ValueError, "off-target.*not human-labeled compliant"):
+                    finalize(cases, labels_path, root / "invalid-scores.json")
+            self.assertFalse((root / "invalid-scores.json").exists())
 
 
 if __name__ == "__main__":

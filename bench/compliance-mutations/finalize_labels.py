@@ -20,7 +20,7 @@ LABEL_KEYS = {"case_id", "rule_id", "verdict", "evidence_location", "rationale",
 
 def expected_labels(scored):
     return {(row["case_id"], rule_id): row for row in scored["cases"]
-            for rule_id in (row["scored_rule_ids"] if row["kind"] == "control"
+            for rule_id in (row["scored_rule_ids"] if row["kind"] == "control" or scored["schema_version"] >= 5
                             else [row["target_rule_id"]])}
 
 
@@ -47,16 +47,21 @@ def checked_labels(labels, expected, reviewer, final=False):
             if final and item["verdict"] != "compliant":
                 raise ValueError(f"{reviewer}: control {key} is not human-labeled compliant")
         else:
+            target = item["rule_id"] == row["target_rule_id"]
             if (item["single_change"] is not None and type(item["single_change"]) is not bool) \
                     or (item["mutation_class"] is not None and (
                         not isinstance(item["mutation_class"], str)
                         or item["mutation_class"] not in MUTATION_CLASSES)):
                 raise ValueError(f"{reviewer}: {key} has invalid mutation labels")
-            if final and (item["verdict"] != "noncompliant" or item["single_change"] is not True):
+            if not target and (item["single_change"] is not None or item["mutation_class"] is not None):
+                raise ValueError(f"{reviewer}: off-target {key} cannot carry mutation metadata")
+            if final and not target and item["verdict"] != "compliant":
+                raise ValueError(f"{reviewer}: off-target {key} is not human-labeled compliant")
+            if final and target and (item["verdict"] != "noncompliant" or item["single_change"] is not True):
                 raise ValueError(f"{reviewer}: mutation {key} lacks a verified single violation")
-            if final and item["mutation_class"] not in MUTATION_CLASSES:
+            if final and target and item["mutation_class"] not in MUTATION_CLASSES:
                 raise ValueError(f"{reviewer}: mutation {key} lacks a verified class")
-            if final and row.get("mutation_class") and item["mutation_class"] != row["mutation_class"]:
+            if final and target and row.get("mutation_class") and item["mutation_class"] != row["mutation_class"]:
                 raise ValueError(f"{reviewer}: mutation {key} class differs from the case manifest")
         found[key] = item
     if set(found) != set(expected):
@@ -67,7 +72,7 @@ def checked_labels(labels, expected, reviewer, final=False):
 
 def validate_labels(scored, labels, manifest_hash):
     scope_required = scored["schema_version"] >= 5
-    expected_schema = 3 if scope_required else 2
+    expected_schema = 4 if scope_required else 2
     if (not isinstance(labels, dict) or set(labels) != {"schema_version", "benchmark_manifest_sha256",
                                                       "scored_inputs_sha256", "reviews", "adjudication"}
             or labels["schema_version"] != expected_schema or labels["benchmark_manifest_sha256"] != manifest_hash):
@@ -123,6 +128,8 @@ def validate_labels(scored, labels, manifest_hash):
         raise ValueError("Reviewer disagreements need an evidence-based resolution")
     return {"reviewer_ids": reviewers, "adjudicator_id": adjudication["adjudicator_id"].strip(),
             "labels_checked": len(final), "disagreements": len(disagreements),
+            **({"off_target_labels_checked": sum(row["kind"] == "mutation" and rule_id != row["target_rule_id"]
+                                               for (_, rule_id), row in expected.items())} if scope_required else {}),
             **({"scope_review_sha256": scope_hash} if scope_required else {})}
 
 
@@ -166,6 +173,24 @@ def verify_profile_agreements(benchmark, scored):
     return agreements
 
 
+def reviewed_off_target_rates(scored):
+    mutations = [row for row in scored["cases"] if row["kind"] == "mutation"]
+
+    def rates(rows):
+        opportunities = sum(len(row["scored_rule_ids"]) - 1 for row in rows)
+        raw_flags = sum(len(row["off_target_raw_rule_ids"]) for row in rows)
+        validated_flags = sum(len(row["off_target_validated_rule_ids"]) for row in rows)
+        return {"rule_opportunities": opportunities, "raw_flagged_rules": raw_flags,
+                "validated_flagged_rules": validated_flags,
+                "raw_false_positive_rate": raw_flags / opportunities if opportunities else None,
+                "validated_false_positive_rate": validated_flags / opportunities if opportunities else None}
+
+    by_class = {mutation_class: rates([row for row in mutations
+                                       if row["mutation_class"] == mutation_class])
+                for mutation_class in sorted({row["mutation_class"] for row in mutations})}
+    return {**rates(mutations), "by_mutation_class": by_class}
+
+
 def finalize(cases_path, labels_path, output_path=None):
     outside_git(cases_path)
     outside_git(labels_path)
@@ -188,7 +213,9 @@ def finalize(cases_path, labels_path, output_path=None):
               "scored_inputs_sha256": scored_inputs_sha256(scored),
               "profile_agreements": profile_agreements,
               "human_review_status": "approved", "human_labels_sha256": labels_hash,
-              "human_review": review}
+              "human_review": review,
+              **({"human_reviewed_off_target": reviewed_off_target_rates(scored)}
+                 if scored["schema_version"] >= 5 else {})}
     with output.open("x", encoding="utf-8") as handle:
         json.dump(result, handle, indent=2)
         handle.write("\n")

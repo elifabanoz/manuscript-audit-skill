@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from score import checked_scope_record, check_control_deterministic, score, sha256
 from prepare_label_review import make_packet
@@ -576,6 +577,38 @@ class ComplianceMutationScoreTests(unittest.TestCase):
         self.assertIn("A data availability statement is required.", packet)
         self.assertIn("- [ ] Compliant", packet)
         self.assertIn("Proposed mutation class (verify): `semantic`", packet)
+        self.assertNotIn("Secret control text", packet)
+        self.assertNotIn("Secret mutation text", packet)
+
+    def test_version_five_review_packet_lists_off_target_rules(self):
+        control = self.make_run("control", "# Secret control text\n")
+        mutation = self.make_run("mutation", "# Secret mutation text\n")
+        cases_path = self.root / "cases.json"
+        cases_path.write_text(json.dumps({"cases": [
+            {"case_id": "control", "kind": "control", "article_type": "original_research",
+             "run": str(control)},
+            {"case_id": "mutation", "kind": "mutation", "article_type": "original_research",
+             "control_case_id": "control", "expected_rule_id": "data_availability",
+             "mutation_class": "semantic", "run": str(mutation)},
+        ]}), encoding="utf-8")
+        scored = {"schema_version": 5, "data_freeze": "2026-10-19", "cases": []}
+        for index, (run, kind) in enumerate(((control, "control"), (mutation, "mutation"))):
+            scored["cases"].append({
+                "case_id": kind, "kind": kind,
+                "scored_rule_ids": ["data_availability", "ethics_statement"],
+                "excluded_rule_ids": [], "scope_exclusions": {},
+                "run_manifest_sha256": sha256(run / "run-manifest.json"),
+                "input_sha256": {"profile": sha256(run / "journal-profile.json"),
+                                 "scope_record": f"{index + 1:064x}"},
+                **({"off_target_raw_rule_ids": ["ethics_statement"],
+                    "off_target_validated_rule_ids": []} if kind == "mutation" else {}),
+            })
+        with patch("prepare_label_review.score", return_value=scored):
+            packet = make_packet(cases_path)
+        self.assertIn("Injected target rule", packet)
+        self.assertIn("Off-target rule", packet)
+        self.assertEqual(packet.count("#### `ethics_statement`"), 2)
+        self.assertIn("Off-target raw flags: ethics_statement", packet)
         self.assertNotIn("Secret control text", packet)
         self.assertNotIn("Secret mutation text", packet)
 

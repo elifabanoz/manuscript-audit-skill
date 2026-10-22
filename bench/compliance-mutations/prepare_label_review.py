@@ -24,8 +24,9 @@ def make_packet(cases_path):
         "",
         "This worksheet is private. Keep it, the manuscripts, source snapshots, and completed labels outside Git.",
         "Read each manuscript and the cited source snapshot before consulting any agent findings.",
-        "For a control, label every scored rule. For a mutation, compare the paired control and",
-        "mutation, then label the target rule and whether the edit introduced only the intended change.",
+        "For a control, label every scored rule. For a version-5 mutation, compare the paired",
+        "control and mutation, then label every scored rule, including the target and off-target rules.",
+        "For older mutations, label the target rule. Verify that the edit introduced only the intended change.",
         "Record a reason and manuscript location for every decision. An unchecked box is not a label.",
         "",
         f"Data freeze: `{result['data_freeze']}`",
@@ -84,13 +85,16 @@ def make_packet(cases_path):
                 f"SHA-256 `{source['sha256']}`; local `{run / source['path']}`)"
             )
         lines.extend(["", "### Independent labels", ""])
-        rule_ids = row["scored_rule_ids"] if row["kind"] == "control" else [case["expected_rule_id"]]
+        rule_ids = (row["scored_rule_ids"] if row["kind"] == "control" or result["schema_version"] >= 5
+                    else [case["expected_rule_id"]])
         for rule_id in rule_ids:
             rule = rules[rule_id]
             requirement = rule.get("requirement") or json.dumps(rule["check"], ensure_ascii=False, sort_keys=True)
             lines.extend([
                 f"#### `{rule_id}`",
                 "",
+                *(["Injected target rule" if rule_id == case["expected_rule_id"] else "Off-target rule",
+                   ""] if row["kind"] == "mutation" and result["schema_version"] >= 5 else []),
                 f"Rule: {requirement}",
                 f"Source excerpt: {rule['quote']} (`{rule['source_ref']}`)",
                 "- [ ] Compliant  - [ ] Noncompliant  - [ ] Not applicable or unclear",
@@ -105,6 +109,15 @@ def make_packet(cases_path):
                 "- Difference and class rationale: ",
                 "",
             ])
+            if result["schema_version"] >= 5:
+                lines.extend([
+                    "All scored off-target rules remain compliant: [ ] Yes  [ ] No  [ ] Unclear",
+                    "Off-target raw flags: " + ", ".join(row["off_target_raw_rule_ids"] or ["none"]),
+                    "Off-target validated flags: "
+                    + ", ".join(row["off_target_validated_rule_ids"] or ["none"]),
+                    "Review any off-target flags only after recording independent rule labels.",
+                    "",
+                ])
         if row["excluded_rule_ids"]:
             lines.extend([
                 f"Excluded from scoring: {', '.join('`' + rule_id + '`' for rule_id in row['excluded_rule_ids'])}",
@@ -131,13 +144,14 @@ def make_json_template(cases_path):
     result = score(read_json(cases_path))
     labels = []
     for row in result["cases"]:
-        rule_ids = row["scored_rule_ids"] if row["kind"] == "control" else [row["target_rule_id"]]
+        rule_ids = (row["scored_rule_ids"] if row["kind"] == "control" or result["schema_version"] >= 5
+                    else [row["target_rule_id"]])
         for rule_id in rule_ids:
             labels.append({"case_id": row["case_id"], "rule_id": rule_id, "verdict": None,
                            "evidence_location": "", "rationale": "", "single_change": None,
                            "mutation_class": None})
     scope = result["schema_version"] >= 5
-    return {"schema_version": 3 if scope else 2, "benchmark_manifest_sha256": sha256(cases_path),
+    return {"schema_version": 4 if scope else 2, "benchmark_manifest_sha256": sha256(cases_path),
             "scored_inputs_sha256": scored_inputs_sha256(result),
             "reviews": [{"reviewer_id": "", "reviewed_at": "", "labels": [dict(item) for item in labels],
                          **({"scope_review_sha256": ""} if scope else {})}
