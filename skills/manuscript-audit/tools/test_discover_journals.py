@@ -118,6 +118,57 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual(second["filter"], ["ids.openalex:S30|S10|S20"])
         self.assertNotIn("Unused title", json.dumps(record))
 
+    def test_grouped_discovery_pages_and_batches_source_identity_checks(self):
+        first = [{"key": f"https://openalex.org/S{number}", "count": 1}
+                 for number in range(1, 101)]
+        second = [{"key": "https://openalex.org/S101", "count": 3}]
+        requests = []
+
+        def opener(request, timeout):
+            requests.append(request.full_url)
+            parsed = urlsplit(request.full_url)
+            params = parse_qs(parsed.query)
+            if parsed.path == "/works":
+                cursor = params.get("cursor", ["*"])[0]
+                page = first if cursor == "*" else second
+                next_cursor = "next-page" if cursor == "*" else None
+                return Response(json.dumps({"meta": {"count": 200, "next_cursor": next_cursor},
+                                            "group_by": page}).encode())
+            ids = params["filter"][0].removeprefix("ids.openalex:").split("|")
+            return Response(json.dumps({"results": [
+                {"id": f"https://openalex.org/{item}", "display_name": f"Journal {item}",
+                 "type": "journal", "issn_l": "1234-567X", "works_count": 5 if item == "S101" else 1000}
+                for item in ids]}).encode())
+
+        with tempfile.TemporaryDirectory() as temporary, patch.dict("os.environ", {"OPENALEX_API_KEY": "test-key"}):
+            output = discover("synthetic topic", Path(temporary), opener=opener, limit=2, group_pages=3)
+            record = json.loads(output.read_text(encoding="utf-8"))
+        self.assertEqual(len(requests), 4)
+        self.assertEqual([parse_qs(urlsplit(url).query)["cursor"][0] for url in requests[:2]],
+                         ["*", "next-page"])
+        self.assertEqual(record["group_pages_seen"], 2)
+        self.assertTrue(record["group_pages_complete"])
+        self.assertEqual(record["grouped_sources_seen"], 101)
+        self.assertEqual(len(record["group_page_sha256"]), 2)
+        self.assertEqual(len(record["source_response_sha256"]), 2)
+        self.assertEqual(record["response_sha256"], record["group_page_sha256"][0])
+        self.assertEqual(record["candidates"][0]["source_id"], "https://openalex.org/S101")
+
+        requests.clear()
+        with tempfile.TemporaryDirectory() as temporary:
+            output = discover("synthetic topic", Path(temporary), opener=opener, limit=2, group_pages=1)
+            capped = json.loads(output.read_text(encoding="utf-8"))
+        self.assertEqual(len(requests), 2)
+        self.assertFalse(capped["group_pages_complete"])
+        self.assertIn("page limit reached", capped["coverage_note"])
+        self.assertNotEqual(capped["candidates"][0]["source_id"], "https://openalex.org/S101")
+
+    def test_cursor_paging_requires_key_before_network(self):
+        with tempfile.TemporaryDirectory() as temporary, patch.dict("os.environ", {"OPENALEX_API_KEY": ""}):
+            with self.assertRaisesRegex(ValueError, "requires OPENALEX_API_KEY"):
+                discover("synthetic topic", Path(temporary), group_pages=2,
+                         opener=lambda *_args, **_kwargs: self.fail("Unexpected network request"))
+
     def test_doaj_subject_adds_issn_matched_and_supplemental_journals(self):
         groups = {"meta": {"count": 20}, "group_by": [
             {"key": "https://openalex.org/S10", "count": 10}]}
@@ -339,6 +390,13 @@ class DiscoveryTests(unittest.TestCase):
             for field_id in (0, -1, True):
                 with self.subTest(field_id=field_id), self.assertRaisesRegex(ValueError, "field-id"):
                     discover("synthetic topic", Path(temporary), field_id=field_id,
+                             opener=lambda *_args, **_kwargs: self.fail("Unexpected network request"))
+
+    def test_rejects_invalid_group_page_limit_before_network_request(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            for value in (0, 6, True):
+                with self.subTest(value=value), self.assertRaisesRegex(ValueError, "group-pages"):
+                    discover("synthetic topic", Path(temporary), group_pages=value,
                              opener=lambda *_args, **_kwargs: self.fail("Unexpected network request"))
 
     def test_rejects_invalid_publication_date_before_network_request(self):

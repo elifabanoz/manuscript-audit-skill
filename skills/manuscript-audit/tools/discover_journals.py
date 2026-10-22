@@ -95,34 +95,73 @@ def fetch_works(query, per_page, opener=urlopen, field_id=None, published_after=
     return fetch_json(f"{API_URL}?{params}", opener)
 
 
-def grouped_shortlist(query, limit, opener, field_id, published_after):
-    params = urlencode({"search.title_abstract_keywords": query,
-                        "filter": work_filters(field_id, published_after) + ",primary_location.source.type:journal",
-                        "group_by": "primary_location.source.id", "per_page": 100})
-    payload, response_hash = fetch_json(f"{API_URL}?{params}", opener)
-    groups = payload.get("group_by") if isinstance(payload, dict) else None
-    if not isinstance(groups, list):
-        raise ValueError("OpenAlex returned an unexpected grouped response")
+def grouped_shortlist(query, limit, opener, field_id, published_after, max_pages):
+    base = {"search.title_abstract_keywords": query,
+            "filter": work_filters(field_id, published_after) + ",primary_location.source.type:journal",
+            "group_by": "primary_location.source.id", "per_page": 100}
+    cursor = "*" if max_pages > 1 else None
+    seen_cursors = set()
+    groups = []
+    group_hashes = []
+    matching_works = None
+    complete = False
+    for _ in range(max_pages):
+        if cursor is not None:
+            if cursor in seen_cursors:
+                raise ValueError("OpenAlex repeated a grouped cursor")
+            seen_cursors.add(cursor)
+        params = {**base, "cursor": cursor} if cursor is not None else base
+        payload, response_hash = fetch_json(f"{API_URL}?{urlencode(params)}", opener)
+        page = payload.get("group_by") if isinstance(payload, dict) else None
+        meta = payload.get("meta") if isinstance(payload, dict) else None
+        if not isinstance(page, list) or not isinstance(meta, dict):
+            raise ValueError("OpenAlex returned an unexpected grouped response")
+        count = meta.get("count")
+        if type(count) is int and count >= 0:
+            if matching_works is not None and count != matching_works:
+                raise ValueError("OpenAlex grouped count changed between pages")
+            matching_works = count
+        groups.extend(page)
+        group_hashes.append(response_hash)
+        cursor = meta.get("next_cursor")
+        if cursor is None:
+            complete = max_pages > 1
+            break
+        if not isinstance(cursor, str) or not 1 <= len(cursor) <= 2048 or any(c in cursor for c in "\r\n\x00"):
+            raise ValueError("OpenAlex returned an invalid grouped cursor")
+        if not page:
+            raise ValueError("OpenAlex returned an empty grouped page with another cursor")
     ranked = []
+    seen_sources = set()
     for group in groups:
         if (isinstance(group, dict) and isinstance(group.get("key"), str)
                 and SOURCE_ID.fullmatch(group["key"]) and type(group.get("count")) is int
                 and group["count"] > 0):
+            if group["key"] in seen_sources:
+                raise ValueError("OpenAlex repeated a grouped source across pages")
+            seen_sources.add(group["key"])
             ranked.append(group)
     ranked.sort(key=lambda item: (-item["count"], item["key"]))
-    metadata = payload.get("meta")
-    matching_works = metadata.get("count") if isinstance(metadata, dict) else None
+    audit = {"response_sha256": group_hashes[0], "group_page_sha256": group_hashes,
+             "group_pages_seen": len(group_hashes), "group_pages_complete": complete,
+             "grouped_sources_seen": len(groups), "matching_works_total": matching_works}
     if not ranked:
-        return [], response_hash, len(groups), matching_works
+        audit["source_response_sha256"] = []
+        return [], audit
     source_ids = [group["key"].rsplit("/", 1)[1] for group in ranked]
-    source_params = urlencode({"filter": "ids.openalex:" + "|".join(source_ids),
-                               "select": "id,display_name,type,issn_l,issn,works_count,homepage_url",
-                               "per_page": 100})
-    sources_payload, _ = fetch_json(f"{SOURCE_URL}?{source_params}", opener)
-    sources = sources_payload.get("results") if isinstance(sources_payload, dict) else None
-    if not isinstance(sources, list):
-        raise ValueError("OpenAlex returned an unexpected source response")
-    source_by_id = {source.get("id"): source for source in sources if isinstance(source, dict)}
+    source_by_id = {}
+    source_hashes = []
+    for start in range(0, len(source_ids), 100):
+        source_params = urlencode({"filter": "ids.openalex:" + "|".join(source_ids[start:start + 100]),
+                                   "select": "id,display_name,type,issn_l,issn,works_count,homepage_url",
+                                   "per_page": 100})
+        sources_payload, source_hash = fetch_json(f"{SOURCE_URL}?{source_params}", opener)
+        sources = sources_payload.get("results") if isinstance(sources_payload, dict) else None
+        if not isinstance(sources, list):
+            raise ValueError("OpenAlex returned an unexpected source response")
+        source_hashes.append(source_hash)
+        source_by_id.update((source.get("id"), source) for source in sources if isinstance(source, dict))
+    audit["source_response_sha256"] = source_hashes
     candidates = []
     for group in ranked:
         source_id = group["key"]
@@ -146,7 +185,7 @@ def grouped_shortlist(query, limit, opener, field_id, published_after):
     candidates.sort(key=lambda item: (-(item["matching_works"] / item["source_works_count"]),
                                       -item["matching_works"],
                                       item["display_name"].casefold(), item["source_id"]))
-    return candidates[:limit], response_hash, len(groups), matching_works
+    return candidates[:limit], audit
 
 
 def safe_metadata_url(value):
@@ -544,14 +583,18 @@ def merge_web(candidates, web_candidates, limit):
 
 def discover(query, output_root, per_page=50, limit=50, opener=urlopen, field_id=None,
              published_after=None, strategy="grouped", doaj_subject=None, citation_record=None,
-             web_candidates=None):
+             web_candidates=None, group_pages=1):
     query = query.strip()
     if not query or len(query) > 200 or any(character in query for character in "\r\n\x00"):
         raise ValueError("--query must be a single topic phrase of 1 to 200 characters")
     if not 1 <= per_page <= 100 or not 1 <= limit <= 100:
         raise ValueError("--works and --limit must be between 1 and 100")
+    if type(group_pages) is not int or not 1 <= group_pages <= 5:
+        raise ValueError("--group-pages must be between 1 and 5")
     if strategy not in {"grouped", "sample"}:
         raise ValueError("--strategy must be grouped or sample")
+    if strategy == "grouped" and group_pages > 1 and not os.environ.get("OPENALEX_API_KEY"):
+        raise ValueError("--group-pages above 1 requires OPENALEX_API_KEY for cursor paging")
     if citation_record is not None and strategy != "grouped":
         raise ValueError("--citation-record requires --strategy grouped")
     if web_candidates is not None and strategy != "grouped":
@@ -583,8 +626,10 @@ def discover(query, output_root, per_page=50, limit=50, opener=urlopen, field_id
     else:
         web_entries, web_input_hash = None, None
     if strategy == "grouped":
-        candidates, response_hash, groups_seen, matching_works = grouped_shortlist(
-            query, 100 if doaj_subject or citation_record or web_entries else limit, opener, field_id, published_after)
+        candidates, group_audit = grouped_shortlist(
+            query, 100 if doaj_subject or citation_record or web_entries else limit,
+            opener, field_id, published_after, group_pages)
+        response_hash = group_audit["response_sha256"]
         if doaj_subject:
             doaj_candidates, doaj_hash, doaj_total, doaj_seen = fetch_doaj_subject(doaj_subject, opener)
             candidates = merge_doaj(candidates, doaj_candidates, 100 if citation_record or web_entries else limit)
@@ -626,7 +671,8 @@ def discover(query, output_root, per_page=50, limit=50, opener=urlopen, field_id
         work_filter += " with journal primary location"
     if field_id is not None:
         work_filter += " and matching primary field"
-    coverage_note = "First OpenAlex group page only"
+    coverage_note = (f"First {group_audit['group_pages_seen']} OpenAlex group pages"
+                     + ("; no further cursor" if group_audit["group_pages_complete"] else "; page limit reached")) if strategy == "grouped" else ""
     if doaj_subject:
         coverage_note += "; first DOAJ subject result page only"
     if citation_record is not None:
@@ -644,8 +690,12 @@ def discover(query, output_root, per_page=50, limit=50, opener=urlopen, field_id
         "work_filter": work_filter,
         "strategy": strategy,
         "works_requested": per_page if strategy == "sample" else None,
-        "grouped_sources_seen": groups_seen if strategy == "grouped" else None,
-        "matching_works_total": matching_works if strategy == "grouped" else None,
+        "grouped_sources_seen": group_audit["grouped_sources_seen"] if strategy == "grouped" else None,
+        "matching_works_total": group_audit["matching_works_total"] if strategy == "grouped" else None,
+        "group_pages_seen": group_audit["group_pages_seen"] if strategy == "grouped" else None,
+        "group_pages_complete": group_audit["group_pages_complete"] if strategy == "grouped" else None,
+        "group_page_sha256": group_audit["group_page_sha256"] if strategy == "grouped" else None,
+        "source_response_sha256": group_audit["source_response_sha256"] if strategy == "grouped" else None,
         "coverage_note": coverage_note if strategy == "grouped" else "Sampled works only; candidate coverage is incomplete",
         "topic_share_denominator": "OpenAlex source works_count across all years; not restricted to the search date or article type" if strategy == "grouped" else None,
         "selection_note": "Candidates with more discovery strategies are listed first; up to one fifth of slots each are reserved for DOAJ-only, citation-only, and registry-verified web-only journals. Neither order nor count predicts acceptance." if doaj_subject or citation_record is not None or web_entries is not None else None,
@@ -674,6 +724,7 @@ def main():
     parser.add_argument("--output-root", type=Path, default=Path.home() / "manuscript-audit" / "discovery")
     parser.add_argument("--works", type=int, default=50, help="Works to inspect with --strategy sample (1-100)")
     parser.add_argument("--limit", type=int, default=50, help="Maximum journal candidates to retain (1-100)")
+    parser.add_argument("--group-pages", type=int, default=1, help="OpenAlex group pages to inspect (1-5; more than 1 needs OPENALEX_API_KEY)")
     parser.add_argument("--strategy", choices=("grouped", "sample"), default="grouped")
     parser.add_argument("--doaj-subject", help="Optional nonconfidential DOAJ subject phrase; uses the first journal result page")
     parser.add_argument("--citation-record", type=Path, help="Optional private citation-candidates.json from selected reference DOIs")
@@ -685,7 +736,8 @@ def main():
         print(discover(args.query, args.output_root, args.works, args.limit,
                        field_id=args.field_id, published_after=args.published_after,
                        strategy=args.strategy, doaj_subject=args.doaj_subject,
-                       citation_record=args.citation_record, web_candidates=args.web_candidates))
+                       citation_record=args.citation_record, web_candidates=args.web_candidates,
+                       group_pages=args.group_pages))
     except (OSError, ValueError) as error:
         parser.exit(1, f"Error: {error}\n")
 
