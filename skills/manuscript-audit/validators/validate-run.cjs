@@ -73,7 +73,7 @@ function checkCoverage(run, unit, index, manifest, profile, errors) {
   }
 }
 
-function checkProvenance(run, finding, index, manifest, profile, errors) {
+function checkProvenance(run, finding, index, manifest, profile, errors, options = {}) {
   if (!isObject(finding.provenance)) return;
   const roles = { hunter: 'hunter', validator: 'defense', record_verifier: 'record_verifier' };
   const actors = new Set();
@@ -81,6 +81,11 @@ function checkProvenance(run, finding, index, manifest, profile, errors) {
     const file = finding.provenance[key];
     if (!nonempty(file)) continue;
     const at = `findings[${index}].provenance.${key}`;
+    if (role === 'record_verifier' && options.pendingVerifierFindingId === finding.id) {
+      if (!/^agents\/[A-Za-z0-9_-]+\.json$/.test(file)) errors.push(`${at} must name a future file under agents/`);
+      else if (fs.existsSync(path.join(run, file))) errors.push(`${at} already exists; use the full run gate`);
+      continue;
+    }
     try {
       const record = readJson(safeFile(run, file));
       if (!isObject(record) || Object.keys(record).some(field => !['role', 'finding_id', 'decision', 'actor_id', 'subject_sha256', 'rationale'].includes(field))) {
@@ -163,7 +168,7 @@ function checkReferenceMetadata(run, finding, evidence, at, manifest, suppliedPa
   }
 }
 
-function validate(run, manifest, profile, ledger, findings) {
+function validate(run, manifest, profile, ledger, findings, options = {}) {
   const errors = [
     ...validateManifest(run, manifest),
     ...validateLedger(ledger).map(error => `ledger: ${error}`),
@@ -205,7 +210,7 @@ function validate(run, manifest, profile, ledger, findings) {
   }
   if (Array.isArray(findings)) {
     for (const [index, finding] of findings.entries()) {
-      if (isObject(finding)) checkProvenance(run, finding, index, manifest, profile, errors);
+      if (isObject(finding)) checkProvenance(run, finding, index, manifest, profile, errors, options);
       if (finding?.verdict === 'confirmed' && finding.category === 'compliance' && Array.isArray(ledger)) {
         const checked = ledger.some(unit => unit?.kind === 'compliance'
           && unit.rule_id === finding.rule_id && unit.target_issn === finding.target_issn

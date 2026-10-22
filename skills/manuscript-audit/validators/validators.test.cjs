@@ -14,6 +14,7 @@ const { verify } = require('./verify-quotes.cjs');
 const { validate: validateManifest } = require('./validate-run-manifest.cjs');
 const { corpusHash, coverageSubjectHash, reviewSubjectHash, validate: validateRun } = require('./validate-run.cjs');
 const { escapeMarkdown, render } = require('./render-report.cjs');
+const { prepare: prepareReviewPacket } = require('./prepare-review-packet.cjs');
 const { compare } = require('./compare-runs.cjs');
 const { compare: compareProfiles, validateDraft } = require('./compare-profiles.cjs');
 const { validateAgreedProfile } = require('./validate-cached-profile.cjs');
@@ -514,6 +515,13 @@ test('confirmed reference leads bind a private check, registry record, and manus
   render(data.run);
   assert.match(fs.readFileSync(path.join(data.run, 'REPORT.md'), 'utf8'),
     /Reference metadata lead: DOI 10\\.1234\/alpha/);
+  const verifierPath = path.join(data.run, finding.provenance.record_verifier);
+  const verifierBytes = fs.readFileSync(verifierPath);
+  fs.rmSync(verifierPath);
+  const packet = JSON.parse(fs.readFileSync(prepareReviewPacket(data.run, 'F-1', 'record_verifier').path, 'utf8'));
+  assert.equal(packet.reference_checks['reference-metadata-checks.json'].record.results[0].doi, '10.1234/alpha');
+  assert.equal(packet.reference_checks['doi-metadata.json'].record.results[0].status, 'registered_in_crossref');
+  fs.writeFileSync(verifierPath, verifierBytes);
   finding.evidence[1].checks_sha256 = '0'.repeat(64);
   assert.match(validateRun(data.run, manifest, data.profile, data.ledger, [finding]).join('\n'),
     /checks_sha256 differs/);
@@ -783,6 +791,52 @@ test('needs-validation report gives the evidence for an unresolved finding', t =
   assert.match(pendingReport, /Evidence to review/);
   assert.match(pendingReport, /A data availability statement is required/);
   assert.match(pendingReport, /manuscript\\.md/);
+});
+
+test('defense packet excludes hunter reasoning and proposed severity', t => {
+  const data = fixture(t);
+  const finding = data.findings[0];
+  finding.verdict = 'needs_validation';
+  finding.unresolved_fact = 'Independent review has not happened.';
+  delete finding.severity;
+  delete finding.provenance.validator;
+  delete finding.provenance.record_verifier;
+  fs.writeFileSync(path.join(data.run, 'run-manifest.json'), JSON.stringify(manifestFor(data)));
+  fs.writeFileSync(path.join(data.run, 'journal-profile.json'), JSON.stringify(data.profile));
+  fs.writeFileSync(path.join(data.run, 'coverage-ledger.json'), JSON.stringify(data.ledger));
+  fs.writeFileSync(path.join(data.run, 'findings.json'), JSON.stringify(data.findings));
+  const output = prepareReviewPacket(data.run, 'F-1', 'defense');
+  const packet = JSON.parse(fs.readFileSync(output.path, 'utf8'));
+  assert.equal(packet.subject_sha256, reviewSubjectHash(finding, manifestFor(data), data.profile));
+  assert.equal(packet.manuscript.text, 'Title\nIntroduction\nMethods and results\n');
+  assert.match(packet.guideline_sources.src_guideline.text, /data availability statement/);
+  assert.equal(packet.finding.verdict, undefined);
+  assert.equal(packet.finding.severity, undefined);
+  assert.equal(packet.finding.suggested_fix, undefined);
+  assert.equal(JSON.stringify(packet).includes('Synthetic check record'), false);
+  assert.equal(JSON.stringify(packet).includes('agents/hunter.json'), false);
+  assert.throws(() => prepareReviewPacket(data.run, 'F-1', 'defense'), /EEXIST/);
+});
+
+test('verifier packet binds the defense decision without exposing its rationale', t => {
+  const data = fixture(t);
+  const manifest = manifestFor(data);
+  fs.writeFileSync(path.join(data.run, 'run-manifest.json'), JSON.stringify(manifest));
+  fs.writeFileSync(path.join(data.run, 'journal-profile.json'), JSON.stringify(data.profile));
+  fs.writeFileSync(path.join(data.run, 'coverage-ledger.json'), JSON.stringify(data.ledger));
+  fs.writeFileSync(path.join(data.run, 'findings.json'), JSON.stringify(data.findings));
+  fs.rmSync(path.join(data.run, 'agents', 'record-verifier.json'));
+  assert.match(validateRun(data.run, manifest, data.profile, data.ledger, data.findings).join('\n'), /record_verifier/);
+  const output = prepareReviewPacket(data.run, 'F-1', 'record_verifier');
+  const packet = JSON.parse(fs.readFileSync(output.path, 'utf8'));
+  assert.equal(packet.finding.verdict, 'confirmed');
+  assert.equal(packet.defense_decision, 'confirmed');
+  assert.equal(JSON.stringify(packet).includes('Synthetic check record'), false);
+  const defenseFile = path.join(data.run, 'agents', 'defense.json');
+  const defense = JSON.parse(fs.readFileSync(defenseFile, 'utf8'));
+  defense.subject_sha256 = '0'.repeat(64);
+  fs.writeFileSync(defenseFile, JSON.stringify(defense));
+  assert.throws(() => prepareReviewPacket(data.run, 'F-1', 'record_verifier'), /subject_sha256 differs/);
 });
 
 test('report rendering refuses unverified records and escapes untrusted Markdown', t => {
