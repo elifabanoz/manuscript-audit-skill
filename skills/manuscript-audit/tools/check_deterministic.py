@@ -152,17 +152,30 @@ def compare(actual, op, limit):
     }[op]
 
 
-def check(run, article_type, main_start=None, main_end=None, write_output=True):
+def check(run, article_type, main_start=None, main_end=None, write_output=True, profile_draft=None):
     run = run.resolve()
     outside_git(run)
+    if profile_draft is not None and write_output:
+        raise ValueError("A draft profile can only be used with --no-write")
     manifest_file = run / "run-manifest.json"
-    profile_file = run / "journal-profile.json"
-    for validator, arguments in (("validate-run-manifest.cjs", [str(run)]), ("validate-journal-profile.cjs", [str(profile_file)])):
+    profile_file = run / profile_draft if profile_draft is not None else run / "journal-profile.json"
+    validators = [("validate-run-manifest.cjs", [str(run)])]
+    if profile_draft is not None:
+        validators.append(("validate-profile-draft.cjs", [str(run), profile_draft]))
+    else:
+        validators.append(("validate-journal-profile.cjs", [str(profile_file)]))
+    for validator, arguments in validators:
         result = subprocess.run(["node", str(VALIDATORS / validator), *arguments], capture_output=True, text=True)
         if result.returncode:
             raise ValueError(result.stderr.strip())
+    if profile_draft is not None:
+        resolved_profile = profile_file.resolve()
+        if not resolved_profile.is_relative_to(run) or profile_file.is_symlink():
+            raise ValueError("Draft profile must stay inside the private run")
+        profile_file = resolved_profile
     manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
-    profile = json.loads(profile_file.read_text(encoding="utf-8"))
+    profile_bytes = profile_file.read_bytes()
+    profile = json.loads(profile_bytes)
     if article_type not in profile["article_types"]:
         raise ValueError("--article-type is absent from the journal profile")
     if profile["sources"] != manifest["sources"]:
@@ -218,6 +231,9 @@ def check(run, article_type, main_start=None, main_end=None, write_output=True):
     if main_start is not None or main_end is not None:
         output["main_start"] = main_start
         output["main_end"] = main_end
+    if profile_draft is not None:
+        output["provisional"] = True
+        output["profile_draft_sha256"] = hashlib.sha256(profile_bytes).hexdigest()
     if write_output:
         (run / "deterministic-checks.json").write_text(json.dumps(output, indent=2) + "\n", encoding="utf-8")
     return output
@@ -230,9 +246,11 @@ def main():
     parser.add_argument("--main-start", help="First main-text Markdown heading")
     parser.add_argument("--main-end", help="Heading immediately after main text")
     parser.add_argument("--no-write", action="store_true", help="Recompute and print the checks without changing the run")
+    parser.add_argument("--profile-draft", help="Validate and screen a private profile draft; requires --no-write")
     args = parser.parse_args()
     try:
-        output = check(args.run, args.article_type, args.main_start, args.main_end, not args.no_write)
+        output = check(args.run, args.article_type, args.main_start, args.main_end, not args.no_write,
+                       args.profile_draft)
         if args.no_write:
             print(json.dumps(output))
         else:

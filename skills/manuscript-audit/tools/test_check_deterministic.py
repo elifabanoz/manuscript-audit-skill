@@ -1,6 +1,7 @@
 """Deterministic checks use only invented manuscripts and guideline text."""
 
 import argparse
+import hashlib
 import json
 import tempfile
 import unittest
@@ -63,6 +64,23 @@ class DeterministicCheckTests(unittest.TestCase):
         output = check(self.run, "original_research", "Introduction", "References", write_output=False)
         self.assertEqual(output["checks"][1]["status"], "met")
         self.assertFalse((self.run / "deterministic-checks.json").exists())
+
+    def test_validated_draft_can_only_be_screened_without_promotion(self):
+        draft = self.run / "profile-a.json"
+        draft.write_text(json.dumps(self.profile), encoding="utf-8")
+        (self.run / "journal-profile.json").unlink()
+        output = check(self.run, "original_research", "Introduction", "References",
+                       write_output=False, profile_draft="profile-a.json")
+        self.assertTrue(output["provisional"])
+        self.assertEqual(output["profile_draft_sha256"], hashlib.sha256(draft.read_bytes()).hexdigest())
+        self.assertEqual([item["status"] for item in output["checks"]], ["triggered", "met", "triggered"])
+        self.assertFalse((self.run / "deterministic-checks.json").exists())
+        with self.assertRaisesRegex(ValueError, "only be used with --no-write"):
+            check(self.run, "original_research", profile_draft="profile-a.json")
+        self.profile["rules"][0]["quote"] = "Invented source text"
+        draft.write_text(json.dumps(self.profile), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "not in source"):
+            check(self.run, "original_research", write_output=False, profile_draft="profile-a.json")
 
     def test_unknown_main_boundaries_remain_unresolved(self):
         output = check(self.run, "original_research")
