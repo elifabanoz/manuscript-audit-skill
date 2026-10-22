@@ -18,7 +18,7 @@ MAX_ARCHIVE_BYTES = 100 * 1024 * 1024
 MAX_XML_BYTES = 20 * 1024 * 1024
 MAX_STYLES_BYTES = 10 * 1024 * 1024
 MAX_UNCOMPRESSED_BYTES = 200 * 1024 * 1024
-UNSUPPORTED = {"ins", "del", "moveFrom", "moveTo", "altChunk", "txbxContent"}
+UNSUPPORTED = {"ins", "del", "moveFrom", "moveTo", "altChunk", "txbxContent", "sdt", "customXml", "subDoc"}
 
 
 def paragraph_text(paragraph):
@@ -156,6 +156,8 @@ def extract(path):
     body = root.find(WORD + "body")
     if body is None:
         raise ValueError("DOCX has no document body")
+    if sum(block.tag == WORD + "tbl" for block in body) != sum(1 for _ in body.iter(WORD + "tbl")):
+        raise ValueError("DOCX contains a nested or wrapped table that cannot be extracted completely")
     check_text_visibility(body, styles_root)
     markdown, tables = render_body(body)
     if not markdown.strip():

@@ -72,6 +72,34 @@ class ConvertDocxTests(unittest.TestCase):
                 convert(original, root / "private")
             self.assertFalse((root / "private").exists())
 
+    def test_rejects_wrapped_body_text_instead_of_silently_omitting_it(self):
+        wrappers = ["sdt", "customXml"]
+        for wrapper in wrappers:
+            with self.subTest(wrapper=wrapper), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                original = root / "paper.docx"
+                if wrapper == "sdt":
+                    wrapped = '<w:sdt><w:sdtContent><w:p><w:r><w:t>Omitted text</w:t></w:r></w:p></w:sdtContent></w:sdt>'
+                else:
+                    wrapped = '<w:customXml><w:p><w:r><w:t>Omitted text</w:t></w:r></w:p></w:customXml>'
+                make_docx(original, '<w:p><w:r><w:t>Visible text</w:t></w:r></w:p>' + wrapped)
+                with self.assertRaisesRegex(ValueError, wrapper):
+                    convert(original, root / "private")
+                self.assertFalse((root / "private").exists())
+
+    def test_rejects_nested_tables_instead_of_silently_omitting_them(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            original = root / "paper.docx"
+            make_docx(original,
+                      '<w:p><w:r><w:t>Visible text</w:t></w:r></w:p>'
+                      '<w:tbl><w:tr><w:tc><w:p><w:r><w:t>Outer cell</w:t></w:r></w:p>'
+                      '<w:tbl><w:tr><w:tc><w:p><w:r><w:t>Nested cell</w:t></w:r></w:p>'
+                      '</w:tc></w:tr></w:tbl></w:tc></w:tr></w:tbl>')
+            with self.assertRaisesRegex(ValueError, "nested or wrapped table"):
+                convert(original, root / "private")
+            self.assertFalse((root / "private").exists())
+
     def test_rejects_hidden_or_low_visibility_text_before_writing(self):
         cases = [
             ('<w:rPr><w:vanish/></w:rPr>', 'vanish'),
