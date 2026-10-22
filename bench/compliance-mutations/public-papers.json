@@ -32,6 +32,16 @@
       "output_name": "joss-09910-paper.md"
     },
     {
+      "doi": "10.21105/jose.00307",
+      "journal": "Journal of Open Source Education",
+      "article_url": "https://jose.theoj.org/papers/10.21105/jose.00307",
+      "article_license": "CC BY 4.0",
+      "source_url": "https://raw.githubusercontent.com/carpentries-lab/deep-learning-intro/cb42f234b3cfcadee5c99f2fa22b69f47f3008da/paper/paper.md",
+      "source_ref": "v1.2.2 (cb42f234b3cfcadee5c99f2fa22b69f47f3008da)",
+      "source_sha256": "bda46970b4410dac9ad2642795c252b1e11d830d44b156eb8e844afb2daa8eb5",
+      "output_name": "jose-00307-paper.md"
+    },
+    {
       "doi": "10.21105/jose.00059",
       "journal": "Journal of Open Source Education",
       "article_url": "https://jose.theoj.org/papers/10.21105/jose.00059",
