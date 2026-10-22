@@ -32,6 +32,16 @@
       "output_name": "joss-09910-paper.md"
     },
     {
+      "doi": "10.21105/joss.10374",
+      "journal": "Journal of Open Source Software",
+      "article_url": "https://joss.theoj.org/papers/10.21105/joss.10374",
+      "article_license": "CC BY 4.0",
+      "source_url": "https://raw.githubusercontent.com/anvaldes/sklearn-migrator/6ff45ef56001e7cee1271750f7a6bd6c61ba9b5f/paper/paper.md",
+      "source_ref": "v0.22.0 (6ff45ef56001e7cee1271750f7a6bd6c61ba9b5f)",
+      "source_sha256": "22d2950117b0f6f16df09768006956a0b0ae638de93d3c0a7a67b5aae2206733",
+      "output_name": "joss-10374-paper.md"
+    },
+    {
       "doi": "10.21105/jose.00307",
       "journal": "Journal of Open Source Education",
       "article_url": "https://jose.theoj.org/papers/10.21105/jose.00307",
