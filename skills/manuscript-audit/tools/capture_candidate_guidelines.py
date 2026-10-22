@@ -12,6 +12,7 @@ from urllib.request import urlopen
 
 from discover_journals import DOAJ_URL, SOURCE_ID, fetch_json
 from fetch_guidelines import https_url, normalized_host, save_source
+from locate_guidelines import locate
 from prepare_run import outside_git
 from publishers.springer_nature import GUIDELINE_URL, open_guidelines, submission_guidelines
 
@@ -116,7 +117,7 @@ def current_doaj_journal(candidate, issn, opener):
     host = homepage_host(links.get("journal"))
     if host is None:
         raise ValueError("DOAJ has no usable current journal homepage")
-    return host, links.get("author_instructions"), response_hash
+    return host, links.get("author_instructions"), response_hash, links.get("journal")
 
 
 def capture(discovery_record, issn, output_root, allow_network=False, opener=urlopen,
@@ -128,19 +129,32 @@ def capture(discovery_record, issn, output_root, allow_network=False, opener=url
     candidate, discovery_hash = read_candidate(discovery_record, issn)
     home = candidate.get("homepage_url")
     instructions = guideline_url if guideline_url is not None else candidate.get("author_instructions_url")
-    link_origin = "operator_supplied" if guideline_url is not None else "doaj_metadata"
+    link_origin = "operator_supplied" if guideline_url is not None else (
+        "doaj_metadata" if isinstance(instructions, str) else None)
     status = "needs_manual_verification"
     reason = None
     source_record = None
     domain_basis = None
     publisher_id = publisher_homepage = source_hash = publisher_hash = None
     doaj_hash = None
+    registry_homepage_url = fetched_homepage_url = homepage_response_hash = None
     if guideline_url is None and not isinstance(instructions, str) and allow_network:
         try:
-            source, source_hash = current_openalex_journal(candidate, issn, opener)
-            instructions = submission_guidelines(source.get("homepage_url"))
-            if instructions is not None:
-                link_origin = "springer_nature_adapter"
+            if candidate.get("source_id"):
+                source, source_hash = current_openalex_journal(candidate, issn, opener)
+                registry_homepage_url = source.get("homepage_url")
+                instructions = submission_guidelines(registry_homepage_url)
+                if instructions is not None:
+                    link_origin = "springer_nature_adapter"
+            else:
+                _doaj_host, _link, doaj_hash, registry_homepage_url = current_doaj_journal(
+                    candidate, issn, opener)
+            if instructions is None:
+                instructions, fetched_homepage_url, homepage_response_hash = locate(
+                    registry_homepage_url, opener)
+                link_origin = "official_homepage_link"
+                domain_basis = ("current_openalex_journal_homepage" if source_hash is not None
+                                else "current_doaj_journal_homepage")
         except (OSError, UnicodeError, ValueError) as error:
             reason = str(error)
     if not isinstance(instructions, str):
@@ -160,12 +174,16 @@ def capture(discovery_record, issn, output_root, allow_network=False, opener=url
             else:
                 try:
                     doaj_host = None
-                    if link_origin == "doaj_metadata" or not candidate.get("source_id"):
-                        doaj_host, current_link, doaj_hash = current_doaj_journal(candidate, issn, opener)
+                    if link_origin == "doaj_metadata" or (not candidate.get("source_id")
+                                                          and link_origin != "official_homepage_link"):
+                        doaj_host, current_link, doaj_hash, _homepage = current_doaj_journal(
+                            candidate, issn, opener)
                         if link_origin == "doaj_metadata" and current_link != instructions:
                             raise ValueError("The DOAJ author-instruction link changed since discovery")
                     if link_origin == "springer_nature_adapter":
                         domain_basis = "springer_nature_url_pattern"
+                    elif link_origin == "official_homepage_link":
+                        pass
                     elif doaj_host == instruction_host:
                         domain_basis = "current_doaj_journal_homepage"
                     else:
@@ -206,6 +224,9 @@ def capture(discovery_record, issn, output_root, allow_network=False, opener=url
               "openalex_source_response_sha256": source_hash,
               "openalex_publisher_response_sha256": publisher_hash,
               "doaj_response_sha256": doaj_hash,
+              "registry_homepage_url": registry_homepage_url,
+              "fetched_homepage_url": fetched_homepage_url,
+              "homepage_response_sha256": homepage_response_hash,
               "status": status, "reason": reason, "source_record": source_record,
               "note": "A captured page still requires live-page review and independent source-backed profile comparison"}
     output = directory / "source-locator.json"
@@ -219,7 +240,7 @@ def main():
     parser.add_argument("--issn", required=True, help="One ISSN from the selected candidate")
     parser.add_argument("--guideline-url", help="Operator-selected official HTTPS guideline URL; checked against current OpenAlex journal or publisher metadata")
     parser.add_argument("--output-root", type=Path, default=Path.home() / "manuscript-audit" / "sources")
-    parser.add_argument("--allow-network", action="store_true", help="Fetch a DOAJ author-instruction page after journal or publisher host checks")
+    parser.add_argument("--allow-network", action="store_true", help="Verify current journal identity, locate official guidelines, and capture the page")
     args = parser.parse_args()
     try:
         print(capture(args.discovery_record, args.issn, args.output_root, args.allow_network,

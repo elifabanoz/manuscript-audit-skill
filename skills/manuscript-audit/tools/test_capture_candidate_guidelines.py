@@ -295,6 +295,94 @@ class CandidateGuidelineTests(unittest.TestCase):
             self.assertIn("ISSN", locator["reason"])
             self.assertEqual(len(requests), 1)
 
+    def test_openalex_homepage_locates_one_same_host_guide(self):
+        requests = []
+
+        def opener(request, timeout):
+            requests.append(request.full_url)
+            if "/sources/S1" in request.full_url:
+                source = {"id": "https://openalex.org/S1", "type": "journal",
+                          "issn_l": "1234-567X", "homepage_url": "http://current.example/journal"}
+                return Response(request.full_url, json.dumps(source).encode())
+            if request.full_url == "https://current.example/journal":
+                return Response(request.full_url, b'<a href="/authors">Author guidelines</a>')
+            self.assertEqual(request.full_url, "https://current.example/authors")
+            return Response(request.full_url)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            candidate_file = root / "candidates.json"
+            record = discovery(home="https://stale.example/journal", guide=None)
+            record["candidates"][0].pop("doaj_id")
+            candidate_file.write_text(json.dumps(record), encoding="utf-8")
+            path = capture(candidate_file, "1234-567X", root / "sources", True, opener)
+            locator = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(locator["status"], "captured_pending_review")
+            self.assertEqual(locator["link_origin"], "official_homepage_link")
+            self.assertEqual(locator["domain_basis"], "current_openalex_journal_homepage")
+            self.assertEqual(locator["registry_homepage_url"], "http://current.example/journal")
+            self.assertEqual(locator["fetched_homepage_url"], "https://current.example/journal")
+            self.assertEqual(len(locator["homepage_response_sha256"]), 64)
+            self.assertEqual(len(requests), 3)
+            self.assertNotIn("https://stale.example/journal", requests)
+
+    def test_doaj_only_homepage_locates_guide_from_current_record(self):
+        requests = []
+
+        def opener(request, timeout):
+            requests.append(request.full_url)
+            if "doaj.org/api/search/journals/" in request.full_url:
+                return Response(request.full_url, json.dumps(doaj_result(
+                    home="https://current.example/journal", guide=None)).encode())
+            if request.full_url == "https://current.example/journal":
+                return Response(request.full_url, b'<a href="/authors">Instructions for Authors</a>')
+            self.assertEqual(request.full_url, "https://current.example/authors")
+            return Response(request.full_url)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            candidate_file = root / "candidates.json"
+            record = discovery(home="https://stale.example/journal", guide=None)
+            record["candidates"][0]["source_id"] = None
+            candidate_file.write_text(json.dumps(record), encoding="utf-8")
+            path = capture(candidate_file, "1234-567X", root / "sources", True, opener)
+            locator = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(locator["status"], "captured_pending_review")
+            self.assertEqual(locator["domain_basis"], "current_doaj_journal_homepage")
+            self.assertEqual(len(locator["doaj_response_sha256"]), 64)
+            self.assertEqual(len(requests), 3)
+
+    def test_homepage_link_ambiguity_and_external_links_stay_pending(self):
+        pages = (
+            b'<a href="https://external.example/authors">Author guidelines</a>',
+            b'<a href="/authors">Author guidelines</a><a href="/submit">Submission guidelines</a>',
+        )
+        for page in pages:
+            with self.subTest(page=page):
+                requests = []
+
+                def opener(request, timeout):
+                    requests.append(request.full_url)
+                    if "/sources/S1" in request.full_url:
+                        source = {"id": "https://openalex.org/S1", "type": "journal",
+                                  "issn_l": "1234-567X", "homepage_url": "https://current.example/journal"}
+                        return Response(request.full_url, json.dumps(source).encode())
+                    self.assertEqual(request.full_url, "https://current.example/journal")
+                    return Response(request.full_url, page)
+
+                with tempfile.TemporaryDirectory() as temporary:
+                    root = Path(temporary)
+                    candidate_file = root / "candidates.json"
+                    record = discovery(guide=None)
+                    record["candidates"][0].pop("doaj_id")
+                    candidate_file.write_text(json.dumps(record), encoding="utf-8")
+                    path = capture(candidate_file, "1234-567X", root / "sources", True, opener)
+                    locator = json.loads(path.read_text(encoding="utf-8"))
+                    self.assertEqual(locator["status"], "needs_manual_verification")
+                    self.assertIn("no unique same-host", locator["reason"])
+                    self.assertIsNone(locator["source_record"])
+                    self.assertEqual(len(requests), 2)
+
     def test_current_doaj_springer_link_uses_verified_journal_pattern(self):
         guideline = "https://link.springer.com/journal/607/submission-guidelines"
         requests = []
