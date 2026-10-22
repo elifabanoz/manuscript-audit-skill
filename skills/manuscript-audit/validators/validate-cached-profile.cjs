@@ -116,8 +116,7 @@ function validateCachedProfile(run, ttlDays = 30, now = Date.now()) {
   if (retrieved > now + 5 * 60 * 1000 || now - retrieved > ttlDays * 86400000) {
     throw new Error('Cached profile is not reusable:\nAt least one source is outside the cache TTL');
   }
-  const { comparison_record, comparison_sha256, ...rest } = agreement;
-  return { ...rest, ttl_days: ttlDays };
+  return { ...agreement, ttl_days: ttlDays };
 }
 
 if (require.main === module) {

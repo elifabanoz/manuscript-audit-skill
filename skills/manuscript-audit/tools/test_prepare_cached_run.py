@@ -80,7 +80,29 @@ class CachedRunTests(unittest.TestCase):
         reuse = json.loads((run / "profile-reuse.json").read_text(encoding="utf-8"))
         self.assertEqual(reuse["source_run"], str(self.original))
         self.assertEqual(reuse["selected_issn"], "1234-567X")
+        self.assertRegex(reuse["comparison_record"], r"^profile-comparison-v2-[a-f0-9-]+\.json$")
+        self.assertRegex(reuse["comparison_sha256"], r"^[a-f0-9]{64}$")
+        self.assertNotIn("adjudication_record", reuse)
         self.assertIsNone(reuse["live_verification"])
+
+    def test_reuses_adjudicated_profile_with_pinned_decision_provenance(self):
+        second_path = self.original / "profile-b.json"
+        second = json.loads(second_path.read_text(encoding="utf-8"))
+        second["rules"][0]["requirement"] = "Provide a data statement."
+        second_path.write_text(json.dumps(second) + "\n", encoding="utf-8")
+        decisions = {"schema_version": 1, "resolutions": {
+            "rules.data_statement": {"choice": "first", "reason": "The pinned source requires a data statement."}
+        }}
+        (self.original / "decisions.json").write_text(json.dumps(decisions) + "\n", encoding="utf-8")
+        script = Path(__file__).resolve().parents[1] / "validators" / "adjudicate-profiles.cjs"
+        subprocess.run(["node", str(script), str(self.original), "profile-a.json", "profile-b.json",
+                        "decisions.json"], capture_output=True, text=True, check=True)
+        run = prepare_cached(self.args)
+        reuse = json.loads((run / "profile-reuse.json").read_text(encoding="utf-8"))
+        self.assertRegex(reuse["comparison_sha256"], r"^[a-f0-9]{64}$")
+        self.assertRegex(reuse["adjudication_record"], r"^profile-adjudication-v1-[a-f0-9-]+\.json$")
+        self.assertEqual(reuse["adjudication_sha256"], hashlib.sha256(
+            (self.original / reuse["adjudication_record"]).read_bytes()).hexdigest())
 
     def test_live_verification_accepts_identical_current_guidelines(self):
         self.compare()

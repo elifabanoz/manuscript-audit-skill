@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare a private run from a fresh, independently compared journal profile."""
+"""Prepare a private run from a fresh, reconciled journal profile."""
 
 import argparse
 import hashlib
@@ -58,7 +58,7 @@ def find_cached_source(cache_root, issn, ttl_days):
             if approval.get("issn") == issn:
                 matches.append((run, approval))
     if not matches:
-        raise ValueError("No fresh, independently agreed cached profile matches the selected ISSN")
+        raise ValueError("No fresh, reconciled cached profile matches the selected ISSN")
     if len({approval["profile_sha256"] for _, approval in matches}) != 1:
         raise ValueError("Multiple different fresh profiles match the ISSN; select --source-run explicitly")
     return max(matches, key=lambda item: (item[1]["oldest_source_retrieved_at"], str(item[0])))[0]
@@ -140,16 +140,21 @@ def prepare_cached(args, opener=urlopen):
              "source_run": str(source_run), "selected_issn": profile["issn"],
              "source_manifest_sha256": approval["manifest_sha256"],
              "profile_sha256": approval["profile_sha256"],
+             "comparison_record": approval["comparison_record"],
+             "comparison_sha256": approval["comparison_sha256"],
              "oldest_source_retrieved_at": approval["oldest_source_retrieved_at"],
              "ttl_days": approval["ttl_days"], "live_verification": live_verification}
+    if "adjudication_record" in approval:
+        reuse["adjudication_record"] = approval["adjudication_record"]
+        reuse["adjudication_sha256"] = approval["adjudication_sha256"]
     (run / "profile-reuse.json").write_text(json.dumps(reuse, indent=2) + "\n", encoding="utf-8")
     return run
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source-run", type=Path, help="Private run containing two agreed profile drafts")
-    parser.add_argument("--cache-root", type=Path, help="Private run root to search for an agreed profile")
+    parser.add_argument("--source-run", type=Path, help="Private run containing a reconciled profile")
+    parser.add_argument("--cache-root", type=Path, help="Private run root to search for a reconciled profile")
     parser.add_argument("--issn", help="Selected ISSN when searching --cache-root")
     parser.add_argument("--manuscript", required=True, type=Path)
     parser.add_argument("--extraction-record", type=Path)
