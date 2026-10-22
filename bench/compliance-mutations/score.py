@@ -265,15 +265,18 @@ def load_case(case, freeze, schema_version):
     final = read_json(findings_path)
     if not isinstance(raw, list) or not all(isinstance(item, dict) for item in raw):
         raise ValueError(f"{case['case_id']}: raw_findings must be an array of objects")
-    known = scored
-    raw_rules = set()
+    known = set(applicable) if schema_version >= 5 else scored
+    all_raw_rules = set()
     for item in raw:
         if item.get("category") != "compliance" or item.get("rule_id") not in known:
             raise ValueError(f"{case['case_id']}: raw candidate must name a known compliance rule")
-        raw_rules.add(item["rule_id"])
-    final_rules = {item["rule_id"] for item in final if item["category"] == "compliance" and item["verdict"] == "confirmed"}
-    if not final_rules.issubset(raw_rules):
+        all_raw_rules.add(item["rule_id"])
+    all_final_rules = {item["rule_id"] for item in final
+                       if item["category"] == "compliance" and item["verdict"] == "confirmed"}
+    if not all_final_rules.issubset(all_raw_rules):
         raise ValueError(f"{case['case_id']}: validated findings include rules absent from raw candidates")
+    raw_rules = all_raw_rules & scored
+    final_rules = all_final_rules & scored
     quote_audit = audit_quotes(run, manifest, raw, final, case["case_id"]) if schema_version >= 4 else None
     if case["kind"] == "mutation" and (not isinstance(case["expected_rule_id"], str)
                                        or case["expected_rule_id"] not in known):
@@ -301,6 +304,8 @@ def load_case(case, freeze, schema_version):
         **({"scope_exclusions": scope_exclusions} if schema_version >= 5 else {}),
         "raw_rules": raw_rules,
         "final_rules": final_rules,
+        **({"out_of_scope_raw_rules": all_raw_rules - scored,
+            "out_of_scope_final_rules": all_final_rules - scored} if schema_version >= 5 else {}),
         "input_sha256": input_hashes,
         **({"quote_audit": quote_audit} if quote_audit is not None else {}),
     }
@@ -409,6 +414,11 @@ def score(benchmark):
             row["quote_audit"] = item["quote_audit"]
         if schema_version >= 5:
             row["scope_exclusions"] = item["scope_exclusions"]
+            row["out_of_scope_raw_rule_ids"] = sorted(item["out_of_scope_raw_rules"])
+            row["out_of_scope_validated_rule_ids"] = sorted(item["out_of_scope_final_rules"])
+            if item["kind"] == "mutation":
+                row["off_target_raw_rule_ids"] = sorted(item["raw_rules"] - {target})
+                row["off_target_validated_rule_ids"] = sorted(item["final_rules"] - {target})
         rows.append(row)
     def rate(numerator, denominator):
         return numerator / denominator
@@ -429,6 +439,17 @@ def score(benchmark):
         "validation_false_positive_rate_reduction": rate(raw_false_alarms - validated_false_alarms, len(controls)),
         "cases": rows,
     }
+    if schema_version >= 5:
+        mutation_rows = [row for row in rows if row["kind"] == "mutation"]
+        result["mutations"].update({
+            "off_target_raw_cases": sum(bool(row["off_target_raw_rule_ids"]) for row in mutation_rows),
+            "off_target_validated_cases": sum(bool(row["off_target_validated_rule_ids"])
+                                               for row in mutation_rows),
+            "off_target_raw_rule_flags": sum(len(row["off_target_raw_rule_ids"])
+                                              for row in mutation_rows),
+            "off_target_validated_rule_flags": sum(len(row["off_target_validated_rule_ids"])
+                                                    for row in mutation_rows),
+        })
     if schema_version >= 2:
         by_class = {}
         for mutation_class in sorted({item["mutation_class"] for item in mutations}):
@@ -453,6 +474,17 @@ def score(benchmark):
                 "validation_false_positive_rate_reduction": rate(
                     class_raw_false_alarms - class_validated_false_alarms, len(class_controls)),
             }
+            if schema_version >= 5:
+                by_class[mutation_class]["mutations"].update({
+                    "off_target_raw_cases": sum(bool(row["off_target_raw_rule_ids"])
+                                                for row in class_mutations),
+                    "off_target_validated_cases": sum(bool(row["off_target_validated_rule_ids"])
+                                                      for row in class_mutations),
+                    "off_target_raw_rule_flags": sum(len(row["off_target_raw_rule_ids"])
+                                                   for row in class_mutations),
+                    "off_target_validated_rule_flags": sum(len(row["off_target_validated_rule_ids"])
+                                                         for row in class_mutations),
+                })
         result["by_mutation_class"] = by_class
     if schema_version >= 4:
         raw_quotes = sum(row["quote_audit"]["raw_quotes"] for row in rows)

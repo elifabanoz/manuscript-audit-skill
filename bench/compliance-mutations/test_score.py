@@ -453,6 +453,30 @@ class ComplianceMutationScoreTests(unittest.TestCase):
         reviewed_exclusion = score({"schema_version": 5, "data_freeze": "2026-10-19", "cases": cases})
         self.assertEqual(reviewed_exclusion["cases"][0]["excluded_rule_ids"], ["ethics_statement"])
         self.assertEqual(reviewed_exclusion["mutations"]["validated_recall"], 0)
+        source_ref = next(iter(mutation_manifest["sources"]))
+        (mutation / "raw-findings.json").write_text(json.dumps([{
+            "category": "compliance", "rule_id": "ethics_statement",
+            "evidence": [{"type": "guideline", "source_ref": source_ref,
+                          "quote": "An ethics statement is required."}],
+        }]), encoding="utf-8")
+        excluded_candidate = score({"schema_version": 5, "data_freeze": "2026-10-19", "cases": cases})
+        self.assertEqual(excluded_candidate["cases"][1]["out_of_scope_raw_rule_ids"], ["ethics_statement"])
+        self.assertEqual(excluded_candidate["cases"][1]["off_target_raw_rule_ids"], [])
+        self.assertEqual(excluded_candidate["mutations"]["off_target_raw_cases"], 0)
+        self.assertEqual(excluded_candidate["quote_audit"]["raw_quotes"], 1)
+        for run in (control, mutation):
+            scope_path = run / "scope-review.json"
+            scope = json.loads(scope_path.read_text(encoding="utf-8"))
+            scope["rules"][1]["decision"] = "score"
+            scope["rules"][1]["reason"] = "This invented test explicitly scores the second rule."
+            scope_path.write_text(json.dumps(scope), encoding="utf-8")
+        off_target = score({"schema_version": 5, "data_freeze": "2026-10-19", "cases": cases})
+        self.assertEqual(off_target["mutations"]["raw_recall"], 0)
+        self.assertEqual(off_target["mutations"]["off_target_raw_cases"], 1)
+        self.assertEqual(off_target["mutations"]["off_target_raw_rule_flags"], 1)
+        self.assertEqual(off_target["mutations"]["off_target_validated_rule_flags"], 0)
+        self.assertEqual(off_target["cases"][1]["off_target_raw_rule_ids"], ["ethics_statement"])
+        self.assertEqual(off_target["by_mutation_class"]["semantic"]["mutations"]["off_target_raw_cases"], 1)
         changed = json.loads((control / "scope-review.json").read_text(encoding="utf-8"))
         changed["manifest_sha256"] = "0" * 64
         (control / "scope-review.json").write_text(json.dumps(changed), encoding="utf-8")
