@@ -42,9 +42,9 @@ def data_freeze(value):
     return value
 
 
-def read_text(path, flag):
-    if path.suffix.lower() not in (".md", ".txt"):
-        raise ValueError(f"{flag} must be a .md or .txt file")
+def read_text(path, flag, suffixes=(".md", ".txt")):
+    if path.suffix.lower() not in suffixes:
+        raise ValueError(f"{flag} must be a {' or '.join(suffixes)} file")
     data = path.read_bytes()
     if not data or not data.decode("utf-8-sig").strip():
         raise ValueError(f"{flag} must contain UTF-8 text")
@@ -101,7 +101,8 @@ def prepare(args):
             raise ValueError("Supply --source-record or all manual guideline fields")
         sources.append((args.guideline_url, args.retrieved_at,
                         read_text(args.guideline_text, "--guideline-text")))
-    supplementary = [(path.suffix.lower(), read_text(path, "--supplementary")) for path in args.supplementary]
+    supplementary = [(path.suffix.lower(), read_text(path, "--supplementary", (".md", ".txt", ".bib")))
+                     for path in args.supplementary]
     if any(not model.strip() for model in args.model):
         raise ValueError("--model must be nonempty when supplied")
     skill = SKILL_FILE.read_bytes()
@@ -177,7 +178,7 @@ def main():
     parser.add_argument("--manuscript", type=Path, required=True)
     parser.add_argument("--extraction-record", type=Path, help="Private extraction.json written by a converter")
     parser.add_argument("--guideline-text", type=Path)
-    parser.add_argument("--supplementary", type=Path, action="append", default=[], help="Additional UTF-8 .md or .txt file; repeat if needed")
+    parser.add_argument("--supplementary", type=Path, action="append", default=[], help="Additional UTF-8 .md, .txt, or .bib file; repeat if needed")
     parser.add_argument("--guideline-url")
     parser.add_argument("--retrieved-at", help="ISO 8601 time with timezone")
     parser.add_argument("--source-record", type=Path, action="append", help="Private source.json written by fetch_guidelines.py; repeat for each guideline page")

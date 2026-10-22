@@ -45,6 +45,17 @@ class PrepareRunTests(unittest.TestCase):
         self.assertEqual((first / manifest["supplementary"][0]["path"]).read_bytes(), supplement.read_bytes())
         self.assertEqual(prepare(self.args).name, "run-2")
 
+    def test_bibtex_supplement_is_hashed_and_kept_private(self):
+        bibliography = self.root / "paper.bib"
+        bibliography.write_text("@article{example, doi={10.1234/example}}\n", encoding="utf-8")
+        self.args.supplementary = [bibliography]
+        run = prepare(self.args)
+        manifest = json.loads((run / "run-manifest.json").read_text(encoding="utf-8"))
+        record = manifest["supplementary"][0]
+        self.assertEqual(record["path"], "supplementary/supp-1.bib")
+        self.assertEqual(record["sha256"], hashlib.sha256(bibliography.read_bytes()).hexdigest())
+        self.assertEqual((run / record["path"]).read_bytes(), bibliography.read_bytes())
+
     def test_rejects_output_inside_git_checkout(self):
         (self.root / ".git").mkdir()
         with self.assertRaisesRegex(ValueError, "outside a Git checkout"):
