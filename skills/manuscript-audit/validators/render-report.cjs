@@ -7,6 +7,10 @@ const { validate } = require('./validate-run.cjs');
 
 const SEVERITY = { desk_reject: 0, major: 1, minor: 2, note: 3 };
 
+function openCoverageMessage(pending, stale) {
+  return pending || stale ? 'No confirmed findings recorded; coverage remains incomplete.' : 'None.';
+}
+
 function escapeMarkdown(value) {
   return String(value).replace(/\r?\n/g, ' ').replace(/[\x00-\x1f]/g, ' ')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -73,7 +77,7 @@ function render(run, replace = false) {
     '## Confirmed findings',
     ''
   );
-  if (!confirmed.length) report.push('None.', '');
+  if (!confirmed.length) report.push(openCoverageMessage(pending, stale), '');
   for (const finding of confirmed) {
     report.push(`### ${escapeMarkdown(finding.id)} — ${escapeMarkdown(finding.severity)}`, '', escapeMarkdown(finding.claim), '');
     if (finding.rule_id) report.push(`Rule: ${escapeMarkdown(finding.rule_id)}`, '');
@@ -97,7 +101,10 @@ function render(run, replace = false) {
   for (const rule of unverifiedRules) report.push(`- ${escapeMarkdown(rule.rule_id)} (source ${escapeMarkdown(rule.source_ref)})`);
   if (unverifiedRules.length) report.push('');
   const pendingReport = ['# Needs validation', '', `Journal: ${escapeMarkdown(profile.title)} (${escapeMarkdown(profile.issn)})`, ''];
-  if (!unresolved.length) pendingReport.push('None.', '');
+  if (!unresolved.length) pendingReport.push(
+    pending || stale || unverifiedRules.length
+      ? 'No unresolved findings recorded. Coverage or journal rules still need review.'
+      : 'None.', '');
   for (const finding of unresolved) {
     pendingReport.push(`## ${escapeMarkdown(finding.id)}`, '', escapeMarkdown(finding.claim), '', `Unresolved: ${escapeMarkdown(finding.unresolved_fact)}`, '');
   }
@@ -111,13 +118,13 @@ function render(run, replace = false) {
     '## Confirmed revision tasks',
     ''
   ];
-  if (!confirmed.length) revisionPlan.push('None.', '');
+  if (!confirmed.length) revisionPlan.push(openCoverageMessage(pending, stale), '');
   for (const [index, finding] of confirmed.entries()) {
     revisionPlan.push(`${index + 1}. ${escapeMarkdown(finding.id)} (${escapeMarkdown(finding.severity)}): ${escapeMarkdown(finding.claim)}`);
     if (finding.suggested_fix) revisionPlan.push(`   Suggested change: ${escapeMarkdown(finding.suggested_fix)}`);
   }
   if (confirmed.length) revisionPlan.push('');
-  revisionPlan.push('## Pending review', '', `${unresolved.length} unresolved finding(s). See NEEDS-VALIDATION.md before treating them as revision tasks.`, '');
+  revisionPlan.push('## Pending review', '', `${unresolved.length} unresolved finding(s); ${pending + stale} coverage unit(s) open. See NEEDS-VALIDATION.md before treating them as revision tasks.`, '');
   const outputs = [
     [path.join(run, 'REPORT.md'), report.join('\n') + '\n'],
     [path.join(run, 'NEEDS-VALIDATION.md'), pendingReport.join('\n') + '\n'],

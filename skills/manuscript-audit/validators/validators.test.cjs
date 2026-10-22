@@ -743,6 +743,11 @@ test('report quotes a verified journal AI policy with its source', t => {
   render(data.run);
   const report = fs.readFileSync(path.join(data.run, 'REPORT.md'), 'utf8');
   assert.match(report, /Journal AI policy/);
+  assert.match(report, /No confirmed findings recorded; coverage remains incomplete/);
+  const pendingReport = fs.readFileSync(path.join(data.run, 'NEEDS-VALIDATION.md'), 'utf8');
+  assert.match(pendingReport, /Coverage or journal rules still need review/);
+  const plan = fs.readFileSync(path.join(data.run, 'REVISION-PLAN.md'), 'utf8');
+  assert.match(plan, /1 coverage unit\(s\) open/);
   assert.match(report, /Disclose AI\\-assisted writing\\\./);
   assert.match(report, /https:\/\/example\\\.invalid\/guidelines/);
 });
