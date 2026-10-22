@@ -2,10 +2,12 @@
 
 import unittest
 from email.message import Message
+from unittest.mock import patch
 from urllib.error import HTTPError, URLError
+from urllib.parse import parse_qs, urlsplit
 from urllib.request import Request
 
-from http_client import PublicRedirect, read_response
+from http_client import PublicRedirect, crossref_url, read_response
 
 
 class Response:
@@ -28,6 +30,21 @@ class Response:
 
 
 class HttpClientTests(unittest.TestCase):
+    def test_crossref_contact_is_optional_and_host_scoped(self):
+        url = "https://api.crossref.org/works/10.1234/example?select=DOI"
+        with patch.dict("os.environ", {"CROSSREF_CONTACT_EMAIL": ""}):
+            self.assertEqual(crossref_url(url), url)
+        with patch.dict("os.environ", {"CROSSREF_CONTACT_EMAIL": "author+api@example.org"}):
+            params = parse_qs(urlsplit(crossref_url(url)).query)
+            self.assertEqual(params, {"select": ["DOI"], "mailto": ["author+api@example.org"]})
+            with self.assertRaisesRegex(ValueError, "official HTTPS API host"):
+                crossref_url("https://other.example/works")
+            with self.assertRaisesRegex(ValueError, "already contains"):
+                crossref_url(url + "&mailto=other@example.org")
+        with patch.dict("os.environ", {"CROSSREF_CONTACT_EMAIL": "bad\r\nHeader: value"}):
+            with self.assertRaisesRegex(ValueError, "valid email address"):
+                crossref_url(url)
+
     def test_retries_temporary_status_with_bounded_retry_after(self):
         request = Request("https://api.example.org/records")
         calls = []

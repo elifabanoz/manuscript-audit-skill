@@ -15,7 +15,7 @@ from urllib.parse import quote, urlencode, urlsplit
 from urllib.request import Request, urlopen
 
 from fetch_guidelines import https_url
-from http_client import read_response
+from http_client import crossref_url, read_response
 from prepare_run import outside_git
 
 
@@ -61,6 +61,8 @@ def shortlist(payload, limit):
 
 
 def fetch_json(url, opener, provider="OpenAlex"):
+    if provider == "Crossref":
+        url = crossref_url(url)
     request = Request(url, headers={"User-Agent": "manuscript-audit-skill/0.1", "Accept": "application/json"})
     api_key = os.environ.get("OPENALEX_API_KEY") if provider == "OpenAlex" else None
     if api_key:

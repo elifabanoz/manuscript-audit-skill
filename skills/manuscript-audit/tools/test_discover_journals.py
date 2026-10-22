@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import parse_qs, unquote, urlsplit
 
-from discover_journals import discover, merge_web, shortlist
+from discover_journals import discover, fetch_json, merge_web, shortlist
 
 
 def work(number, source_id, name, kind="journal", issn_l="1234-567X"):
@@ -31,6 +31,19 @@ class Response:
 
 
 class DiscoveryTests(unittest.TestCase):
+    def test_crossref_contact_does_not_change_openalex_requests(self):
+        requests = []
+
+        def opener(request, timeout):
+            requests.append(request.full_url)
+            return Response(b"{}")
+
+        with patch.dict("os.environ", {"CROSSREF_CONTACT_EMAIL": "author@example.org"}):
+            fetch_json("https://api.openalex.org/sources/S1", opener)
+            fetch_json("https://api.crossref.org/journals/1234-567X", opener, "Crossref")
+        self.assertNotIn("mailto", requests[0])
+        self.assertEqual(parse_qs(urlsplit(requests[1]).query)["mailto"], ["author@example.org"])
+
     def test_ranks_journals_and_deduplicates_work_ids(self):
         payload = {"results": [work(1, 10, "Beta"), work(1, 10, "Beta"),
                                work(2, 10, "Beta"), work(3, 20, "Alpha"),

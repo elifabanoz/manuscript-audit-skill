@@ -7,6 +7,8 @@ import unittest
 from io import BytesIO
 from pathlib import Path
 from urllib.error import HTTPError
+from urllib.parse import parse_qs, urlsplit
+from unittest.mock import patch
 
 from check_dois import check
 from list_dois import inventory
@@ -68,6 +70,19 @@ class DoiMetadataTests(unittest.TestCase):
         self.assertNotIn("# References", (self.run / "doi-metadata.json").read_text(encoding="utf-8"))
         with self.assertRaises(FileExistsError):
             check(self.run, allow_network=True, opener=fake_open, pause=lambda _: None)
+
+    def test_contact_address_is_sent_only_in_the_request(self):
+        requests = []
+
+        def fake_open(request, timeout):
+            requests.append(request.full_url)
+            return BytesIO(json.dumps({"message": {"DOI": request.full_url.split("/works/")[1].split("?")[0]}}).encode())
+
+        with patch.dict("os.environ", {"CROSSREF_CONTACT_EMAIL": "author@example.org"}):
+            check(self.run, allow_network=True, opener=fake_open, pause=lambda _: None)
+        self.assertEqual(len(requests), 2)
+        self.assertTrue(all(parse_qs(urlsplit(url).query)["mailto"] == ["author@example.org"] for url in requests))
+        self.assertNotIn("author@example.org", (self.run / "doi-metadata.json").read_text(encoding="utf-8"))
 
     def test_rejects_stale_inventory_before_network(self):
         path = self.run / "doi-inventory.json"

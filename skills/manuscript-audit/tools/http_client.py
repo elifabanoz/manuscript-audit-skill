@@ -1,13 +1,16 @@
 """Bound public GET responses and retry temporary provider failures."""
 
+import os
+import re
 import time
 from dataclasses import dataclass
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from urllib.request import HTTPRedirectHandler, build_opener, urlopen
 
 
 RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+CONTACT_EMAIL = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
 
 
 @dataclass(frozen=True)
@@ -15,6 +18,23 @@ class ResponseBytes:
     body: bytes
     url: str
     headers: object
+
+
+def crossref_url(url):
+    """Add an optional private contact address to a Crossref API request."""
+    parsed = urlsplit(url)
+    if not same_public_host(url, "api.crossref.org"):
+        raise ValueError("Crossref URL must use the official HTTPS API host")
+    email = os.environ.get("CROSSREF_CONTACT_EMAIL")
+    if not email:
+        return url
+    if len(email) > 254 or not CONTACT_EMAIL.fullmatch(email):
+        raise ValueError("CROSSREF_CONTACT_EMAIL must be a valid email address")
+    query = parse_qsl(parsed.query, keep_blank_values=True)
+    if any(key == "mailto" for key, _ in query):
+        raise ValueError("Crossref URL already contains a contact address")
+    query.append(("mailto", email))
+    return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urlencode(query), parsed.fragment))
 
 
 def retry_delay(error, attempt):

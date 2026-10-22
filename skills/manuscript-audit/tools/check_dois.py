@@ -11,7 +11,7 @@ from urllib.error import HTTPError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
-from http_client import read_response
+from http_client import crossref_url, read_response
 from list_dois import collect
 
 
@@ -40,7 +40,7 @@ def first_author_family(message):
 
 
 def lookup_one(doi, opener):
-    url = "https://api.crossref.org/works/" + quote(doi, safe="/")
+    url = crossref_url("https://api.crossref.org/works/" + quote(doi, safe="/"))
     request = Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
     try:
         raw = read_response(request, opener, timeout=10, max_bytes=2_000_000).body
