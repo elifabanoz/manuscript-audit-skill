@@ -15,7 +15,7 @@ const { validate: validateManifest } = require('./validate-run-manifest.cjs');
 const { corpusHash, coverageSubjectHash, reviewSubjectHash, validate: validateRun } = require('./validate-run.cjs');
 const { escapeMarkdown, render } = require('./render-report.cjs');
 const { compare } = require('./compare-runs.cjs');
-const { compare: compareProfiles } = require('./compare-profiles.cjs');
+const { compare: compareProfiles, validateDraft } = require('./compare-profiles.cjs');
 const { adjudicate } = require('./adjudicate-profiles.cjs');
 
 test('the 20 public profile fixtures retain valid source identities', () => {
@@ -150,6 +150,26 @@ test('valid records and local quotes pass', t => {
   assert.deepEqual(validateLedger(data.ledger), []);
   assert.deepEqual(validateFindings(data.findings, data.profile), []);
   assert.deepEqual(verify(data.run, data.profile, data.findings), []);
+});
+
+test('a profile draft is checked against its private run before comparison', t => {
+  const { run, profile } = fixture(t);
+  fs.writeFileSync(path.join(run, 'run-manifest.json'), JSON.stringify(manifestFor({ run, profile })));
+  fs.writeFileSync(path.join(run, 'profile-a.json'), JSON.stringify(profile));
+  assert.deepEqual(validateDraft(run, 'profile-a.json').profile, profile);
+  assert.equal(fs.readdirSync(run).some(file => file.startsWith('profile-comparison-')), false);
+  assert.equal(fs.existsSync(path.join(run, 'journal-profile.json')), false);
+
+  const badQuote = structuredClone(profile);
+  badQuote.rules[0].quote = 'An invented requirement';
+  fs.writeFileSync(path.join(run, 'bad-quote.json'), JSON.stringify(badQuote));
+  assert.throws(() => validateDraft(run, 'bad-quote.json'), /quote is not in source/);
+
+  const badSource = structuredClone(profile);
+  badSource.sources.src_guideline.url = 'https://elsewhere.invalid/guidelines';
+  fs.writeFileSync(path.join(run, 'bad-source.json'), JSON.stringify(badSource));
+  assert.throws(() => validateDraft(run, 'bad-source.json'), /sources differ from the run manifest/);
+  assert.throws(() => validateDraft(run, '../profile-a.json'), /path must not contain traversal/);
 });
 
 test('independent profiles promote only after source-backed agreement', t => {

@@ -56,6 +56,26 @@ function partialProfile(first, second, disagreements) {
   return profile;
 }
 
+function validateDraftContent(run, file, manifest) {
+  const bytes = fs.readFileSync(file);
+  const profile = JSON.parse(bytes.toString('utf8'));
+  const errors = validateProfile(profile);
+  if (errors.length) throw new Error([...new Set(errors)].join('\n'));
+  errors.push(...verify(run, profile, []));
+  if (canonical(profile.sources) !== canonical(manifest.sources)) errors.push('sources differ from the run manifest');
+  if (errors.length) throw new Error([...new Set(errors)].join('\n'));
+  return { bytes, profile };
+}
+
+function validateDraft(run, draftPath) {
+  run = path.resolve(run);
+  outsideGit(run);
+  const manifest = readJson(path.join(run, 'run-manifest.json'));
+  const manifestErrors = validateManifest(run, manifest);
+  if (manifestErrors.length) throw new Error(`Invalid manifest:\n${manifestErrors.join('\n')}`);
+  return validateDraftContent(run, safeFile(run, draftPath), manifest);
+}
+
 function compare(run, firstPath, secondPath, promote = false) {
   run = path.resolve(run);
   outsideGit(run);
@@ -65,13 +85,12 @@ function compare(run, firstPath, secondPath, promote = false) {
   if (manifestErrors.length) throw new Error(`Invalid manifest:\n${manifestErrors.join('\n')}`);
   const files = [safeFile(run, firstPath), safeFile(run, secondPath)];
   if (files[0] === files[1]) throw new Error('Profiles resolve to the same file');
-  const bytes = files.map(file => fs.readFileSync(file));
-  const profiles = bytes.map(raw => JSON.parse(raw.toString('utf8')));
-  for (const [index, profile] of profiles.entries()) {
-    const errors = [...validateProfile(profile), ...verify(run, profile, [])];
-    if (canonical(profile.sources) !== canonical(manifest.sources)) errors.push('sources differ from the run manifest');
-    if (errors.length) throw new Error(`Invalid profile ${index + 1}:\n${[...new Set(errors)].join('\n')}`);
-  }
+  const drafts = files.map((file, index) => {
+    try { return validateDraftContent(run, file, manifest); }
+    catch (error) { throw new Error(`Invalid profile ${index + 1}:\n${error.message}`); }
+  });
+  const bytes = drafts.map(draft => draft.bytes);
+  const profiles = drafts.map(draft => draft.profile);
   const hashes = bytes.map(raw => crypto.createHash('sha256').update(raw).digest('hex'));
   const disagreements = differences(...profiles);
   const record = {
@@ -118,4 +137,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { compare, differences };
+module.exports = { compare, differences, validateDraft };
