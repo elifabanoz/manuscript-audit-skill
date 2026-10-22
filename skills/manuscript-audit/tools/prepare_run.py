@@ -68,10 +68,10 @@ def prepare(args):
     if extraction_path:
         extraction_bytes = extraction_path.read_bytes()
         extraction = json.loads(extraction_bytes)
-        if not isinstance(extraction, dict) or extraction.get("schema_version") != 1 or extraction.get("format") not in ("docx", "pdf"):
+        if not isinstance(extraction, dict) or extraction.get("schema_version") != 1 or extraction.get("format") not in ("docx", "pdf", "tex"):
             raise ValueError("--extraction-record has an invalid format")
-        expected_key = "markdown_sha256" if extraction["format"] == "docx" else "text_sha256"
-        expected_name = "manuscript.md" if extraction["format"] == "docx" else "manuscript.txt"
+        expected_key = "markdown_sha256" if extraction["format"] in ("docx", "tex") else "text_sha256"
+        expected_name = "manuscript.md" if extraction["format"] in ("docx", "tex") else "manuscript.txt"
         if args.manuscript.resolve() != (extraction_path.parent / expected_name).resolve():
             raise ValueError("--manuscript must be the extracted file beside --extraction-record")
         if extraction.get(expected_key) != digest(manuscript):

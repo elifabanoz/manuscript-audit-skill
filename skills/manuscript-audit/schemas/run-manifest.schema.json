@@ -24,7 +24,7 @@
       "additionalProperties": false,
       "required": ["format", "source_sha256", "path", "sha256"],
       "properties": {
-        "format": { "enum": ["docx", "pdf"] },
+        "format": { "enum": ["docx", "pdf", "tex"] },
         "source_sha256": { "$ref": "#/$defs/sha256" },
         "path": { "type": "string", "minLength": 1 },
         "sha256": { "$ref": "#/$defs/sha256" }

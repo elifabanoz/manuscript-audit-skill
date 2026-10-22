@@ -52,12 +52,12 @@ function validate(run, manifest) {
   if (manifest.extraction !== undefined) {
     const record = manifest.extraction;
     if (allowedKeys(record, ['format', 'source_sha256', 'path', 'sha256'], 'manifest.extraction', errors)) {
-      if (!['docx', 'pdf'].includes(record.format)) errors.push('manifest.extraction.format is invalid');
+      if (!['docx', 'pdf', 'tex'].includes(record.format)) errors.push('manifest.extraction.format is invalid');
       if (typeof record.source_sha256 !== 'string' || !SHA256.test(record.source_sha256)) errors.push('manifest.extraction.source_sha256 must be a SHA-256 hex digest');
       checkCachedFile(run, { path: record.path, sha256: record.sha256 }, 'manifest.extraction', errors);
       try {
         const details = readJson(safeFile(run, record.path));
-        const textHash = record.format === 'docx' ? details.markdown_sha256 : details.text_sha256;
+        const textHash = ['docx', 'tex'].includes(record.format) ? details.markdown_sha256 : details.text_sha256;
         if (details.schema_version !== 1 || details.format !== record.format || details.source_sha256 !== record.source_sha256 || textHash !== manifest.manuscript?.sha256) {
           errors.push('manifest.extraction does not match the copied manuscript and extraction record');
         }
