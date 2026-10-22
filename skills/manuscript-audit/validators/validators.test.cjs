@@ -16,6 +16,7 @@ const { corpusHash, coverageSubjectHash, reviewSubjectHash, validate: validateRu
 const { escapeMarkdown, render } = require('./render-report.cjs');
 const { compare } = require('./compare-runs.cjs');
 const { compare: compareProfiles, validateDraft } = require('./compare-profiles.cjs');
+const { validateAgreedProfile } = require('./validate-cached-profile.cjs');
 const { adjudicate } = require('./adjudicate-profiles.cjs');
 
 test('the 20 public profile fixtures retain valid source identities', () => {
@@ -177,11 +178,19 @@ test('independent profiles promote only after source-backed agreement', t => {
   fs.writeFileSync(path.join(run, 'run-manifest.json'), JSON.stringify(manifestFor({ run, profile })));
   fs.writeFileSync(path.join(run, 'profile-a.json'), JSON.stringify(profile));
   fs.writeFileSync(path.join(run, 'profile-b.json'), JSON.stringify({ ...profile, rules: [...profile.rules].reverse() }));
+  assert.throws(() => validateAgreedProfile(run), /No promoted journal-profile.json/);
   const result = compareProfiles(run, 'profile-a.json', 'profile-b.json', true);
   assert.equal(result.status, 'agreed');
   assert.equal(result.promoted, true);
   assert.deepEqual(result.differing_fields, []);
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(run, 'journal-profile.json'))), profile);
+  const agreement = validateAgreedProfile(run);
+  assert.equal(agreement.profile_sha256,
+    crypto.createHash('sha256').update(fs.readFileSync(path.join(run, 'journal-profile.json'))).digest('hex'));
+  assert.match(agreement.comparison_record, /^profile-comparison-v2-[a-f0-9-]+\.json$/);
+  assert.match(agreement.comparison_sha256, /^[a-f0-9]{64}$/);
+  fs.appendFileSync(path.join(run, 'profile-b.json'), '\n');
+  assert.throws(() => validateAgreedProfile(run), /No current, agreed two-draft profile comparison/);
 });
 
 test('omitted rule status agrees with explicit verified status', t => {

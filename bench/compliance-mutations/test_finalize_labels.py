@@ -5,9 +5,10 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
-from finalize_labels import finalize, validate_labels
+from finalize_labels import finalize, validate_labels, verify_profile_agreements
 from prepare_label_review import make_json_template
 from score import sha256
 
@@ -38,6 +39,30 @@ def complete(template):
 
 
 class HumanLabelTests(unittest.TestCase):
+    def test_human_rates_require_an_agreed_profile_matching_scored_inputs(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            run = Path(temporary)
+            benchmark = {"cases": [{"case_id": "control-1", "kind": "control", "run": str(run)}]}
+            scored = {"cases": [{"case_id": "control-1", "kind": "control",
+                                  "input_sha256": {"manifest": "a" * 64, "profile": "b" * 64}}]}
+            record = {"issn": "1234-567X", "manifest_sha256": "a" * 64,
+                      "profile_sha256": "b" * 64,
+                      "comparison_record": "profile-comparison-v2-aaaaaaaaaaaa-bbbbbbbbbbbb.json",
+                      "comparison_sha256": "c" * 64}
+            response = SimpleNamespace(returncode=0, stdout=json.dumps(record), stderr="")
+            with patch("finalize_labels.subprocess.run", return_value=response):
+                result = verify_profile_agreements(benchmark, scored)
+            self.assertEqual(result[0]["comparison_sha256"], "c" * 64)
+            with patch("finalize_labels.subprocess.run", return_value=SimpleNamespace(
+                    returncode=1, stdout="", stderr="No agreed comparison")):
+                with self.assertRaisesRegex(ValueError, "agreed profile is required"):
+                    verify_profile_agreements(benchmark, scored)
+            changed = {**record, "profile_sha256": "d" * 64}
+            with patch("finalize_labels.subprocess.run", return_value=SimpleNamespace(
+                    returncode=0, stdout=json.dumps(changed), stderr="")):
+                with self.assertRaisesRegex(ValueError, "differs from scored inputs"):
+                    verify_profile_agreements(benchmark, scored)
+
     def test_template_requires_two_filled_reviews_and_adjudication(self):
         with tempfile.TemporaryDirectory() as temporary:
             cases = Path(temporary) / "cases.json"
@@ -104,11 +129,13 @@ class HumanLabelTests(unittest.TestCase):
                 labels = complete(make_json_template(cases))
             labels_path = root / "human-labels.json"
             labels_path.write_text(json.dumps(labels), encoding="utf-8")
-            with patch("finalize_labels.score", return_value=SCORED):
+            with patch("finalize_labels.score", return_value=SCORED), patch(
+                    "finalize_labels.verify_profile_agreements", return_value=[{"control_case_id": "control-1"}]):
                 output = finalize(cases, labels_path)
                 result = json.loads(output.read_text(encoding="utf-8"))
                 self.assertEqual(result["human_review_status"], "approved")
                 self.assertEqual(result["human_labels_sha256"], sha256(labels_path))
+                self.assertEqual(result["profile_agreements"], [{"control_case_id": "control-1"}])
                 with self.assertRaises(FileExistsError):
                     finalize(cases, labels_path)
 

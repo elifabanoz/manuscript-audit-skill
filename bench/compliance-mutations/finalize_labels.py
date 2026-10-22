@@ -5,12 +5,14 @@ import argparse
 import hashlib
 import json
 import re
+import subprocess
 from datetime import date
 from pathlib import Path
 
 from score import MUTATION_CLASSES, outside_git, score, scored_inputs_sha256, sha256
 
 
+PROFILE_AGREEMENT_VALIDATOR = Path(__file__).resolve().parents[2] / "skills" / "manuscript-audit" / "validators" / "validate-profile-agreement.cjs"
 VERDICTS = {"compliant", "noncompliant", "unclear"}
 LABEL_KEYS = {"case_id", "rule_id", "verdict", "evidence_location", "rationale",
               "single_change", "mutation_class"}
@@ -110,6 +112,37 @@ def validate_labels(scored, labels, manifest_hash):
             "labels_checked": len(final), "disagreements": len(disagreements)}
 
 
+def verify_profile_agreements(benchmark, scored):
+    scored_controls = {row["case_id"]: row for row in scored["cases"] if row["kind"] == "control"}
+    agreements = []
+    for case in benchmark["cases"]:
+        if case["kind"] != "control":
+            continue
+        case_id = case["case_id"]
+        run = Path(case["run"]).resolve()
+        outside_git(run)
+        check = subprocess.run(["node", str(PROFILE_AGREEMENT_VALIDATOR), str(run)],
+                               capture_output=True, text=True)
+        if check.returncode:
+            raise ValueError(f"{case_id}: agreed profile is required: {check.stderr.strip()}")
+        record = json.loads(check.stdout)
+        inputs = scored_controls[case_id]["input_sha256"]
+        if (record.get("profile_sha256") != inputs["profile"]
+                or record.get("manifest_sha256") != inputs["manifest"]
+                or not isinstance(record.get("comparison_record"), str)
+                or not re.fullmatch(r"profile-comparison-v2-[a-f0-9-]+\.json", record["comparison_record"])
+                or not isinstance(record.get("comparison_sha256"), str)
+                or not re.fullmatch(r"[a-f0-9]{64}", record["comparison_sha256"])):
+            raise ValueError(f"{case_id}: agreed profile evidence differs from scored inputs")
+        agreements.append({"control_case_id": case_id, "issn": record["issn"],
+                           "profile_sha256": record["profile_sha256"],
+                           "comparison_record": record["comparison_record"],
+                           "comparison_sha256": record["comparison_sha256"]})
+    if len(agreements) != len(scored_controls):
+        raise ValueError("Profile agreement coverage differs from scored controls")
+    return agreements
+
+
 def finalize(cases_path, labels_path, output_path=None):
     outside_git(cases_path)
     outside_git(labels_path)
@@ -119,6 +152,7 @@ def finalize(cases_path, labels_path, output_path=None):
     scored = score(benchmark)
     if sha256(cases_path) != manifest_hash:
         raise ValueError("Benchmark manifest changed during human-label validation")
+    profile_agreements = verify_profile_agreements(benchmark, scored)
     labels_raw = labels_path.read_bytes()
     labels = json.loads(labels_raw)
     review = validate_labels(scored, labels, manifest_hash)
@@ -129,6 +163,7 @@ def finalize(cases_path, labels_path, output_path=None):
     outside_git(output)
     result = {**scored, "benchmark_manifest_sha256": manifest_hash,
               "scored_inputs_sha256": scored_inputs_sha256(scored),
+              "profile_agreements": profile_agreements,
               "human_review_status": "approved", "human_labels_sha256": labels_hash,
               "human_review": review}
     with output.open("x", encoding="utf-8") as handle:

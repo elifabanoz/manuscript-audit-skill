@@ -20,13 +20,13 @@ function canonical(value) {
   return JSON.stringify(value);
 }
 
-function validateCachedProfile(run, ttlDays = 30, now = Date.now()) {
-  if (!Number.isInteger(ttlDays) || ttlDays < 1 || ttlDays > 365) {
-    throw new Error('TTL must be an integer from 1 to 365 days');
-  }
+function validateAgreedProfile(run) {
   run = path.resolve(run);
   outsideGit(run);
   const manifest = readJson(path.join(run, 'run-manifest.json'));
+  if (!fs.existsSync(path.join(run, 'journal-profile.json'))) {
+    throw new Error('Profile agreement is not verified:\nNo promoted journal-profile.json exists in the control run');
+  }
   const profilePath = safeFile(run, 'journal-profile.json');
   const profileBytes = fs.readFileSync(profilePath);
   const profile = JSON.parse(profileBytes.toString('utf8'));
@@ -37,13 +37,13 @@ function validateCachedProfile(run, ttlDays = 30, now = Date.now()) {
   const retrieved = Object.values(manifest.sources || {}).map(source => Date.parse(source.retrieved_at));
   if (!retrieved.length || retrieved.some(value => !Number.isFinite(value))) {
     errors.push('Sources need valid retrieval times');
-  } else if (retrieved.some(value => value > now + 5 * 60 * 1000 || now - value > ttlDays * 86400000)) {
-    errors.push('At least one source is outside the cache TTL');
   }
-  let agreed = false;
-  for (const name of fs.readdirSync(run).filter(value => /^profile-comparison-v2-[a-f0-9-]+\.json$/.test(value))) {
+  let comparisonHash = null;
+  let comparisonName = null;
+  for (const name of fs.readdirSync(run).filter(value => /^profile-comparison-v2-[a-f0-9-]+\.json$/.test(value)).sort()) {
     try {
-      const record = readJson(safeFile(run, name));
+      const recordBytes = fs.readFileSync(safeFile(run, name));
+      const record = JSON.parse(recordBytes.toString('utf8'));
       if (record.schema_version !== 2 || record.status !== 'agreed'
           || !Array.isArray(record.profiles) || record.profiles.length !== 2
           || !Array.isArray(record.differing_fields) || record.differing_fields.length) continue;
@@ -56,18 +56,35 @@ function validateCachedProfile(run, ttlDays = 30, now = Date.now()) {
         return draft;
       });
       if (!differences(...drafts).length && canonical(drafts[0]) === canonical(profile)) {
-        agreed = true;
+        comparisonHash = hash(recordBytes);
+        comparisonName = name;
         break;
       }
     } catch {
       // A stale comparison cannot authorize cache reuse.
     }
   }
-  if (!agreed) errors.push('No current, agreed two-draft profile comparison authorizes reuse');
-  if (errors.length) throw new Error(`Cached profile is not reusable:\n${[...new Set(errors)].join('\n')}`);
+  if (!comparisonHash) errors.push('No current, agreed two-draft profile comparison authorizes reuse');
+  if (errors.length) throw new Error(`Profile agreement is not verified:\n${[...new Set(errors)].join('\n')}`);
   return { schema_version: 1, issn: profile.issn, profile_sha256: hash(profileBytes),
     manifest_sha256: hash(fs.readFileSync(path.join(run, 'run-manifest.json'))),
-    oldest_source_retrieved_at: new Date(Math.min(...retrieved)).toISOString(), ttl_days: ttlDays };
+    comparison_record: comparisonName, comparison_sha256: comparisonHash,
+    oldest_source_retrieved_at: new Date(Math.min(...retrieved)).toISOString() };
+}
+
+function validateCachedProfile(run, ttlDays = 30, now = Date.now()) {
+  if (!Number.isInteger(ttlDays) || ttlDays < 1 || ttlDays > 365) {
+    throw new Error('TTL must be an integer from 1 to 365 days');
+  }
+  let agreement;
+  try { agreement = validateAgreedProfile(run); }
+  catch (error) { throw new Error(`Cached profile is not reusable:\n${error.message}`); }
+  const retrieved = Date.parse(agreement.oldest_source_retrieved_at);
+  if (retrieved > now + 5 * 60 * 1000 || now - retrieved > ttlDays * 86400000) {
+    throw new Error('Cached profile is not reusable:\nAt least one source is outside the cache TTL');
+  }
+  const { comparison_record, comparison_sha256, ...rest } = agreement;
+  return { ...rest, ttl_days: ttlDays };
 }
 
 if (require.main === module) {
@@ -81,4 +98,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { validateCachedProfile };
+module.exports = { validateAgreedProfile, validateCachedProfile };
