@@ -134,10 +134,19 @@ def verify_profile_agreements(benchmark, scored):
                 or not isinstance(record.get("comparison_sha256"), str)
                 or not re.fullmatch(r"[a-f0-9]{64}", record["comparison_sha256"])):
             raise ValueError(f"{case_id}: agreed profile evidence differs from scored inputs")
+        adjudication = {}
+        if "adjudication_record" in record or "adjudication_sha256" in record:
+            if (not isinstance(record.get("adjudication_record"), str)
+                    or not re.fullmatch(r"profile-adjudication-v1-[a-f0-9-]+\.json", record["adjudication_record"])
+                    or not isinstance(record.get("adjudication_sha256"), str)
+                    or not re.fullmatch(r"[a-f0-9]{64}", record["adjudication_sha256"])):
+                raise ValueError(f"{case_id}: adjudication evidence is incomplete")
+            adjudication = {"adjudication_record": record["adjudication_record"],
+                            "adjudication_sha256": record["adjudication_sha256"]}
         agreements.append({"control_case_id": case_id, "issn": record["issn"],
                            "profile_sha256": record["profile_sha256"],
                            "comparison_record": record["comparison_record"],
-                           "comparison_sha256": record["comparison_sha256"]})
+                           "comparison_sha256": record["comparison_sha256"], **adjudication})
     if len(agreements) != len(scored_controls):
         raise ValueError("Profile agreement coverage differs from scored controls")
     return agreements

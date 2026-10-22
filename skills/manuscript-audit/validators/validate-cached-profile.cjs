@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { readJson, safeFile } = require('./common.cjs');
 const { differences } = require('./compare-profiles.cjs');
+const { resolveProfile } = require('./adjudicate-profiles.cjs');
 const { validate: validateManifest } = require('./validate-run-manifest.cjs');
 const { validate: validateProfile } = require('./validate-journal-profile.cjs');
 const { verify } = require('./verify-quotes.cjs');
@@ -40,13 +41,15 @@ function validateAgreedProfile(run) {
   }
   let comparisonHash = null;
   let comparisonName = null;
+  let adjudicationHash = null;
+  let adjudicationName = null;
   for (const name of fs.readdirSync(run).filter(value => /^profile-comparison-v2-[a-f0-9-]+\.json$/.test(value)).sort()) {
     try {
       const recordBytes = fs.readFileSync(safeFile(run, name));
       const record = JSON.parse(recordBytes.toString('utf8'));
-      if (record.schema_version !== 2 || record.status !== 'agreed'
+      if (record.schema_version !== 2 || !['agreed', 'needs_validation'].includes(record.status)
           || !Array.isArray(record.profiles) || record.profiles.length !== 2
-          || !Array.isArray(record.differing_fields) || record.differing_fields.length) continue;
+          || !Array.isArray(record.differing_fields)) continue;
       if (record.profiles[0]?.path === record.profiles[1]?.path) continue;
       const drafts = record.profiles.map(item => {
         const bytes = fs.readFileSync(safeFile(run, item.path));
@@ -55,20 +58,50 @@ function validateAgreedProfile(run) {
         if (validateProfile(draft).length || verify(run, draft, []).length) throw new Error('Profile draft is invalid');
         return draft;
       });
-      if (!differences(...drafts).length && canonical(drafts[0]) === canonical(profile)) {
+      const actualDifferences = differences(...drafts);
+      if (canonical(actualDifferences) !== canonical(record.differing_fields)
+          || record.status !== (actualDifferences.length ? 'needs_validation' : 'agreed')) continue;
+      let accepted = !actualDifferences.length && canonical(drafts[0]) === canonical(profile);
+      let selectedAdjudication = null;
+      let selectedAdjudicationHash = null;
+      if (actualDifferences.length) {
+        const candidate = `profile-adjudication-v1-${record.profiles[0].sha256.slice(0, 12)}-${record.profiles[1].sha256.slice(0, 12)}.json`;
+        try {
+          const bytes = fs.readFileSync(safeFile(run, candidate));
+          const evidence = JSON.parse(bytes.toString('utf8'));
+          if (evidence.schema_version !== 1 || evidence.comparison_record !== name
+              || evidence.comparison_sha256 !== hash(recordBytes)
+              || evidence.profile?.path !== 'journal-profile.json'
+              || evidence.profile.sha256 !== hash(profileBytes)
+              || typeof evidence.decisions?.path !== 'string'
+              || !/^[a-zA-Z0-9][a-zA-Z0-9._-]*\.json$/.test(evidence.decisions.path)) continue;
+          const decisionBytes = fs.readFileSync(safeFile(run, evidence.decisions.path));
+          if (hash(decisionBytes) !== evidence.decisions.sha256) continue;
+          const replayed = resolveProfile(...drafts, record, JSON.parse(decisionBytes.toString('utf8')));
+          accepted = canonical(replayed) === canonical(profile);
+          if (accepted) {
+            selectedAdjudication = candidate;
+            selectedAdjudicationHash = hash(bytes);
+          }
+        } catch { continue; }
+      }
+      if (accepted) {
         comparisonHash = hash(recordBytes);
         comparisonName = name;
+        adjudicationHash = selectedAdjudicationHash;
+        adjudicationName = selectedAdjudication;
         break;
       }
     } catch {
       // A stale comparison cannot authorize cache reuse.
     }
   }
-  if (!comparisonHash) errors.push('No current, agreed two-draft profile comparison authorizes reuse');
+  if (!comparisonHash) errors.push('No current, agreed two-draft profile comparison or source-backed adjudication authorizes reuse');
   if (errors.length) throw new Error(`Profile agreement is not verified:\n${[...new Set(errors)].join('\n')}`);
   return { schema_version: 1, issn: profile.issn, profile_sha256: hash(profileBytes),
     manifest_sha256: hash(fs.readFileSync(path.join(run, 'run-manifest.json'))),
     comparison_record: comparisonName, comparison_sha256: comparisonHash,
+    ...(adjudicationName ? { adjudication_record: adjudicationName, adjudication_sha256: adjudicationHash } : {}),
     oldest_source_retrieved_at: new Date(Math.min(...retrieved)).toISOString() };
 }
 

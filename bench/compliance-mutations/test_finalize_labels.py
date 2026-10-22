@@ -53,6 +53,17 @@ class HumanLabelTests(unittest.TestCase):
             with patch("finalize_labels.subprocess.run", return_value=response):
                 result = verify_profile_agreements(benchmark, scored)
             self.assertEqual(result[0]["comparison_sha256"], "c" * 64)
+            adjudicated = {**record,
+                           "adjudication_record": "profile-adjudication-v1-aaaaaaaaaaaa-bbbbbbbbbbbb.json",
+                           "adjudication_sha256": "d" * 64}
+            with patch("finalize_labels.subprocess.run", return_value=SimpleNamespace(
+                    returncode=0, stdout=json.dumps(adjudicated), stderr="")):
+                self.assertEqual(verify_profile_agreements(benchmark, scored)[0]["adjudication_sha256"], "d" * 64)
+            incomplete = {**adjudicated, "adjudication_sha256": None}
+            with patch("finalize_labels.subprocess.run", return_value=SimpleNamespace(
+                    returncode=0, stdout=json.dumps(incomplete), stderr="")):
+                with self.assertRaisesRegex(ValueError, "adjudication evidence is incomplete"):
+                    verify_profile_agreements(benchmark, scored)
             with patch("finalize_labels.subprocess.run", return_value=SimpleNamespace(
                     returncode=1, stdout="", stderr="No agreed comparison")):
                 with self.assertRaisesRegex(ValueError, "agreed profile is required"):

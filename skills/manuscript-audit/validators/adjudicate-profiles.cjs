@@ -9,24 +9,13 @@ const { validate: validateProfile } = require('./validate-journal-profile.cjs');
 const { verify } = require('./verify-quotes.cjs');
 const { outsideGit } = require('./render-report.cjs');
 
-function adjudicate(run, firstName, secondName, decisionsName, outputName = 'journal-profile.json') {
-  run = path.resolve(run);
-  outsideGit(run);
-  const comparison = compare(run, firstName, secondName);
-  const decisionsPath = safeFile(run, decisionsName);
-  if (outputName !== path.basename(outputName) || !/^[a-zA-Z0-9][a-zA-Z0-9._-]*\.json$/.test(outputName)) {
-    throw new Error('Output must be a JSON file directly inside the private run');
-  }
-  const outputPath = path.join(run, outputName);
-  if (fs.existsSync(outputPath)) throw new Error(`Final profile already exists: ${outputPath}`);
-  const decisionsBytes = fs.readFileSync(decisionsPath);
-  const decisions = JSON.parse(decisionsBytes.toString('utf8'));
+const hash = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
+
+function resolveProfile(first, second, comparison, decisions) {
   if (decisions.schema_version !== 1 || !decisions.resolutions || typeof decisions.resolutions !== 'object' || Array.isArray(decisions.resolutions)) {
     throw new Error('Invalid adjudication decisions');
   }
-  const first = readJson(safeFile(run, firstName));
-  const second = readJson(safeFile(run, secondName));
-  if (comparison.differing_fields.some(field => !field.startsWith('rules.') && !['scope', 'ai_policy'].includes(field))) {
+  if (comparison.differing_fields.some(field => !field.startsWith('rules.') && !['article_types', 'scope', 'ai_policy'].includes(field))) {
     throw new Error('Journal identity or source set differs; adjudication is unsafe');
   }
   const differing = new Set(comparison.differing_fields);
@@ -46,6 +35,7 @@ function adjudicate(run, firstName, secondName, decisionsName, outputName = 'jou
     if (decision.status && !['verified', 'needs_validation'].includes(decision.status)) throw new Error(`Invalid status: ${field}`);
     if (decision.status && !field.startsWith('rules.')) throw new Error(`Status applies only to rules: ${field}`);
     if (decision.choice === 'omit') {
+      if (field === 'article_types') throw new Error('Article types cannot be omitted');
       if (decision.status) throw new Error(`Omitted field cannot have a status: ${field}`);
       return undefined;
     }
@@ -58,7 +48,7 @@ function adjudicate(run, firstName, secondName, decisionsName, outputName = 'jou
     return selected;
   }
 
-  for (const field of ['scope', 'ai_policy']) {
+  for (const field of ['article_types', 'scope', 'ai_policy']) {
     if (differing.has(field)) {
       const selected = choose(field, first[field], second[field]);
       if (selected === undefined) delete profile[field]; else profile[field] = selected;
@@ -69,14 +59,48 @@ function adjudicate(run, firstName, secondName, decisionsName, outputName = 'jou
     const selected = differing.has(field) ? choose(field, firstRules.get(id), secondRules.get(id)) : firstRules.get(id);
     return selected ? [{ ...selected, status: selected.status || 'verified' }] : [];
   });
+  return profile;
+}
+
+function adjudicate(run, firstName, secondName, decisionsName, outputName = 'journal-profile.json') {
+  run = path.resolve(run);
+  outsideGit(run);
+  const comparison = compare(run, firstName, secondName);
+  if (decisionsName !== path.basename(decisionsName) || !/^[a-zA-Z0-9][a-zA-Z0-9._-]*\.json$/.test(decisionsName)) {
+    throw new Error('Decisions must be a JSON file directly inside the private run');
+  }
+  const decisionsPath = safeFile(run, decisionsName);
+  if (outputName !== path.basename(outputName) || !/^[a-zA-Z0-9][a-zA-Z0-9._-]*\.json$/.test(outputName)) {
+    throw new Error('Output must be a JSON file directly inside the private run');
+  }
+  const outputPath = path.join(run, outputName);
+  if (fs.existsSync(outputPath)) throw new Error(`Final profile already exists: ${outputPath}`);
+  const decisionsBytes = fs.readFileSync(decisionsPath);
+  const decisions = JSON.parse(decisionsBytes.toString('utf8'));
+  const first = readJson(safeFile(run, firstName));
+  const second = readJson(safeFile(run, secondName));
+  const profile = resolveProfile(first, second, comparison, decisions);
   const errors = [...validateProfile(profile), ...verify(run, profile, [])];
   if (errors.length) throw new Error(`Invalid adjudicated profile:\n${[...new Set(errors)].join('\n')}`);
   const bytes = Buffer.from(`${JSON.stringify(profile, null, 2)}\n`);
+  const comparisonBytes = fs.readFileSync(comparison.output);
+  const recordName = `profile-adjudication-v1-${comparison.profiles[0].sha256.slice(0, 12)}-${comparison.profiles[1].sha256.slice(0, 12)}.json`;
+  const recordPath = path.join(run, recordName);
+  if (fs.existsSync(recordPath)) throw new Error(`Adjudication record already exists: ${recordPath}`);
+  const record = {
+    schema_version: 1,
+    comparison_record: path.basename(comparison.output), comparison_sha256: hash(comparisonBytes),
+    decisions: { path: decisionsName, sha256: hash(decisionsBytes) },
+    profile: { path: outputName, sha256: hash(bytes) }
+  };
   fs.writeFileSync(outputPath, bytes, { flag: 'wx' });
+  try { fs.writeFileSync(recordPath, `${JSON.stringify(record, null, 2)}\n`, { flag: 'wx' }); }
+  catch (error) { fs.unlinkSync(outputPath); throw error; }
   return {
     comparison: comparison.output,
-    decisions_sha256: crypto.createHash('sha256').update(decisionsBytes).digest('hex'),
-    profile_sha256: crypto.createHash('sha256').update(bytes).digest('hex'),
+    decisions_sha256: hash(decisionsBytes),
+    profile_sha256: hash(bytes),
+    adjudication_record: recordPath,
     output: outputPath,
     rules: profile.rules.length,
     unresolved_rules: profile.rules.filter(rule => rule.status === 'needs_validation').length
@@ -97,4 +121,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { adjudicate };
+module.exports = { adjudicate, resolveProfile };

@@ -247,6 +247,7 @@ test('partial promotion keeps disputed and one-sided rules unresolved', t => {
   ]);
   assert.deepEqual(validateProfile(promoted), []);
   assert.match(validateFindings(data.findings, promoted).join('\n'), /rule_id has not been validated/);
+  assert.throws(() => validateAgreedProfile(run), /source-backed adjudication/);
   assert.throws(() => compareProfiles(run, 'profile-a.json', 'profile-b.json', 'partial'), /Final profile already exists/);
 });
 
@@ -289,6 +290,29 @@ test('adjudication requires a reason for every difference and cannot silently up
   assert.equal(result.rules, 1);
   assert.equal(result.unresolved_rules, 1);
   assert.deepEqual(validateProfile(JSON.parse(fs.readFileSync(result.output))), []);
+  const agreement = validateAgreedProfile(run);
+  assert.match(agreement.adjudication_record, /^profile-adjudication-v1-[a-f0-9-]+\.json$/);
+  assert.match(agreement.adjudication_sha256, /^[a-f0-9]{64}$/);
+  assert.equal(agreement.profile_sha256, result.profile_sha256);
+  resolutions['rules.extra_rule'].reason = 'A changed decision after profile promotion';
+  fs.writeFileSync(decisionsPath, JSON.stringify({ schema_version: 1, resolutions }));
+  assert.throws(() => validateAgreedProfile(run), /source-backed adjudication/);
+});
+
+test('source-backed adjudication resolves article type naming without changing journal identity', t => {
+  const data = fixture(t);
+  const { run, profile } = data;
+  fs.writeFileSync(path.join(run, 'run-manifest.json'), JSON.stringify(manifestFor(data)));
+  const second = structuredClone(profile);
+  second.article_types = ['Research paper'];
+  fs.writeFileSync(path.join(run, 'profile-a.json'), JSON.stringify(profile));
+  fs.writeFileSync(path.join(run, 'profile-b.json'), JSON.stringify(second));
+  fs.writeFileSync(path.join(run, 'decisions.json'), JSON.stringify({ schema_version: 1, resolutions: {
+    article_types: { choice: 'second', reason: 'The official submission guide uses this article type name.' }
+  } }));
+  const result = adjudicate(run, 'profile-a.json', 'profile-b.json', 'decisions.json');
+  assert.deepEqual(JSON.parse(fs.readFileSync(result.output)).article_types, ['Research paper']);
+  assert.equal(validateAgreedProfile(run).adjudication_record, path.basename(result.adjudication_record));
 });
 
 test('unresolved journal rules cannot be covered or used for confirmed findings', t => {
