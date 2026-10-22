@@ -333,6 +333,10 @@ test('unresolved journal rules cannot be covered or used for confirmed findings'
   const report = fs.readFileSync(path.join(data.run, 'REPORT.md'), 'utf8');
   assert.match(report, /Journal rules needing validation/);
   assert.match(report, /data\\_availability/);
+  const pendingReport = fs.readFileSync(path.join(data.run, 'NEEDS-VALIDATION.md'), 'utf8');
+  assert.match(pendingReport, /Journal rules needing validation/);
+  assert.match(pendingReport, /A data availability statement is required/);
+  assert.match(pendingReport, /https:\/\/example\\\.invalid\/guidelines/);
 });
 
 test('profile comparison rejects invented quotes and source drift', t => {
@@ -723,6 +727,9 @@ test('report rendering uses validated findings and shows remaining coverage', t 
   assert.match(report, /data availability statement/);
   assert.match(report, /does not predict an editorial decision/);
   assert.match(report, /No verified AI policy was recorded/);
+  const pendingReport = fs.readFileSync(path.join(data.run, 'NEEDS-VALIDATION.md'), 'utf8');
+  assert.match(pendingReport, /Open coverage/);
+  assert.match(pendingReport, /U\\-2 \(pending\): review class methods; section Methods/);
   const plan = fs.readFileSync(path.join(data.run, 'REVISION-PLAN.md'), 'utf8');
   assert.match(plan, /F\\-1 \(major\)/);
   assert.match(plan, /Suggested change: Add a data availability statement/);
@@ -750,6 +757,32 @@ test('report quotes a verified journal AI policy with its source', t => {
   assert.match(plan, /1 coverage unit\(s\) open/);
   assert.match(report, /Disclose AI\\-assisted writing\\\./);
   assert.match(report, /https:\/\/example\\\.invalid\/guidelines/);
+});
+
+test('needs-validation report gives the evidence for an unresolved finding', t => {
+  const data = fixture(t);
+  const manifest = manifestFor(data);
+  const finding = data.findings[0];
+  finding.verdict = 'needs_validation';
+  finding.unresolved_fact = 'The supplement may contain the statement.';
+  delete finding.severity;
+  delete finding.provenance.validator;
+  delete finding.provenance.record_verifier;
+  const hunterFile = path.join(data.run, finding.provenance.hunter);
+  const hunter = JSON.parse(fs.readFileSync(hunterFile, 'utf8'));
+  hunter.subject_sha256 = reviewSubjectHash(finding, manifest, data.profile);
+  fs.writeFileSync(hunterFile, JSON.stringify(hunter));
+  fs.writeFileSync(path.join(data.run, 'run-manifest.json'), JSON.stringify(manifest));
+  fs.writeFileSync(path.join(data.run, 'journal-profile.json'), JSON.stringify(data.profile));
+  fs.writeFileSync(path.join(data.run, 'coverage-ledger.json'), JSON.stringify(data.ledger));
+  fs.writeFileSync(path.join(data.run, 'findings.json'), JSON.stringify(data.findings));
+  render(data.run);
+  const pendingReport = fs.readFileSync(path.join(data.run, 'NEEDS-VALIDATION.md'), 'utf8');
+  assert.match(pendingReport, /F\\-1/);
+  assert.match(pendingReport, /The supplement may contain the statement/);
+  assert.match(pendingReport, /Evidence to review/);
+  assert.match(pendingReport, /A data availability statement is required/);
+  assert.match(pendingReport, /manuscript\\.md/);
 });
 
 test('report rendering refuses unverified records and escapes untrusted Markdown', t => {

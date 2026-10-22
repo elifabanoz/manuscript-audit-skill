@@ -40,6 +40,13 @@ function sourceLines(finding, profile) {
   });
 }
 
+function openCoverageLine(unit) {
+  const work = unit.kind === 'compliance'
+    ? `rule ${escapeMarkdown(unit.rule_id)}`
+    : `review class ${escapeMarkdown(unit.review_class)}`;
+  return `- ${escapeMarkdown(unit.unit_id)} (${escapeMarkdown(unit.status)}): ${work}; section ${escapeMarkdown(unit.section)}`;
+}
+
 function render(run, replace = false) {
   run = path.resolve(run);
   outsideGit(run);
@@ -88,12 +95,7 @@ function render(run, replace = false) {
   const openUnits = ledger.filter(item => item.status !== 'covered');
   report.push('## Open coverage', '');
   if (!openUnits.length) report.push('None.', '');
-  for (const unit of openUnits) {
-    const work = unit.kind === 'compliance'
-      ? `rule ${escapeMarkdown(unit.rule_id)}`
-      : `review class ${escapeMarkdown(unit.review_class)}`;
-    report.push(`- ${escapeMarkdown(unit.unit_id)} (${escapeMarkdown(unit.status)}): ${work}; section ${escapeMarkdown(unit.section)}`);
-  }
+  for (const unit of openUnits) report.push(openCoverageLine(unit));
   if (openUnits.length) report.push('');
   const unverifiedRules = profile.rules.filter(rule => rule.status === 'needs_validation');
   report.push('## Journal rules needing validation', '');
@@ -107,7 +109,18 @@ function render(run, replace = false) {
       : 'None.', '');
   for (const finding of unresolved) {
     pendingReport.push(`## ${escapeMarkdown(finding.id)}`, '', escapeMarkdown(finding.claim), '', `Unresolved: ${escapeMarkdown(finding.unresolved_fact)}`, '');
+    pendingReport.push('Evidence to review:', '', ...sourceLines(finding, profile), '');
   }
+  pendingReport.push('## Open coverage', '');
+  if (!openUnits.length) pendingReport.push('None.', '');
+  else pendingReport.push(...openUnits.map(openCoverageLine), '');
+  pendingReport.push('## Journal rules needing validation', '');
+  if (!unverifiedRules.length) pendingReport.push('None.', '');
+  for (const rule of unverifiedRules) {
+    const source = profile.sources[rule.source_ref];
+    pendingReport.push(`- ${escapeMarkdown(rule.rule_id)}: ${escapeMarkdown(rule.quote)} (source ${escapeMarkdown(source.url)})`);
+  }
+  if (unverifiedRules.length) pendingReport.push('');
   const revisionPlan = [
     '# Revision plan',
     '',
