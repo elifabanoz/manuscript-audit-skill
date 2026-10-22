@@ -32,4 +32,5 @@ jobs:
       - run: node --test skills/manuscript-audit/validators/validators.test.cjs
       - run: python -m unittest discover -s skills/manuscript-audit/tools -p 'test_*.py'
       - run: python -m unittest discover -s bench/compliance-mutations -p 'test_*.py'
+      - run: python -m unittest discover -s bench/parsing -p 'test_*.py'
       - run: node -e "const fs=require('node:fs'); for (const file of fs.readdirSync('skills/manuscript-audit/schemas')) JSON.parse(fs.readFileSync('skills/manuscript-audit/schemas/'+file, 'utf8'))"

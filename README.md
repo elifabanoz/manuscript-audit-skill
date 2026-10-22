@@ -14,6 +14,8 @@ Before two independent profile drafts have been reconciled, `python skills/manus
 
 For a text-based PDF, install the optional dependency with `python -m pip install -r requirements-pdf.txt`, then run `python skills/manuscript-audit/tools/convert_pdf.py --input /path/to/paper.pdf`. Inspect every page of the original PDF against the private `manuscript.txt` before preparing a run, and pass `--extraction-record <extraction.json>` alongside `--manuscript <manuscript.txt>`. The extractor marks page boundaries, flags pages with no text, and rejects PDFs with no extractable text. It does not perform OCR or establish reliable heading, table, equation, or figure structure; Markdown-only measurements remain unresolved for PDF text.
 
+The [private parsing benchmark harness](bench/parsing/README.md) compares converted DOCX and LaTeX section headings and reference entries with human labels from the original document. It pins source and extraction hashes and reports counts without publishing text. The repository includes invented integration tests, not a human-labeled parsing result.
+
 If a journal has not been chosen, use an explicit, nonconfidential topic phrase to discover candidates from [OpenAlex](https://help.openalex.org/api/llm-quick-reference/) metadata:
 
 ```sh
