@@ -26,6 +26,7 @@ jobs:
         with:
           python-version: '3.11'
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends pandoc
+      - run: pandoc --version
       - run: python -m pip install -r requirements-pdf.txt -r requirements-stats.txt 'reportlab>=4,<5'
       - run: python skills/manuscript-audit/roles/gen_agents.py --check --output-root .
       - run: node --test skills/manuscript-audit/validators/validators.test.cjs
