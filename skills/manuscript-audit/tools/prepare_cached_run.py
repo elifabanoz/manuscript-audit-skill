@@ -9,7 +9,9 @@ import subprocess
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.request import urlopen
 
+from fetch_guidelines import fetch, normalized_host
 from prepare_run import outside_git, prepare
 
 
@@ -62,7 +64,20 @@ def find_cached_source(cache_root, issn, ttl_days):
     return max(matches, key=lambda item: (item[1]["oldest_source_retrieved_at"], str(item[0])))[0]
 
 
-def prepare_cached(args):
+def verify_live_sources(sources, opener):
+    verified = {}
+    for source_id, source in sources.items():
+        expected_url = source["url"]
+        final_url, raw, text = fetch(expected_url, opener=opener, allowed_host=normalized_host(expected_url))
+        if final_url != expected_url or hashlib.sha256(text).hexdigest() != source["sha256"]:
+            raise ValueError(f"Live guideline source {source_id} changed; rebuild and review the profile")
+        verified[source_id] = {"url": final_url, "sha256": source["sha256"],
+                               "raw_sha256": hashlib.sha256(raw).hexdigest()}
+    return {"verified_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+            "sources": verified}
+
+
+def prepare_cached(args, opener=urlopen):
     cache_root = getattr(args, "cache_root", None)
     issn = getattr(args, "issn", None)
     if args.source_run is not None:
@@ -84,6 +99,7 @@ def prepare_cached(args):
     profile_bytes = (source_run / "journal-profile.json").read_bytes()
     if hashlib.sha256(profile_bytes).hexdigest() != approval["profile_sha256"]:
         raise ValueError("Cached profile changed after validation")
+    live_verification = verify_live_sources(manifest["sources"], opener) if getattr(args, "verify_live", False) else None
 
     with tempfile.TemporaryDirectory(prefix="manuscript-audit-cache-") as temporary:
         source_records = []
@@ -125,7 +141,7 @@ def prepare_cached(args):
              "source_manifest_sha256": approval["manifest_sha256"],
              "profile_sha256": approval["profile_sha256"],
              "oldest_source_retrieved_at": approval["oldest_source_retrieved_at"],
-             "ttl_days": approval["ttl_days"]}
+             "ttl_days": approval["ttl_days"], "live_verification": live_verification}
     (run / "profile-reuse.json").write_text(json.dumps(reuse, indent=2) + "\n", encoding="utf-8")
     return run
 
@@ -140,6 +156,7 @@ def main():
     parser.add_argument("--supplementary", action="append", type=Path, default=[])
     parser.add_argument("--output-root", type=Path, default=Path.home() / "manuscript-audit")
     parser.add_argument("--ttl-days", type=int, default=30)
+    parser.add_argument("--verify-live", action="store_true", help="Fetch and compare every current guideline page before reuse")
     parser.add_argument("--host", choices=("codex", "claude-code", "manual"), default="manual")
     parser.add_argument("--model", action="append", default=[])
     parser.add_argument("--data-freeze")

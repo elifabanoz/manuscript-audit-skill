@@ -7,10 +7,31 @@ import subprocess
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
+from email.message import Message
 from pathlib import Path
 
 from prepare_cached_run import find_cached_source, prepare_cached
 from prepare_run import prepare
+
+
+class Response:
+    def __init__(self, url, body):
+        self.url = url
+        self.body = body
+        self.headers = Message()
+        self.headers["Content-Type"] = "text/plain; charset=utf-8"
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        return False
+
+    def geturl(self):
+        return self.url
+
+    def read(self, amount):
+        return self.body[:amount]
 
 
 class CachedRunTests(unittest.TestCase):
@@ -21,7 +42,7 @@ class CachedRunTests(unittest.TestCase):
         self.manuscript = self.root / "paper.md"
         self.manuscript.write_text("# An example\n\nMethods text.\n", encoding="utf-8")
         self.guideline = self.root / "guideline.txt"
-        self.guideline.write_text("A data statement is required.\n", encoding="utf-8")
+        self.guideline.write_bytes(b"A data statement is required.\n")
         self.retrieved_at = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
         self.original = prepare(argparse.Namespace(
             manuscript=self.manuscript, extraction_record=None, source_record=[],
@@ -59,6 +80,36 @@ class CachedRunTests(unittest.TestCase):
         reuse = json.loads((run / "profile-reuse.json").read_text(encoding="utf-8"))
         self.assertEqual(reuse["source_run"], str(self.original))
         self.assertEqual(reuse["selected_issn"], "1234-567X")
+        self.assertIsNone(reuse["live_verification"])
+
+    def test_live_verification_accepts_identical_current_guidelines(self):
+        self.compare()
+        self.args.verify_live = True
+        requested = []
+
+        def opener(request, timeout):
+            requested.append(request.full_url)
+            self.assertEqual(timeout, 20)
+            return Response(request.full_url, b"A data statement is required.\n")
+
+        run = prepare_cached(self.args, opener=opener)
+        self.assertEqual(requested, ["https://journal.example/authors"])
+        reuse = json.loads((run / "profile-reuse.json").read_text(encoding="utf-8"))
+        source_id = next(iter(reuse["live_verification"]["sources"]))
+        self.assertEqual(reuse["live_verification"]["sources"][source_id]["sha256"],
+                         hashlib.sha256(b"A data statement is required.\n").hexdigest())
+
+    def test_live_verification_rejects_changed_guidelines_before_creating_run(self):
+        self.compare()
+        self.args.verify_live = True
+        with self.assertRaisesRegex(ValueError, "changed; rebuild"):
+            prepare_cached(self.args, opener=lambda request, timeout: Response(
+                request.full_url, b"A revised statement is required.\n"))
+        self.assertFalse(self.args.output_root.exists())
+        with self.assertRaisesRegex(ValueError, "changed; rebuild"):
+            prepare_cached(self.args, opener=lambda request, timeout: Response(
+                "https://journal.example/new-authors", b"A data statement is required.\n"))
+        self.assertFalse(self.args.output_root.exists())
 
     def test_finds_only_agreed_profile_for_selected_issn(self):
         self.compare()
