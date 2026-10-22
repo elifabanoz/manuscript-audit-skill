@@ -13,6 +13,7 @@ from urllib.error import HTTPError
 from urllib.parse import unquote, urlencode, urlparse
 from urllib.request import Request, urlopen
 
+from http_client import read_response
 from list_arxiv_ids import collect
 
 
@@ -30,10 +31,7 @@ def fetch_batch(ids, opener):
     request = Request("https://export.arxiv.org/api/query?" + query,
                       headers={"User-Agent": USER_AGENT, "Accept": "application/atom+xml"})
     try:
-        with opener(request, timeout=20) as response:
-            raw = response.read(5_000_001)
-        if len(raw) > 5_000_000:
-            raise ValueError("arXiv response exceeded 5 MB")
+        raw = read_response(request, opener, timeout=20, max_bytes=5_000_000).body
         feed = ET.fromstring(raw)
         if feed.tag != ATOM + "feed":
             raise ValueError("arXiv response is not an Atom feed")

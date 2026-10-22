@@ -11,6 +11,7 @@ from urllib.error import HTTPError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
+from http_client import read_response
 from list_dois import collect
 
 
@@ -42,10 +43,7 @@ def lookup_one(doi, opener):
     url = "https://api.crossref.org/works/" + quote(doi, safe="/")
     request = Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
     try:
-        with opener(request, timeout=10) as response:
-            raw = response.read(2_000_001)
-        if len(raw) > 2_000_000:
-            return {"status": "lookup_failed", "reason": "Crossref response exceeded 2 MB"}
+        raw = read_response(request, opener, timeout=10, max_bytes=2_000_000).body
         message = json.loads(raw)["message"]
         if not isinstance(message, dict) or not isinstance(message.get("DOI"), str):
             raise ValueError("Crossref response lacks a DOI")

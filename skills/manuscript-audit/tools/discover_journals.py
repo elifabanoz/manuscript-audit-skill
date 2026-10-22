@@ -15,6 +15,7 @@ from urllib.parse import quote, urlencode, urlsplit
 from urllib.request import Request, urlopen
 
 from fetch_guidelines import https_url
+from http_client import read_response
 from prepare_run import outside_git
 
 
@@ -65,14 +66,11 @@ def fetch_json(url, opener, provider="OpenAlex"):
     if api_key:
         request.add_header("Authorization", f"Bearer {api_key}")
     try:
-        with opener(request, timeout=20) as response:
-            data = response.read(MAX_RESPONSE_BYTES + 1)
+        data = read_response(request, opener, timeout=20, max_bytes=MAX_RESPONSE_BYTES).body
     except HTTPError as error:
         raise ValueError(f"{provider} request failed with HTTP {error.code}") from None
     except URLError:
         raise ValueError(f"Could not reach {provider}") from None
-    if len(data) > MAX_RESPONSE_BYTES:
-        raise ValueError(f"{provider} response exceeded the size limit")
     try:
         payload = json.loads(data)
     except (UnicodeError, json.JSONDecodeError):

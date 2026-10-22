@@ -13,6 +13,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 
+from http_client import read_response
 from prepare_run import outside_git
 
 
@@ -111,19 +112,21 @@ def fetch(url, opener=urlopen, allowed_host=None):
             opener = build_opener(HostLockedRedirect(allowed_host)).open
     request = Request(url, headers={"User-Agent": "manuscript-audit-skill/0.1", "Accept": "text/html,text/plain"})
     try:
-        with opener(request, timeout=20) as response:
-            final_url = stable_source_url(url, https_url(response.geturl()))
-            if allowed_host is not None and not same_host(final_url, allowed_host):
-                raise ValueError("Guideline redirect left the journal host")
-            media_type = response.headers.get_content_type()
-            charset = response.headers.get_content_charset() or "utf-8"
-            raw = response.read(MAX_BYTES + 1)
+        response = read_response(request, opener, timeout=20, max_bytes=MAX_BYTES)
+        final_url = stable_source_url(url, https_url(response.url))
+        if allowed_host is not None and not same_host(final_url, allowed_host):
+            raise ValueError("Guideline redirect left the journal host")
+        media_type = response.headers.get_content_type()
+        charset = response.headers.get_content_charset() or "utf-8"
+        raw = response.body
     except HTTPError as error:
         raise ValueError(f"Guideline request failed with HTTP {error.code}") from None
     except URLError:
         raise ValueError("Could not reach the guideline page") from None
-    if len(raw) > MAX_BYTES:
-        raise ValueError("Guideline response exceeded the size limit")
+    except ValueError as error:
+        if allowed_host is not None and str(error) == "Public request redirect left its HTTPS host":
+            raise ValueError("Guideline redirect left the journal host") from None
+        raise
     if media_type not in {"text/html", "text/plain"}:
         raise ValueError("Only HTML and plain-text guideline pages are supported")
     try:
