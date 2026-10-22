@@ -78,12 +78,19 @@ def load_case(case, freeze, schema_version):
     if not isinstance(case, dict) or case.get("kind") not in ("control", "mutation"):
         raise ValueError("Each case needs kind control or mutation")
     keys = common if case["kind"] == "control" else (*common, "control_case_id", "expected_rule_id")
-    if case["kind"] == "mutation" and schema_version == 2:
+    if case["kind"] == "mutation" and schema_version >= 2:
         keys = (*keys, "mutation_class")
+    if case["kind"] == "mutation" and schema_version >= 3:
+        keys = (*keys, "proposal_record", "proposal_file")
     exact_keys(case, keys, f"case {case.get('case_id', '<unknown>')}")
-    if schema_version == 2 and case["kind"] == "mutation" and (
+    if schema_version >= 2 and case["kind"] == "mutation" and (
             not isinstance(case["mutation_class"], str) or case["mutation_class"] not in MUTATION_CLASSES):
         raise ValueError(f"{case['case_id']}: mutation_class must be structural, semantic, or numerical_format")
+    if schema_version >= 3 and case["kind"] == "mutation" and (
+            not isinstance(case["proposal_record"], str) or not Path(case["proposal_record"]).is_absolute()
+            or not isinstance(case["proposal_file"], str) or not case["proposal_file"]
+            or Path(case["proposal_file"]).name != case["proposal_file"]):
+        raise ValueError(f"{case['case_id']}: proposal_record must be absolute and proposal_file must be a filename")
     if not isinstance(case["case_id"], str) or not case["case_id"].strip():
         raise ValueError("case_id must be nonempty")
     if not isinstance(case["run"], str) or not Path(case["run"]).is_absolute():
@@ -157,10 +164,48 @@ def load_case(case, freeze, schema_version):
     }
 
 
+def verify_proposal(case, control):
+    record_path = Path(case["proposal_record"]).resolve()
+    outside_git(record_path)
+    if record_path.name != "proposals.json":
+        raise ValueError(f"{case['case_id']}: proposal_record must name proposals.json")
+    record = read_json(record_path)
+    if not isinstance(record, dict) or record.get("schema_version") != 1 or record.get("status") not in (
+            "unreviewed_proposal", "unreviewed_proposals"):
+        raise ValueError(f"{case['case_id']}: unsupported proposal record")
+    if (not isinstance(record.get("control_run"), str)
+            or Path(record["control_run"]).resolve() != Path(control["run"]).resolve()
+            or record.get("control_manifest_sha256") != control["input_sha256"]["manifest"]
+            or record.get("control_manuscript_sha256") != control["manuscript_sha256"]
+            or record.get("profile_sha256") != control["input_sha256"]["profile"]
+            or record.get("article_type") != case["article_type"]):
+        raise ValueError(f"{case['case_id']}: proposal does not match its control inputs")
+    if record["status"] == "unreviewed_proposals":
+        entries = record.get("mutations")
+        if not isinstance(entries, list):
+            raise ValueError(f"{case['case_id']}: proposal mutations must be a list")
+        selected = [item for item in entries if isinstance(item, dict)
+                    and item.get("file") == case["proposal_file"]]
+        if len(selected) != 1:
+            raise ValueError(f"{case['case_id']}: proposal_file must select one mutation")
+        proposal = selected[0]
+    else:
+        proposal = record
+    if (proposal.get("file") != case["proposal_file"]
+            or proposal.get("rule_id") != case["expected_rule_id"]
+            or proposal.get("mutation_class_proposed") != case["mutation_class"]
+            or proposal.get("manuscript_sha256") != case["manuscript_sha256"]):
+        raise ValueError(f"{case['case_id']}: proposal differs from the scored mutation")
+    manuscript = record_path.parent / case["proposal_file"]
+    if not manuscript.is_file() or sha256(manuscript) != case["manuscript_sha256"]:
+        raise ValueError(f"{case['case_id']}: proposal manuscript differs from the mutation run")
+    return sha256(record_path)
+
+
 def score(benchmark):
     exact_keys(benchmark, ("schema_version", "data_freeze", "cases"), "benchmark")
     schema_version = benchmark["schema_version"]
-    if schema_version not in (1, 2):
+    if schema_version not in (1, 2, 3):
         raise ValueError("Unsupported benchmark schema_version")
     freeze = benchmark["data_freeze"]
     if not isinstance(freeze, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", freeze):
@@ -194,6 +239,7 @@ def score(benchmark):
                 raise ValueError(f"{item['case_id']}: paired control has a different source snapshot")
             if item["manuscript_sha256"] == control["manuscript_sha256"]:
                 raise ValueError(f"{item['case_id']}: mutation has the same manuscript hash as its control")
+            proposal_hash = verify_proposal(item, control) if schema_version >= 3 else None
             target = item["expected_rule_id"]
             if target in control["raw_rules"] or target in control["final_rules"]:
                 raise ValueError(f"{item['case_id']}: target rule was already flagged in its control")
@@ -211,8 +257,10 @@ def score(benchmark):
             "run_manifest_sha256": item["input_sha256"]["manifest"],
             "input_sha256": item["input_sha256"],
         }
-        if schema_version == 2 and item["kind"] == "mutation":
+        if schema_version >= 2 and item["kind"] == "mutation":
             row["mutation_class"] = item["mutation_class"]
+        if schema_version >= 3 and item["kind"] == "mutation":
+            row["proposal_record_sha256"] = proposal_hash
         rows.append(row)
     def rate(numerator, denominator):
         return numerator / denominator
@@ -233,7 +281,7 @@ def score(benchmark):
         "validation_false_positive_rate_reduction": rate(raw_false_alarms - validated_false_alarms, len(controls)),
         "cases": rows,
     }
-    if schema_version == 2:
+    if schema_version >= 2:
         by_class = {}
         for mutation_class in sorted({item["mutation_class"] for item in mutations}):
             class_mutations = [row for row in rows if row.get("mutation_class") == mutation_class]

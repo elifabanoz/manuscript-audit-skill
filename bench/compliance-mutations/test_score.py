@@ -192,6 +192,59 @@ class ComplianceMutationScoreTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "mutation_class must be"):
             score({**benchmark, "cases": [cases[0], non_string_class, *cases[2:]]})
 
+    def test_version_three_binds_proposal_and_mutation_run(self):
+        control = self.make_run("control", "# Title\nData availability: on request.\n")
+        mutation = self.make_run("mutation", "# Title\nNo statement here.\n",
+                                 raw_rules=("data_availability",), confirmed=True)
+        control_manifest = control / "run-manifest.json"
+        mutant_manifest = json.loads((mutation / "run-manifest.json").read_text(encoding="utf-8"))
+        proposal_dir = self.root / "proposal"
+        proposal_dir.mkdir()
+        proposal_file = proposal_dir / "mutation.md"
+        proposal_file.write_bytes((mutation / "manuscript.md").read_bytes())
+        record = {
+            "schema_version": 1, "status": "unreviewed_proposal",
+            "control_run": str(control), "article_type": "original_research",
+            "control_manifest_sha256": hashlib.sha256(control_manifest.read_bytes()).hexdigest(),
+            "control_manuscript_sha256": json.loads(control_manifest.read_text(encoding="utf-8"))["manuscript"]["sha256"],
+            "profile_sha256": hashlib.sha256((control / "journal-profile.json").read_bytes()).hexdigest(),
+            "rule_id": "data_availability", "mutation_class_proposed": "semantic",
+            "file": "mutation.md", "manuscript_sha256": mutant_manifest["manuscript"]["sha256"],
+        }
+        record_path = proposal_dir / "proposals.json"
+        record_path.write_text(json.dumps(record), encoding="utf-8")
+        cases = [
+            {"case_id": "control", "kind": "control", "article_type": "original_research",
+             "run": str(control), "raw_findings": str(control / "raw-findings.json")},
+            {"case_id": "mutation", "kind": "mutation", "article_type": "original_research",
+             "control_case_id": "control", "expected_rule_id": "data_availability",
+             "mutation_class": "semantic", "run": str(mutation),
+             "raw_findings": str(mutation / "raw-findings.json"),
+             "proposal_record": str(record_path), "proposal_file": "mutation.md"},
+        ]
+        benchmark = {"schema_version": 3, "data_freeze": "2026-10-19", "cases": cases}
+        result = score(benchmark)
+        self.assertEqual(result["cases"][1]["proposal_record_sha256"],
+                         hashlib.sha256(record_path.read_bytes()).hexdigest())
+        self.assertEqual(result["by_mutation_class"]["semantic"]["mutations"]["validated_recall"], 1)
+        plural = {key: value for key, value in record.items()
+                  if key not in {"rule_id", "mutation_class_proposed", "file", "manuscript_sha256"}}
+        plural["status"] = "unreviewed_proposals"
+        plural["mutations"] = [{key: record[key] for key in
+                                ("rule_id", "mutation_class_proposed", "file", "manuscript_sha256")}]
+        record_path.write_text(json.dumps(plural), encoding="utf-8")
+        self.assertEqual(score(benchmark)["cases"][1]["proposal_record_sha256"],
+                         hashlib.sha256(record_path.read_bytes()).hexdigest())
+        record_path.write_text(json.dumps(record), encoding="utf-8")
+        proposal_file.write_text("Different text", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "proposal manuscript differs"):
+            score(benchmark)
+        proposal_file.write_bytes((mutation / "manuscript.md").read_bytes())
+        record["control_manifest_sha256"] = "0" * 64
+        record_path.write_text(json.dumps(record), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "proposal does not match"):
+            score(benchmark)
+
     def test_rejects_a_mutation_already_flagged_in_its_control(self):
         control = self.make_run("control", "# Title\nData availability: on request.\n",
                                 raw_rules=("data_availability",))
