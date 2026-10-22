@@ -15,6 +15,7 @@ const { validate: validateManifest } = require('./validate-run-manifest.cjs');
 const { corpusHash, coverageSubjectHash, reviewSubjectHash, validate: validateRun } = require('./validate-run.cjs');
 const { escapeMarkdown, render } = require('./render-report.cjs');
 const { prepare: prepareReviewPacket } = require('./prepare-review-packet.cjs');
+const { prepare: prepareCompliancePacket } = require('./prepare-compliance-packet.cjs');
 const { compare } = require('./compare-runs.cjs');
 const { compare: compareProfiles, validateDraft } = require('./compare-profiles.cjs');
 const { validateAgreedProfile } = require('./validate-cached-profile.cjs');
@@ -846,6 +847,34 @@ test('defense packet excludes hunter reasoning and proposed severity', t => {
   assert.equal(JSON.stringify(packet).includes('Synthetic check record'), false);
   assert.equal(JSON.stringify(packet).includes('agents/hunter.json'), false);
   assert.throws(() => prepareReviewPacket(data.run, 'F-1', 'defense'), /EEXIST/);
+});
+
+test('compliance hunter packet binds one pending verified rule without exposing findings', t => {
+  const data = fixture(t);
+  const manifest = manifestFor(data);
+  data.ledger[0].status = 'pending';
+  data.ledger[0].checked_by = [];
+  fs.writeFileSync(path.join(data.run, 'run-manifest.json'), JSON.stringify(manifest));
+  fs.writeFileSync(path.join(data.run, 'journal-profile.json'), JSON.stringify(data.profile));
+  fs.writeFileSync(path.join(data.run, 'coverage-ledger.json'), JSON.stringify(data.ledger));
+  fs.writeFileSync(path.join(data.run, 'findings.json'), '[]');
+  const output = prepareCompliancePacket(data.run, 'U-1', 'original_research');
+  const packet = JSON.parse(fs.readFileSync(output.path, 'utf8'));
+  assert.equal(packet.subject_sha256, coverageSubjectHash(data.ledger[0], manifest, data.profile));
+  assert.equal(packet.rule.rule_id, 'data_availability');
+  assert.equal(packet.manuscript.text, 'Title\nIntroduction\nMethods and results\n');
+  assert.match(packet.guideline_source.text, /data availability statement/);
+  assert.equal(JSON.stringify(packet).includes(data.findings[0].claim), false);
+  assert.equal(JSON.stringify(packet).includes('Synthetic check record'), false);
+  assert.throws(() => prepareCompliancePacket(data.run, 'U-1', 'original_research'), /EEXIST/);
+
+  data.profile.rules[0].status = 'needs_validation';
+  fs.writeFileSync(path.join(data.run, 'journal-profile.json'), JSON.stringify(data.profile));
+  assert.throws(() => prepareCompliancePacket(data.run, 'U-1', 'original_research'), /verified and applicable/);
+  data.profile.rules[0].status = 'verified';
+  fs.writeFileSync(path.join(data.run, 'journal-profile.json'), JSON.stringify(data.profile));
+  fs.appendFileSync(path.join(data.run, 'manuscript.md'), 'Changed text.\n');
+  assert.throws(() => prepareCompliancePacket(data.run, 'U-1', 'original_research'), /SHA-256 mismatch/);
 });
 
 test('verifier packet binds the defense decision without exposing its rationale', t => {
