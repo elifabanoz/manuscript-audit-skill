@@ -10,7 +10,7 @@ from pathlib import Path
 
 from score import checked_scope_record, check_control_deterministic, score, sha256
 from prepare_label_review import make_packet
-from prepare_scope_review import prepare as prepare_scope_review
+from prepare_scope_review import prepare as prepare_scope_review, prepare_review_packet
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -167,6 +167,39 @@ class ComplianceMutationScoreTests(unittest.TestCase):
                             for item in template["rules"]))
         with self.assertRaises(FileExistsError):
             prepare_scope_review(run, "original_research")
+
+    def test_scope_review_packet_exposes_unreviewed_decisions_and_pinned_evidence(self):
+        run = self.make_run("scope-review", "# Title\nData availability: on request.\n",
+                            unresolved_ethics=True)
+        proposal_path = run / "scope-review.proposed.json"
+        proposal = {
+            "schema_version": 1,
+            "manifest_sha256": sha256(run / "run-manifest.json"),
+            "profile_sha256": sha256(run / "journal-profile.json"),
+            "article_type": "original_research",
+            "rules": [
+                {"rule_id": "data_availability", "decision": "score",
+                 "reason": "The manuscript can show the required statement."},
+                {"rule_id": "ethics_statement", "decision": "exclude",
+                 "reason": "The unresolved source rule needs further review."},
+            ],
+            "status": "unreviewed_proposal", "warning": "Independent review is required.",
+        }
+        proposal_path.write_text(json.dumps(proposal), encoding="utf-8")
+        output = prepare_review_packet(run, "original_research", proposal_path)
+        packet = output.read_text(encoding="utf-8")
+        self.assertIn(sha256(proposal_path), packet)
+        self.assertIn("A data availability statement is required.", packet)
+        self.assertIn("The unresolved source rule needs further review.", packet)
+        self.assertIn("Reviewer 1 ID, decision", packet)
+        self.assertIn("Exclusion is not a compliance verdict", packet)
+        self.assertNotIn("scope_review_sha256", packet)
+        with self.assertRaises(FileExistsError):
+            prepare_review_packet(run, "original_research", proposal_path)
+        proposal["profile_sha256"] = "0" * 64
+        proposal_path.write_text(json.dumps(proposal), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "differs from the private run inputs"):
+            prepare_review_packet(run, "original_research", proposal_path)
 
     def test_scores_paired_mutations_and_validation_ablation(self):
         control = self.make_run("control", "# Title\nData availability: on request.\n")
