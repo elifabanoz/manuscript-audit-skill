@@ -257,7 +257,9 @@ def load_case(case, freeze, schema_version):
         raise ValueError(f"{case['case_id']}: no verified applicable rules can be scored")
     coverage = [unit for unit in ledger if unit["kind"] == "compliance"]
     if len(coverage) != len(applicable) or {unit["rule_id"] for unit in coverage} != set(applicable) \
-            or any(unit["status"] != ("pending" if unit["rule_id"] in excluded else "covered") for unit in coverage):
+            or any((unit["rule_id"] in scored and unit["status"] != "covered")
+                   or (unit["rule_id"] in excluded and unit["status"] not in ("pending", "covered"))
+                   for unit in coverage):
         raise ValueError(f"{case['case_id']}: applicable compliance coverage is incomplete")
     raw = read_json(raw_path)
     final = read_json(findings_path)

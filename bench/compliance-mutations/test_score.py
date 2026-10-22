@@ -410,6 +410,16 @@ class ComplianceMutationScoreTests(unittest.TestCase):
         self.assertEqual(result["cases"][1]["scored_rule_ids"], ["data_availability"])
         self.assertEqual(result["quote_audit"]["raw_quotes"], 0)
         self.assertEqual(result["mutations"]["validated_recall"], 0)
+        for run in (control, mutation):
+            ledger_path = run / "coverage-ledger.json"
+            ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+            excluded_unit = next(unit for unit in ledger if unit["rule_id"] == "ethics_statement")
+            excluded_unit["status"] = "covered"
+            excluded_unit["checked_by"] = [f"agents/coverage-{excluded_unit['unit_id']}.json"]
+            ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
+        reviewed_exclusion = score({"schema_version": 5, "data_freeze": "2026-10-19", "cases": cases})
+        self.assertEqual(reviewed_exclusion["cases"][0]["excluded_rule_ids"], ["ethics_statement"])
+        self.assertEqual(reviewed_exclusion["mutations"]["validated_recall"], 0)
         changed = json.loads((control / "scope-review.json").read_text(encoding="utf-8"))
         changed["manifest_sha256"] = "0" * 64
         (control / "scope-review.json").write_text(json.dumps(changed), encoding="utf-8")
