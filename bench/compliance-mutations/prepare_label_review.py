@@ -53,6 +53,16 @@ def make_packet(cases_path):
             f"Run manifest SHA-256: `{row['run_manifest_sha256']}`",
             f"Profile SHA-256: `{row['input_sha256']['profile']}`",
         ])
+        lines.extend(["", "Supplied supporting files:"])
+        if manifest.get("supplementary"):
+            for item in manifest["supplementary"]:
+                lines.append(
+                    f"- Private file {data(str(run / item['path']))}; submitted filename "
+                    f"{data(item.get('submitted_filename', 'not recorded; verify separately'))}; "
+                    f"SHA-256 `{item['sha256']}`"
+                )
+        else:
+            lines.append("- None recorded; check required supporting materials separately.")
         if row["kind"] == "mutation":
             lines.append(f"Paired control: `{case['control_case_id']}`")
             if "mutation_class" in case:

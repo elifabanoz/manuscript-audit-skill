@@ -18,13 +18,15 @@ class PreflightReviewTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
         manuscript = self.root / "paper.md"
+        bibliography = self.root / "paper.bib"
         guideline = self.root / "guideline.txt"
         manuscript.write_text("# Summary\nThe tool helps students learn safely.\n# References\nPublic source.\n",
                               encoding="utf-8")
+        bibliography.write_text("@article{public, title={Public source}}\n", encoding="utf-8")
         guideline.write_text("Explain who can use the tool.\nInclude References.\n",
                              encoding="utf-8")
         self.run = prepare_run(argparse.Namespace(
-            manuscript=manuscript, guideline_text=guideline, supplementary=[],
+            manuscript=manuscript, guideline_text=guideline, supplementary=[bibliography],
             guideline_url="https://example.org/authors", retrieved_at="2026-10-19T09:00:00Z",
             output_root=self.root / "runs", host="manual", model=[]))
         manifest = json.loads((self.run / "run-manifest.json").read_text(encoding="utf-8"))
@@ -56,6 +58,8 @@ class PreflightReviewTests(unittest.TestCase):
         self.assertIn("Explain who can use the tool", packet)
         self.assertIn(hashlib.sha256((self.run / "run-manifest.json").read_bytes()).hexdigest(), packet)
         self.assertIn("Submitted filename: \"paper.md\"", packet)
+        self.assertIn("submitted filename \"paper.bib\"", packet)
+        self.assertIn(hashlib.sha256((self.run / "supplementary" / "supp-1.bib").read_bytes()).hexdigest(), packet)
         self.assertIn("Proposal filenames are local output names", packet)
         self.assertNotIn("The tool helps students learn safely.", packet)
         self.assertNotIn("benchmark result: 1", packet)
@@ -70,7 +74,7 @@ class PreflightReviewTests(unittest.TestCase):
         manifest = json.loads((self.run / "run-manifest.json").read_text(encoding="utf-8"))
         source = next(iter(manifest["sources"].values()))
         (self.run / source["path"]).write_text("Changed source", encoding="utf-8")
-        with self.assertRaisesRegex(ValueError, "source-backed profile"):
+        with self.assertRaisesRegex(ValueError, "SHA-256 mismatch"):
             prepare(self.run, "article", [self.proposal])
 
     def test_unreviewed_control_without_proposals_is_allowed(self):
@@ -83,6 +87,11 @@ class PreflightReviewTests(unittest.TestCase):
         self.assertIn("not recorded; verify separately", prepare(self.run, "article", []))
         with self.assertRaisesRegex(ValueError, "Article type is absent"):
             prepare(self.run, "different", [])
+
+    def test_changed_supplementary_file_is_rejected(self):
+        (self.run / "supplementary" / "supp-1.bib").write_text("changed", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "supplied files are invalid"):
+            prepare(self.run, "article", [])
 
 
 if __name__ == "__main__":

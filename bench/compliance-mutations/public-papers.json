@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "papers": [
     {
       "doi": "10.21105/joss.09737",
@@ -49,7 +49,20 @@
       "source_url": "https://raw.githubusercontent.com/carpentries-lab/deep-learning-intro/cb42f234b3cfcadee5c99f2fa22b69f47f3008da/paper/paper.md",
       "source_ref": "v1.2.2 (cb42f234b3cfcadee5c99f2fa22b69f47f3008da)",
       "source_sha256": "bda46970b4410dac9ad2642795c252b1e11d830d44b156eb8e844afb2daa8eb5",
-      "output_name": "jose-00307-paper.md"
+      "output_name": "jose-00307-paper.md",
+      "supplementary_dir": "jose-00307-v1.2.2",
+      "supplementary": [
+        {
+          "source_url": "https://raw.githubusercontent.com/carpentries-lab/deep-learning-intro/cb42f234b3cfcadee5c99f2fa22b69f47f3008da/paper/paper.bib",
+          "source_sha256": "cd549c8933f8047cd2152d3df867f55b7ac48cee4c9caf9cb2b637cc9eabe538",
+          "output_name": "paper.bib"
+        },
+        {
+          "source_url": "https://raw.githubusercontent.com/carpentries-lab/deep-learning-intro/cb42f234b3cfcadee5c99f2fa22b69f47f3008da/LICENSE.md",
+          "source_sha256": "1b7f11e8511bea664a324ad90a38f1b19f844dc48a245dd1d7bbcd261689bb7a",
+          "output_name": "LICENSE.md"
+        }
+      ]
     },
     {
       "doi": "10.21105/jose.00059",

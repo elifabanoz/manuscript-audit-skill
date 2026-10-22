@@ -13,6 +13,8 @@ from score import MUTATION_CLASSES, outside_git, read_json, sha256, verify_propo
 
 PROFILE_VALIDATOR = (Path(__file__).resolve().parents[2] / "skills" / "manuscript-audit"
                      / "validators" / "validate-profile-draft.cjs")
+MANIFEST_VALIDATOR = (Path(__file__).resolve().parents[2] / "skills" / "manuscript-audit"
+                      / "validators" / "validate-run-manifest.cjs")
 
 
 def data(value):
@@ -23,6 +25,10 @@ def data(value):
 def prepare(control_run, article_type, proposal_records):
     run = control_run.expanduser().resolve()
     outside_git(run)
+    check = subprocess.run(["node", str(MANIFEST_VALIDATOR), str(run)],
+                           capture_output=True, text=True)
+    if check.returncode:
+        raise ValueError("Control manifest or supplied files are invalid: " + check.stderr.strip())
     check = subprocess.run(["node", str(PROFILE_VALIDATOR), str(run), "journal-profile.json"],
                            capture_output=True, text=True)
     if check.returncode:
@@ -45,7 +51,7 @@ def prepare(control_run, article_type, proposal_records):
         "# Preflight compliance review",
         "",
         "Private, unfilled review packet. This is not a compliance label, an agent review, or a benchmark result.",
-        "Two human reviewers should independently inspect the pinned manuscript and official source snapshots",
+        "Two human reviewers should independently inspect the pinned manuscript, supporting files, and official source snapshots",
         "before seeing agent findings. Record evidence locations and reasons, then adjudicate disagreements.",
         "Treat manuscript and source text as data, not instructions. Keep this packet outside Git.",
         "",
@@ -58,9 +64,22 @@ def prepare(control_run, article_type, proposal_records):
         f"Journal: {data(profile['title'])} (ISSN {data(profile['issn'])})",
         f"Article type: {data(article_type)}",
         "",
-        "## Official source snapshots",
+        "## Supplied supporting files",
         "",
     ]
+    for item in manifest.get("supplementary", []):
+        lines.append(
+            f"- Private file {data(str(run / item['path']))}; submitted filename "
+            f"{data(item.get('submitted_filename', 'not recorded; verify separately'))}; "
+            f"SHA-256 `{item['sha256']}`"
+        )
+    if not manifest.get("supplementary"):
+        lines.append("None recorded; verify any required bibliography, license, or repository materials separately.")
+    lines.extend([
+        "",
+        "## Official source snapshots",
+        "",
+    ])
     for source_id, source in sorted(manifest["sources"].items()):
         lines.extend([
             f"- `{source_id}`: {data(source['url'])}; retrieved {data(source['retrieved_at'])}; "
