@@ -295,6 +295,37 @@ class CandidateGuidelineTests(unittest.TestCase):
             self.assertIn("ISSN", locator["reason"])
             self.assertEqual(len(requests), 1)
 
+    def test_ieee_access_adapter_uses_exact_current_journal_record(self):
+        requests = []
+        guide = "https://ieeeaccess.ieee.org/authors/submission-guidelines/"
+
+        def opener(request, timeout):
+            requests.append(request.full_url)
+            if "/sources/S2485537415" in request.full_url:
+                source = {"id": "https://openalex.org/S2485537415", "type": "journal",
+                          "issn_l": "2169-3536", "host_organization": "https://openalex.org/P4310319808",
+                          "homepage_url": "http://ieeexplore.ieee.org/servlet/opac?punumber=6287639"}
+                return Response(request.full_url, json.dumps(source).encode())
+            return Response(guide)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            candidate_file = root / "candidates.json"
+            record = discovery(home="http://ieeexplore.ieee.org/servlet/opac?punumber=6287639")
+            record["candidates"][0].update(
+                source_id="https://openalex.org/S2485537415", issns=["2169-3536"])
+            del record["candidates"][0]["doaj_id"]
+            del record["candidates"][0]["author_instructions_url"]
+            candidate_file.write_text(json.dumps(record), encoding="utf-8")
+            path = capture(candidate_file, "2169-3536", root / "sources", True, opener)
+            locator = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(locator["status"], "captured_pending_review")
+            self.assertEqual(locator["link_origin"], "ieee_access_adapter")
+            self.assertEqual(locator["domain_basis"], "ieee_access_url_pattern")
+            self.assertEqual(locator["author_instructions_url"], guide)
+            self.assertEqual(len(requests), 2)
+            self.assertEqual(requests[1], guide)
+
     def test_openalex_homepage_locates_one_same_host_guide(self):
         requests = []
 

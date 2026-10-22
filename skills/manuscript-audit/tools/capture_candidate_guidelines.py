@@ -14,6 +14,7 @@ from discover_journals import DOAJ_URL, SOURCE_ID, fetch_json
 from fetch_guidelines import https_url, normalized_host, save_source
 from locate_guidelines import locate
 from prepare_run import outside_git
+from publishers.ieee_access import submission_guidelines as ieee_access_guidelines
 from publishers.springer_nature import GUIDELINE_URL, open_guidelines, submission_guidelines
 
 
@@ -84,6 +85,8 @@ def openalex_host(candidate, issn, instruction_url, opener):
         return "openalex_journal_homepage", None, None, source_hash, None
     if submission_guidelines(source.get("homepage_url")) == instruction_url:
         return "springer_nature_url_pattern", None, None, source_hash, None
+    if ieee_access_guidelines(source, issn) == instruction_url:
+        return "ieee_access_url_pattern", None, None, source_hash, None
     publisher_id = source.get("host_organization")
     if not isinstance(publisher_id, str) or not PUBLISHER_ID.fullmatch(publisher_id):
         raise ValueError("OpenAlex has no usable publisher identity for this journal")
@@ -146,6 +149,10 @@ def capture(discovery_record, issn, output_root, allow_network=False, opener=url
                 instructions = submission_guidelines(registry_homepage_url)
                 if instructions is not None:
                     link_origin = "springer_nature_adapter"
+                else:
+                    instructions = ieee_access_guidelines(source, issn)
+                    if instructions is not None:
+                        link_origin = "ieee_access_adapter"
             else:
                 _doaj_host, _link, doaj_hash, registry_homepage_url = current_doaj_journal(
                     candidate, issn, opener)
@@ -182,6 +189,8 @@ def capture(discovery_record, issn, output_root, allow_network=False, opener=url
                             raise ValueError("The DOAJ author-instruction link changed since discovery")
                     if link_origin == "springer_nature_adapter":
                         domain_basis = "springer_nature_url_pattern"
+                    elif link_origin == "ieee_access_adapter":
+                        domain_basis = "ieee_access_url_pattern"
                     elif link_origin == "official_homepage_link":
                         pass
                     elif doaj_host == instruction_host:
