@@ -31,6 +31,11 @@ def sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def scored_inputs_sha256(scored):
+    encoded = json.dumps(scored["cases"], sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def exact_keys(value, keys, label):
     if not isinstance(value, dict) or set(value) != set(keys):
         raise ValueError(f"{label} must contain exactly: {', '.join(keys)}")

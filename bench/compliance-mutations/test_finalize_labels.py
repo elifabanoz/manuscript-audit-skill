@@ -44,6 +44,7 @@ class HumanLabelTests(unittest.TestCase):
             cases.write_text("{}", encoding="utf-8")
             with patch("prepare_label_review.score", return_value=SCORED):
                 template = make_json_template(cases)
+            self.assertEqual(template["schema_version"], 2)
             self.assertEqual(len(template["reviews"]), 2)
             self.assertEqual(len(template["reviews"][0]["labels"]), 2)
             with self.assertRaisesRegex(ValueError, "name or identifier"):
@@ -77,6 +78,10 @@ class HumanLabelTests(unittest.TestCase):
                     validate_labels(SCORED, value, sha256(cases))
             with self.assertRaisesRegex(ValueError, "manifest"):
                 validate_labels(SCORED, original, "b" * 64)
+            changed_inputs = copy.deepcopy(SCORED)
+            changed_inputs["cases"][1]["proposal_record_sha256"] = "a" * 64
+            with self.assertRaisesRegex(ValueError, "scored input files"):
+                validate_labels(changed_inputs, original, sha256(cases))
 
     def test_disagreements_require_documented_resolution(self):
         with tempfile.TemporaryDirectory() as temporary:

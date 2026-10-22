@@ -8,7 +8,7 @@ import re
 from datetime import date
 from pathlib import Path
 
-from score import MUTATION_CLASSES, outside_git, score, sha256
+from score import MUTATION_CLASSES, outside_git, score, scored_inputs_sha256, sha256
 
 
 VERDICTS = {"compliant", "noncompliant", "unclear"}
@@ -64,9 +64,12 @@ def checked_labels(labels, expected, reviewer, final=False):
 
 
 def validate_labels(scored, labels, manifest_hash):
-    if (not isinstance(labels, dict) or set(labels) != {"schema_version", "benchmark_manifest_sha256", "reviews", "adjudication"}
-            or labels["schema_version"] != 1 or labels["benchmark_manifest_sha256"] != manifest_hash):
+    if (not isinstance(labels, dict) or set(labels) != {"schema_version", "benchmark_manifest_sha256",
+                                                      "scored_inputs_sha256", "reviews", "adjudication"}
+            or labels["schema_version"] != 2 or labels["benchmark_manifest_sha256"] != manifest_hash):
         raise ValueError("Human labels do not match this benchmark manifest")
+    if labels["scored_inputs_sha256"] != scored_inputs_sha256(scored):
+        raise ValueError("Human labels do not match the scored input files")
     reviews = labels["reviews"]
     if not isinstance(reviews, list) or len(reviews) != 2:
         raise ValueError("Exactly two independent human review records are required")
@@ -125,6 +128,7 @@ def finalize(cases_path, labels_path, output_path=None):
     output = output_path or cases_path.parent / "human-reviewed-scores.json"
     outside_git(output)
     result = {**scored, "benchmark_manifest_sha256": manifest_hash,
+              "scored_inputs_sha256": scored_inputs_sha256(scored),
               "human_review_status": "approved", "human_labels_sha256": labels_hash,
               "human_review": review}
     with output.open("x", encoding="utf-8") as handle:
