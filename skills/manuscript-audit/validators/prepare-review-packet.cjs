@@ -8,7 +8,9 @@ const { reviewSubjectHash, validate } = require('./validate-run.cjs');
 const { outsideGit } = require('./render-report.cjs');
 
 function cachedText(run, record) {
-  return { path: record.path, sha256: record.sha256, text: fs.readFileSync(safeFile(run, record.path), 'utf8') };
+  return { path: record.path, sha256: record.sha256,
+    ...(record.submitted_filename === undefined ? {} : { submitted_filename: record.submitted_filename }),
+    text: fs.readFileSync(safeFile(run, record.path), 'utf8') };
 }
 
 function prepare(run, findingId, role) {

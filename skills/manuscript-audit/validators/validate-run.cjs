@@ -27,7 +27,9 @@ function subjectHash(finding) {
 
 function corpusHash(manifest) {
   const files = [manifest.manuscript, ...(Array.isArray(manifest.supplementary) ? manifest.supplementary : [])];
-  const entries = files.map(file => [file.path, file.sha256]).sort((left, right) => left[0].localeCompare(right[0], 'en'));
+  const entries = files.map(file => file.submitted_filename === undefined
+    ? [file.path, file.sha256] : [file.path, file.sha256, file.submitted_filename])
+    .sort((left, right) => left[0].localeCompare(right[0], 'en'));
   if (manifest.extraction) entries.push([`original:${manifest.extraction.format}`, manifest.extraction.source_sha256]);
   entries.sort((left, right) => left[0].localeCompare(right[0], 'en'));
   return crypto.createHash('sha256').update(canonical(entries)).digest('hex');

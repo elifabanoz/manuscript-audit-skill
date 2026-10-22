@@ -101,7 +101,7 @@ def prepare(args):
             raise ValueError("Supply --source-record or all manual guideline fields")
         sources.append((args.guideline_url, args.retrieved_at,
                         read_text(args.guideline_text, "--guideline-text")))
-    supplementary = [(path.suffix.lower(), read_text(path, "--supplementary", (".md", ".txt", ".bib")))
+    supplementary = [(path.name, path.suffix.lower(), read_text(path, "--supplementary", (".md", ".txt", ".bib")))
                      for path in args.supplementary]
     if any(not model.strip() for model in args.model):
         raise ValueError("--model must be nonempty when supplied")
@@ -148,10 +148,11 @@ def prepare(args):
     if supplementary:
         (run / "supplementary").mkdir()
     supplement_records = []
-    for index, (suffix, content) in enumerate(supplementary, start=1):
+    for index, (submitted_filename, suffix, content) in enumerate(supplementary, start=1):
         relative = f"supplementary/supp-{index}{suffix}"
         (run / relative).write_bytes(content)
-        supplement_records.append({"path": relative, "sha256": digest(content)})
+        supplement_records.append({"path": relative, "sha256": digest(content),
+                                   "submitted_filename": submitted_filename})
     manifest = {
         "schema_version": 1,
         "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
@@ -162,7 +163,8 @@ def prepare(args):
         "config_hash": None,
         "data_freeze": data_freeze(getattr(args, "data_freeze", None)),
         "cross_host": False,
-        "manuscript": {"path": f"manuscript{args.manuscript.suffix.lower()}", "sha256": digest(manuscript)},
+        "manuscript": {"path": f"manuscript{args.manuscript.suffix.lower()}", "sha256": digest(manuscript),
+                       **({} if extraction else {"submitted_filename": args.manuscript.name})},
         "supplementary": supplement_records,
         "sources": source_manifest,
     }

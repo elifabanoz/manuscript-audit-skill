@@ -16,7 +16,9 @@ VALIDATORS = Path(__file__).resolve().parents[1] / "validators"
 
 def corpus_hash(manifest):
     files = [manifest["manuscript"], *manifest.get("supplementary", [])]
-    entries = sorted(([item["path"], item["sha256"]] for item in files), key=lambda item: item[0])
+    entries = sorted(([item["path"], item["sha256"], item["submitted_filename"]]
+                      if "submitted_filename" in item else [item["path"], item["sha256"]]
+                      for item in files), key=lambda item: item[0])
     if "extraction" in manifest:
         entries.append([f"original:{manifest['extraction']['format']}", manifest["extraction"]["source_sha256"]])
         entries.sort(key=lambda item: item[0])

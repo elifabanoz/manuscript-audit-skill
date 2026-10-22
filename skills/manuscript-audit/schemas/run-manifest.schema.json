@@ -55,7 +55,8 @@
       "required": ["path", "sha256"],
       "properties": {
         "path": { "type": "string", "minLength": 1 },
-        "sha256": { "$ref": "#/$defs/sha256" }
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "submitted_filename": { "type": "string", "minLength": 1, "maxLength": 255, "pattern": "^(?!\\.{1,2}$)[^/\\\\]+$" }
       }
     }
   }

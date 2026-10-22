@@ -15,8 +15,14 @@ function checkTime(value, at, errors) {
 }
 
 function checkCachedFile(root, record, at, errors) {
-  if (!allowedKeys(record, ['path', 'sha256'], at, errors)) return;
+  if (!allowedKeys(record, ['path', 'sha256', 'submitted_filename'], at, errors)) return;
   if (!nonempty(record.path)) errors.push(`${at}.path must be nonempty`);
+  if (record.submitted_filename !== undefined &&
+      (typeof record.submitted_filename !== 'string' || !record.submitted_filename.trim() ||
+       record.submitted_filename.length > 255 || /[/\\]/.test(record.submitted_filename) ||
+       ['.', '..'].includes(record.submitted_filename))) {
+    errors.push(`${at}.submitted_filename must be a single file name`);
+  }
   if (typeof record.sha256 !== 'string' || !SHA256.test(record.sha256)) {
     errors.push(`${at}.sha256 must be a SHA-256 hex digest`);
     return;

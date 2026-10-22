@@ -41,8 +41,10 @@ class PrepareRunTests(unittest.TestCase):
         self.assertEqual(first.name, "run-1")
         self.assertEqual(manifest["sources"][next(iter(manifest["sources"]))]["retrieved_at"], "2026-10-19T09:30:00Z")
         self.assertEqual((first / manifest["manuscript"]["path"]).read_bytes(), self.manuscript.read_bytes())
+        self.assertEqual(manifest["manuscript"]["submitted_filename"], "Example paper.md")
         self.assertEqual((first / next(iter(manifest["sources"].values()))["path"]).read_bytes(), self.guideline.read_bytes())
         self.assertEqual((first / manifest["supplementary"][0]["path"]).read_bytes(), supplement.read_bytes())
+        self.assertEqual(manifest["supplementary"][0]["submitted_filename"], "appendix.md")
         self.assertEqual(prepare(self.args).name, "run-2")
 
     def test_bibtex_supplement_is_hashed_and_kept_private(self):

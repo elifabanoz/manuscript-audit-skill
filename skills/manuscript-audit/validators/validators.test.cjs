@@ -602,6 +602,18 @@ test('a run manifest detects changed private files and escaped paths', t => {
   assert.match(validateManifest(data.run, manifest).join('\n'), /traversal/);
 });
 
+test('submitted filenames are validated and bound to coverage fingerprints', t => {
+  const data = fixture(t);
+  const manifest = manifestFor(data);
+  const before = corpusHash(manifest);
+  manifest.manuscript.submitted_filename = 'paper.md';
+  assert.deepEqual(validateManifest(data.run, manifest), []);
+  assert.notEqual(corpusHash(manifest), before);
+  assert.match(validateRun(data.run, manifest, data.profile, data.ledger, data.findings).join('\n'), /source_hash is stale/);
+  manifest.manuscript.submitted_filename = '../paper.md';
+  assert.match(validateManifest(data.run, manifest).join('\n'), /submitted_filename must be a single file name/);
+});
+
 test('the full run gate binds profile sources to the manifest', t => {
   const data = fixture(t);
   const manifest = manifestFor(data);
@@ -875,6 +887,22 @@ test('compliance hunter packet binds one pending verified rule without exposing 
   fs.writeFileSync(path.join(data.run, 'journal-profile.json'), JSON.stringify(data.profile));
   fs.appendFileSync(path.join(data.run, 'manuscript.md'), 'Changed text.\n');
   assert.throws(() => prepareCompliancePacket(data.run, 'U-1', 'original_research'), /SHA-256 mismatch/);
+});
+
+test('compliance hunter sees the submitted filename beside the normalized path', t => {
+  const data = fixture(t);
+  const manifest = manifestFor(data);
+  manifest.manuscript.submitted_filename = 'paper.md';
+  data.ledger[0].status = 'pending';
+  data.ledger[0].checked_by = [];
+  data.ledger[0].source_hash = corpusHash(manifest);
+  fs.writeFileSync(path.join(data.run, 'run-manifest.json'), JSON.stringify(manifest));
+  fs.writeFileSync(path.join(data.run, 'journal-profile.json'), JSON.stringify(data.profile));
+  fs.writeFileSync(path.join(data.run, 'coverage-ledger.json'), JSON.stringify(data.ledger));
+  fs.writeFileSync(path.join(data.run, 'findings.json'), '[]');
+  const packet = JSON.parse(fs.readFileSync(prepareCompliancePacket(data.run, 'U-1', 'original_research').path, 'utf8'));
+  assert.equal(packet.manuscript.path, 'manuscript.md');
+  assert.equal(packet.manuscript.submitted_filename, 'paper.md');
 });
 
 test('verifier packet binds the defense decision without exposing its rationale', t => {
