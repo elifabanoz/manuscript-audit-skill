@@ -246,6 +246,80 @@ class CandidateGuidelineTests(unittest.TestCase):
             self.assertIsNone(locator["openalex_publisher_id"])
             self.assertEqual(len(requests), 2)
 
+    def test_springer_adapter_locates_guidelines_without_doaj_link(self):
+        requests = []
+
+        def opener(request, timeout):
+            requests.append(request.full_url)
+            if "/sources/S1" in request.full_url:
+                source = {"id": "https://openalex.org/S1", "type": "journal",
+                          "issn_l": "1234-567X", "homepage_url": "https://www.springer.com/journal/607"}
+                return Response(request.full_url, json.dumps(source).encode())
+            return Response("https://link.springer.com/journal/607/submission-guidelines")
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            candidate_file = root / "candidates.json"
+            record = discovery()
+            del record["candidates"][0]["doaj_id"]
+            del record["candidates"][0]["author_instructions_url"]
+            candidate_file.write_text(json.dumps(record), encoding="utf-8")
+            path = capture(candidate_file, "1234-567X", root / "sources", True, opener)
+            locator = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(locator["status"], "captured_pending_review")
+            self.assertEqual(locator["link_origin"], "springer_nature_adapter")
+            self.assertEqual(locator["domain_basis"], "springer_nature_url_pattern")
+            self.assertEqual(len(locator["openalex_source_response_sha256"]), 64)
+            self.assertEqual(locator["author_instructions_url"], requests[1])
+            self.assertEqual(len(requests), 2)
+
+    def test_springer_adapter_rejects_wrong_current_journal_identity(self):
+        requests = []
+
+        def opener(request, timeout):
+            requests.append(request.full_url)
+            source = {"id": "https://openalex.org/S1", "type": "journal",
+                      "issn_l": "9999-9999", "homepage_url": "https://www.springer.com/journal/607"}
+            return Response(request.full_url, json.dumps(source).encode())
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            candidate_file = root / "candidates.json"
+            record = discovery()
+            del record["candidates"][0]["doaj_id"]
+            del record["candidates"][0]["author_instructions_url"]
+            candidate_file.write_text(json.dumps(record), encoding="utf-8")
+            path = capture(candidate_file, "1234-567X", root / "sources", True, opener)
+            locator = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(locator["status"], "needs_manual_verification")
+            self.assertIn("ISSN", locator["reason"])
+            self.assertEqual(len(requests), 1)
+
+    def test_current_doaj_springer_link_uses_verified_journal_pattern(self):
+        guideline = "https://link.springer.com/journal/607/submission-guidelines"
+        requests = []
+
+        def opener(request, timeout):
+            requests.append(request.full_url)
+            if "doaj.org/api/search/journals/" in request.full_url:
+                return Response(request.full_url, json.dumps(doaj_result(
+                    home="https://www.springer.com/journal/607", guide=guideline)).encode())
+            if "/sources/S1" in request.full_url:
+                source = {"id": "https://openalex.org/S1", "type": "journal",
+                          "issn_l": "1234-567X", "homepage_url": "https://www.springer.com/journal/607"}
+                return Response(request.full_url, json.dumps(source).encode())
+            return Response(guideline)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            candidate_file = root / "candidates.json"
+            candidate_file.write_text(json.dumps(discovery(guide=guideline)), encoding="utf-8")
+            path = capture(candidate_file, "1234-567X", root / "sources", True, opener)
+            locator = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(locator["status"], "captured_pending_review")
+            self.assertEqual(locator["domain_basis"], "springer_nature_url_pattern")
+            self.assertEqual(len(requests), 3)
+
     def test_operator_url_requires_network_and_current_official_host(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

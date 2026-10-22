@@ -13,6 +13,7 @@ from urllib.request import urlopen
 from discover_journals import DOAJ_URL, SOURCE_ID, fetch_json
 from fetch_guidelines import https_url, normalized_host, save_source
 from prepare_run import outside_git
+from publishers.springer_nature import GUIDELINE_URL, open_guidelines, submission_guidelines
 
 
 ISSN = re.compile(r"^\d{4}-\d{3}[\dX]$")
@@ -60,10 +61,10 @@ def homepage_host(homepage_url):
     return normalized_host(homepage_url)
 
 
-def openalex_host(candidate, issn, instruction_host, opener):
+def current_openalex_journal(candidate, issn, opener):
     source_id = candidate.get("source_id")
     if not isinstance(source_id, str) or not SOURCE_ID.fullmatch(source_id):
-        raise ValueError("A current OpenAlex journal record is required to verify the publisher host")
+        raise ValueError("A current OpenAlex journal record is required")
     source, source_hash = fetch_json(
         f"https://api.openalex.org/sources/{source_id.rsplit('/', 1)[1]}"
         "?select=id,type,issn,issn_l,homepage_url,host_organization", opener)
@@ -72,8 +73,16 @@ def openalex_host(candidate, issn, instruction_host, opener):
             or issn not in ([source.get("issn_l")] +
                             (source.get("issn") if isinstance(source.get("issn"), list) else []))):
         raise ValueError("The current OpenAlex journal identity does not match the selected ISSN")
+    return source, source_hash
+
+
+def openalex_host(candidate, issn, instruction_url, opener):
+    source, source_hash = current_openalex_journal(candidate, issn, opener)
+    instruction_host = normalized_host(instruction_url)
     if homepage_host(source.get("homepage_url")) == instruction_host:
         return "openalex_journal_homepage", None, None, source_hash, None
+    if submission_guidelines(source.get("homepage_url")) == instruction_url:
+        return "springer_nature_url_pattern", None, None, source_hash, None
     publisher_id = source.get("host_organization")
     if not isinstance(publisher_id, str) or not PUBLISHER_ID.fullmatch(publisher_id):
         raise ValueError("OpenAlex has no usable publisher identity for this journal")
@@ -126,10 +135,19 @@ def capture(discovery_record, issn, output_root, allow_network=False, opener=url
     domain_basis = None
     publisher_id = publisher_homepage = source_hash = publisher_hash = None
     doaj_hash = None
-    if guideline_url is None and not candidate.get("doaj_id"):
-        reason = "No DOAJ author-instruction link is attached to this candidate"
-    elif not isinstance(instructions, str):
-        reason = "No usable HTTPS author-instruction link is available for this candidate"
+    if guideline_url is None and not isinstance(instructions, str) and allow_network:
+        try:
+            source, source_hash = current_openalex_journal(candidate, issn, opener)
+            instructions = submission_guidelines(source.get("homepage_url"))
+            if instructions is not None:
+                link_origin = "springer_nature_adapter"
+        except (OSError, UnicodeError, ValueError) as error:
+            reason = str(error)
+    if not isinstance(instructions, str):
+        if reason is None and not allow_network:
+            reason = "Add --allow-network to locate an official guideline page"
+        elif reason is None:
+            reason = "No supported official author-instruction URL was found"
     else:
         try:
             https_url(instructions)
@@ -142,15 +160,17 @@ def capture(discovery_record, issn, output_root, allow_network=False, opener=url
             else:
                 try:
                     doaj_host = None
-                    if guideline_url is None or not candidate.get("source_id"):
+                    if link_origin == "doaj_metadata" or not candidate.get("source_id"):
                         doaj_host, current_link, doaj_hash = current_doaj_journal(candidate, issn, opener)
-                        if guideline_url is None and current_link != instructions:
+                        if link_origin == "doaj_metadata" and current_link != instructions:
                             raise ValueError("The DOAJ author-instruction link changed since discovery")
-                    if doaj_host == instruction_host:
+                    if link_origin == "springer_nature_adapter":
+                        domain_basis = "springer_nature_url_pattern"
+                    elif doaj_host == instruction_host:
                         domain_basis = "current_doaj_journal_homepage"
                     else:
                         domain_basis, publisher_id, publisher_homepage, source_hash, publisher_hash = openalex_host(
-                            candidate, issn, instruction_host, opener)
+                            candidate, issn, instructions, opener)
                     status = "capture_pending"
                 except (OSError, UnicodeError, ValueError) as error:
                     reason = str(error)
@@ -166,7 +186,8 @@ def capture(discovery_record, issn, output_root, allow_network=False, opener=url
         raise ValueError("No available candidate-guideline number")
     if status == "capture_pending":
         try:
-            source_path = save_source(instructions, directory, opener=opener,
+            capture_opener = open_guidelines if opener is urlopen and GUIDELINE_URL.fullmatch(instructions) else opener
+            source_path = save_source(instructions, directory, opener=capture_opener,
                                       allowed_host=normalized_host(instructions))
             source_record = str(source_path.relative_to(directory)).replace("\\", "/")
             status = "captured_pending_review"
