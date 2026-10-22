@@ -464,6 +464,14 @@ test('confirmed reference leads bind a private check, registry record, and manus
   fs.writeFileSync(path.join(data.run, 'doi-metadata.json'), '{}');
   assert.match(validateRun(data.run, manifest, data.profile, data.ledger, [finding]).join('\n'),
     /stale DOI inventory or Crossref metadata/);
+  fs.writeFileSync(path.join(data.run, 'doi-metadata.json'), metadataBytes);
+  const fabricatedChecks = JSON.parse(checksBytes.toString('utf8'));
+  fabricatedChecks.results[0].checks.post_publication_update = 'review';
+  const fabricatedBytes = Buffer.from(JSON.stringify(fabricatedChecks));
+  fs.writeFileSync(path.join(data.run, 'reference-metadata-checks.json'), fabricatedBytes);
+  finding.evidence[1].checks_sha256 = checksum(fabricatedBytes);
+  assert.match(validateRun(data.run, manifest, data.profile, data.ledger, [finding]).join('\n'),
+    /lacks a Crossref post-publication update signal/);
 });
 
 test('unresolved findings cannot carry a severity', t => {

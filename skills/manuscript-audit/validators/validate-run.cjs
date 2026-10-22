@@ -135,6 +135,12 @@ function checkReferenceMetadata(run, finding, evidence, at, manifest, suppliedPa
       errors.push(`${at} lacks a matching Crossref registry record`);
       return;
     }
+    if (result.checks?.post_publication_update === 'review'
+        && (registered.update_metadata_status !== 'reported'
+            || !Array.isArray(registered.update_signals) || !registered.update_signals.length)) {
+      errors.push(`${at} lacks a Crossref post-publication update signal`);
+      return;
+    }
     if (!suppliedPaths.has(result.path) || !Number.isInteger(result.start_line)
         || !Number.isInteger(result.end_line) || result.start_line < 1
         || result.end_line < result.start_line || result.end_line > result.start_line + 7) {

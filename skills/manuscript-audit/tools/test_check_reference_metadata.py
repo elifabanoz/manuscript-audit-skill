@@ -57,9 +57,11 @@ class ReferenceMetadataTests(unittest.TestCase):
         self.assertEqual([item["status"] for item in result["results"]],
                          ["metadata_consistent", "needs_review"])
         self.assertEqual(result["results"][0]["checks"],
-                         {"title": "same", "year": "same", "first_author_family": "same"})
+                         {"title": "same", "year": "same", "first_author_family": "same",
+                          "post_publication_update": "none_reported"})
         self.assertEqual(result["results"][1]["checks"],
-                         {"title": "review", "year": "review", "first_author_family": "review"})
+                         {"title": "review", "year": "review", "first_author_family": "review",
+                          "post_publication_update": "none_reported"})
         saved = (self.run / "reference-metadata-checks.json").read_text(encoding="utf-8")
         self.assertNotIn("Lovelace, A.", saved)
         with self.assertRaises(FileExistsError):
@@ -85,6 +87,18 @@ class ReferenceMetadataTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "matching DOI provenance"):
             compare(self.run, self.cases)
         self.assertFalse((self.run / "reference-metadata-checks.json").exists())
+
+    def test_post_publication_update_is_a_review_lead_with_matching_bibliography(self):
+        metadata_path = self.run / "doi-metadata.json"
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        metadata["results"][0]["update_metadata_status"] = "reported"
+        metadata["results"][0]["update_signals"] = [
+            {"type": "retraction", "notice_doi": "10.1234/notice", "source": "publisher"}]
+        metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+        result = compare(self.run, self.cases)
+        self.assertEqual(result["results"][0]["status"], "needs_review")
+        self.assertEqual(result["results"][0]["checks"]["post_publication_update"], "review")
+        self.assertEqual(result["results"][0]["checks"]["title"], "same")
 
 
 if __name__ == "__main__":

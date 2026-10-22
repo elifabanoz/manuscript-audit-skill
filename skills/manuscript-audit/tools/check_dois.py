@@ -39,6 +39,25 @@ def first_author_family(message):
     return family.strip() if isinstance(family, str) and family.strip() else None
 
 
+def publication_updates(message):
+    updates = message.get("updated-by")
+    if updates is None or updates == []:
+        return "not_reported", []
+    if not isinstance(updates, list) or len(updates) > 100:
+        return "unusable", []
+    signals = []
+    for update in updates:
+        if (not isinstance(update, dict) or not isinstance(update.get("type"), str)
+                or not 1 <= len(update["type"].strip()) <= 64
+                or not isinstance(update.get("DOI"), str)
+                or not 1 <= len(update["DOI"].strip()) <= 255):
+            return "unusable", []
+        source = update.get("source")
+        signals.append({"type": update["type"].strip().casefold(), "notice_doi": update["DOI"].strip(),
+                        "source": source if isinstance(source, str) and source in {"publisher", "retraction-watch"} else None})
+    return "reported", signals
+
+
 def lookup_one(doi, opener):
     url = crossref_url("https://api.crossref.org/works/" + quote(doi, safe="/"))
     request = Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
@@ -49,6 +68,7 @@ def lookup_one(doi, opener):
             raise ValueError("Crossref response lacks a DOI")
         if message["DOI"].casefold() != doi.casefold():
             return {"status": "lookup_failed", "reason": "Crossref returned a different DOI"}
+        update_status, update_signals = publication_updates(message)
         return {
             "status": "registered_in_crossref",
             "registered_doi": message["DOI"],
@@ -58,6 +78,8 @@ def lookup_one(doi, opener):
             "publication_year": publication_year(message),
             "first_author_family": first_author_family(message),
             "type": message.get("type") if isinstance(message.get("type"), str) else None,
+            "update_metadata_status": update_status,
+            "update_signals": update_signals,
         }
     except HTTPError as error:
         if error.code == 404:

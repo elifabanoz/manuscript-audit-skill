@@ -10,7 +10,7 @@ from urllib.error import HTTPError
 from urllib.parse import parse_qs, urlsplit
 from unittest.mock import patch
 
-from check_dois import check
+from check_dois import check, publication_updates
 from list_dois import inventory
 from prepare_run import prepare
 
@@ -54,6 +54,8 @@ class DoiMetadataTests(unittest.TestCase):
                 "container-title": ["Example Journal"], "type": "journal-article",
                 "author": [{"given": "Ada", "family": "Lovelace"}],
                 "published": {"date-parts": [[2024, 5, 1]]},
+                "updated-by": [{"DOI": "10.1234/notice", "type": "retraction",
+                                "source": "retraction-watch"}],
             }}).encode("utf-8"))
 
         output = check(self.run, allow_network=True, opener=fake_open, pause=lambda _: None)
@@ -66,10 +68,19 @@ class DoiMetadataTests(unittest.TestCase):
         self.assertEqual(output["results"][0]["title"], "Invented title")
         self.assertEqual(output["results"][0]["publication_year"], 2024)
         self.assertEqual(output["results"][0]["first_author_family"], "Lovelace")
+        self.assertEqual(output["results"][0]["update_metadata_status"], "reported")
+        self.assertEqual(output["results"][0]["update_signals"], [
+            {"type": "retraction", "notice_doi": "10.1234/notice", "source": "retraction-watch"}])
         self.assertEqual(len(output["results"][0]["response_sha256"]), 64)
         self.assertNotIn("# References", (self.run / "doi-metadata.json").read_text(encoding="utf-8"))
         with self.assertRaises(FileExistsError):
             check(self.run, allow_network=True, opener=fake_open, pause=lambda _: None)
+
+    def test_malformed_post_publication_updates_are_not_treated_as_clear(self):
+        self.assertEqual(publication_updates({}), ("not_reported", []))
+        self.assertEqual(publication_updates({"updated-by": []}), ("not_reported", []))
+        self.assertEqual(publication_updates({"updated-by": {"type": "retraction"}}), ("unusable", []))
+        self.assertEqual(publication_updates({"updated-by": [{"type": "retraction"}]}), ("unusable", []))
 
     def test_contact_address_is_sent_only_in_the_request(self):
         requests = []

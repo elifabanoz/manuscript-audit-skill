@@ -133,6 +133,14 @@ def compare(run, cases_path):
                 family = registry.get("first_author_family")
                 checks["first_author_family"] = ("same" if normalized(family) == normalized(item["first_author_family"])
                                                   else "review") if isinstance(family, str) and family.strip() else "metadata_missing"
+            update_status = registry.get("update_metadata_status")
+            signals = registry.get("update_signals")
+            if update_status == "reported" and isinstance(signals, list) and signals:
+                checks["post_publication_update"] = "review"
+            elif update_status == "not_reported" and signals == []:
+                checks["post_publication_update"] = "none_reported"
+            else:
+                checks["post_publication_update"] = "metadata_missing"
             status = "needs_review" if "review" in checks.values() else (
                 "metadata_incomplete" if "metadata_missing" in checks.values() else "metadata_consistent")
         else:
