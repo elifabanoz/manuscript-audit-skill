@@ -78,7 +78,7 @@ class CachedRunTests(unittest.TestCase):
         self.assertEqual(json.loads((run / "profile-reuse.json").read_text())["profile_sha256"],
                          hashlib.sha256(original_profile).hexdigest())
         reuse = json.loads((run / "profile-reuse.json").read_text(encoding="utf-8"))
-        self.assertEqual(reuse["source_run"], str(self.original))
+        self.assertTrue(Path(reuse["source_run"]).samefile(self.original))
         self.assertEqual(reuse["selected_issn"], "1234-567X")
         self.assertRegex(reuse["comparison_record"], r"^profile-comparison-v2-[a-f0-9-]+\.json$")
         self.assertRegex(reuse["comparison_sha256"], r"^[a-f0-9]{64}$")
