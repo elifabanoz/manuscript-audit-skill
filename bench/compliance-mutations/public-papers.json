@@ -42,6 +42,24 @@
       "output_name": "joss-10374-paper.md"
     },
     {
+      "doi": "10.21105/joss.10631",
+      "journal": "Journal of Open Source Software",
+      "article_url": "https://joss.theoj.org/papers/10.21105/joss.10631",
+      "article_license": "CC BY 4.0",
+      "source_url": "https://raw.githubusercontent.com/ToxPuro/astaroth/1448c045430e1bda9561f8ac0ff0a0efdab86f45/paper.md",
+      "source_ref": "1448c045430e1bda9561f8ac0ff0a0efdab86f45",
+      "source_sha256": "8a5d742bbd0597e8c41ccf01e1a1b96f0d11689fec2b89daf448faa181864c4d",
+      "output_name": "joss-10631-paper.md",
+      "supplementary_dir": "joss-10631-release",
+      "supplementary": [
+        {
+          "source_url": "https://raw.githubusercontent.com/ToxPuro/astaroth/1448c045430e1bda9561f8ac0ff0a0efdab86f45/paper.bib",
+          "source_sha256": "b0e06eefd13b8a6b1f05d53a748aca5737ccbfc585bd164bb7c08717f56c1c08",
+          "output_name": "paper.bib"
+        }
+      ]
+    },
+    {
       "doi": "10.21105/jose.00307",
       "journal": "Journal of Open Source Education",
       "article_url": "https://jose.theoj.org/papers/10.21105/jose.00307",
