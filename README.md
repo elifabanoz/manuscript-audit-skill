@@ -127,12 +127,18 @@ This version is offered under the [PolyForm Noncommercial License 1.0.0](LICENSE
 
 Required Notice: Copyright (c) 2026 Elif Abanoz
 
-Run the local tests with Node.js and Python 3.11 or newer:
+Run the full validation gate locally with Node.js and Python 3.11 or newer. Install the optional PDF and statistics requirements and Pandoc to exercise their integration tests:
 
 ```sh
+python skills/manuscript-audit/roles/gen_agents.py --check --output-root .
 node --test skills/manuscript-audit/validators/validators.test.cjs
 python -m unittest discover -s skills/manuscript-audit/tools -p 'test_*.py'
+python -m unittest discover -s bench/compliance-mutations -p 'test_*.py'
+python -m unittest discover -s bench/parsing -p 'test_*.py'
+node -e "const fs=require('node:fs'); for (const file of fs.readdirSync('skills/manuscript-audit/schemas')) JSON.parse(fs.readFileSync('skills/manuscript-audit/schemas/'+file, 'utf8'))"
 ```
+
+The GitHub workflow is manual-only; normal pushes do not start a runner. Run these checks before committing or pushing.
 
 Before committing, install gitleaks and enable the secret scan hook:
 
