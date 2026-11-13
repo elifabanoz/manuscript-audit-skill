@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from prepare_publisher_cache import prepare_publisher_cache
+from prepare_publisher_cache import find_publisher_cache_source, prepare_publisher_cache
 
 
 class PublisherCacheExportTests(unittest.TestCase):
@@ -52,6 +52,25 @@ class PublisherCacheExportTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "inside the source run"):
                 prepare_publisher_cache(self.run, "Example Publisher", self.run / "export")
         self.assertFalse((self.root / "export").exists())
+
+    def test_private_cache_search_rejects_ambiguous_reviewed_sources(self):
+        cache_root = self.root / "cache"
+        first = cache_root / "paper-a" / "run-1"
+        second = cache_root / "paper-b" / "run-2"
+        ignored = cache_root / "paper-c" / "draft"
+        for run in (first, second, ignored):
+            run.mkdir(parents=True)
+            (run / "publisher-composition.json").write_text("{}", encoding="utf-8")
+        with patch("prepare_publisher_cache.validate_source_run", return_value=self.approval):
+            self.assertEqual(find_publisher_cache_source(cache_root, "Example Publisher"), second)
+        different = {**self.approval, "publisher_rules_sha256": "c" * 64}
+        with patch("prepare_publisher_cache.validate_source_run",
+                   side_effect=lambda run, *_: different if run == second else self.approval):
+            with self.assertRaisesRegex(ValueError, "select --source-run explicitly"):
+                find_publisher_cache_source(cache_root, "Example Publisher")
+        with patch("prepare_publisher_cache.validate_source_run", side_effect=ValueError("stale")):
+            with self.assertRaisesRegex(ValueError, "No fresh, reviewed"):
+                find_publisher_cache_source(cache_root, "Example Publisher")
 
 
 if __name__ == "__main__":

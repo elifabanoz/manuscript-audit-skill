@@ -17,6 +17,7 @@ from prepare_run import outside_git
 
 VALIDATOR = Path(__file__).resolve().parents[1] / "validators" / "validate-publisher-cache.cjs"
 SOURCE_ID = re.compile(r"^src_[a-f0-9]{16}$")
+RUN_DIRECTORY = re.compile(r"^run-[1-9][0-9]*$")
 
 
 def digest(data):
@@ -29,6 +30,37 @@ def validate_source_run(source_run, publisher, ttl_days):
     if result.returncode:
         raise ValueError(result.stderr.strip() or "Publisher cache validation failed")
     return json.loads(result.stdout)
+
+
+def find_publisher_cache_source(cache_root, publisher, ttl_days=30):
+    if cache_root.is_symlink():
+        raise ValueError("Publisher cache root cannot be a symbolic link")
+    root = cache_root.expanduser().resolve()
+    outside_git(root)
+    if not root.is_dir():
+        raise ValueError("Publisher cache root must be an existing private directory")
+    matches = []
+    for paper in root.iterdir():
+        if not paper.is_dir() or paper.is_symlink():
+            continue
+        for run in paper.iterdir():
+            if not RUN_DIRECTORY.fullmatch(run.name) or not run.is_dir() or run.is_symlink():
+                continue
+            if not (run / "publisher-composition.json").is_file():
+                continue
+            try:
+                approval = validate_source_run(run, publisher, ttl_days)
+            except (OSError, UnicodeError, ValueError, KeyError, json.JSONDecodeError):
+                continue
+            if approval.get("publisher") == publisher:
+                identity = (approval["publisher_rules_sha256"],
+                            json.dumps(approval["sources"], sort_keys=True))
+                matches.append((run, identity))
+    if not matches:
+        raise ValueError("No fresh, reviewed publisher cache matches the exact name")
+    if len({identity for _, identity in matches}) != 1:
+        raise ValueError("Different publisher caches match; select --source-run explicitly")
+    return sorted(matches, key=lambda item: str(item[0]))[-1][0]
 
 
 def prepare_publisher_cache(source_run, publisher, output_root, ttl_days=30, verify_live=False, opener=urlopen):
@@ -89,14 +121,17 @@ def prepare_publisher_cache(source_run, publisher, output_root, ttl_days=30, ver
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source-run", required=True, type=Path)
+    selection = parser.add_mutually_exclusive_group(required=True)
+    selection.add_argument("--source-run", type=Path)
+    selection.add_argument("--cache-root", type=Path, help="Search immediate paper/run-N directories")
     parser.add_argument("--publisher", required=True, help="Exact publisher name in the reviewed source profile")
     parser.add_argument("--output-root", required=True, type=Path, help="Private directory outside Git")
     parser.add_argument("--ttl-days", type=int, default=30)
     parser.add_argument("--verify-live", action="store_true", help="Compare the current publisher pages before export")
     args = parser.parse_args()
     try:
-        print(prepare_publisher_cache(args.source_run, args.publisher, args.output_root,
+        source_run = args.source_run or find_publisher_cache_source(args.cache_root, args.publisher, args.ttl_days)
+        print(prepare_publisher_cache(source_run, args.publisher, args.output_root,
                                       args.ttl_days, args.verify_live))
     except (OSError, UnicodeError, ValueError, KeyError, json.JSONDecodeError) as error:
         parser.exit(1, f"Error: {error}\n")
