@@ -38,6 +38,8 @@ For a candidate without a usable DOAJ author-instruction link, the Springer Natu
 
 **Journal coverage decision:** Discovery is an evidence-backed candidate shortlist, not an exhaustive list or acceptance ranking. Bounded OpenAlex group pages, optional DOAJ subject results, and an optional private citation record are separate signals; the page limits and source metadata constrain coverage. The 20 public profiles are dated fixtures. For a selected journal, current official instructions must be captured privately, independently read, and quote-checked before any rule can support a finding. Prior-run profile reuse has an age and hash gate. Springer Nature and IEEE Access have narrow adapters, and other journals can use an explicit same-host homepage link; other publisher adapters, automatic web discovery, profile inheritance, and automatic cache refresh remain planned. Missing instructions or disputed rules remain `needs_validation`.
 
+The [private venue benchmark harness](bench/venue-rec/README.md) can calculate provisional published-venue hit@k and MRR against an embedding-only ranking of the same candidates. Its invented tests do not establish discovery performance or preprint leakage safety.
+
 To fetch a public guideline page and prepare a run, inspect the extracted text before using it:
 
 ```sh
@@ -133,7 +135,7 @@ Run the full validation gate locally with Node.js, Python 3.11 or newer, Pandoc,
 python scripts/check_local.py
 ```
 
-The script runs the generated-agent check, Node validators, three Python test suites, and JSON schema parsing. It does not install dependencies or invoke GitHub. The GitHub workflow is manual-only; normal pushes do not start a runner. Run the local gate before committing or pushing.
+The script runs the generated-agent check, Node validators, four Python test suites, and JSON schema parsing. It does not install dependencies or invoke GitHub. The GitHub workflow is manual-only; normal pushes do not start a runner. Run the local gate before committing or pushing.
 
 Before committing, install gitleaks and enable the secret scan hook:
 

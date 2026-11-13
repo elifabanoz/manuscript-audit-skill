@@ -15,6 +15,7 @@ PYTHON_TEST_DIRS = (
     "skills/manuscript-audit/tools",
     "bench/compliance-mutations",
     "bench/parsing",
+    "bench/venue-rec",
 )
 
 
