@@ -18,6 +18,7 @@ const { prepare: prepareReviewPacket } = require('./prepare-review-packet.cjs');
 const { prepare: prepareCompliancePacket } = require('./prepare-compliance-packet.cjs');
 const { compare } = require('./compare-runs.cjs');
 const { summarize: summarizeRevisionSeries } = require('./summarize-revision-series.cjs');
+const { prepare: prepareCoverLetterPacket } = require('./prepare-cover-letter-packet.cjs');
 const { compare: compareProfiles, validateDraft } = require('./compare-profiles.cjs');
 const { validateAgreedProfile } = require('./validate-cached-profile.cjs');
 const { adjudicate } = require('./adjudicate-profiles.cjs');
@@ -1010,4 +1011,36 @@ test('revision series records a bounded coverage curve without claiming resoluti
   assert.throws(() => summarizeRevisionSeries([previous.run, previous.run]), /distinct/);
   assert.throws(() => summarizeRevisionSeries([previous.run, current.run, previous.run, current.run]), /one to three/);
   assert.throws(() => summarizeRevisionSeries([current.run, previous.run], true), /ordered by creation time/);
+});
+
+test('cover letter packet binds author claims to current manuscript lines without drafting claims', t => {
+  const data = fixture(t);
+  fs.writeFileSync(path.join(data.run, 'run-manifest.json'), JSON.stringify(manifestFor(data)));
+  fs.writeFileSync(path.join(data.run, 'journal-profile.json'), JSON.stringify(data.profile));
+  fs.writeFileSync(path.join(data.run, 'coverage-ledger.json'), JSON.stringify(data.ledger));
+  fs.writeFileSync(path.join(data.run, 'findings.json'), JSON.stringify(data.findings));
+  const claimsPath = path.join(data.run, 'cover-letter-claims.json');
+  const claim = { statement: 'The manuscript describes methods and results.',
+    path: 'manuscript.md', line_id: 'L3', quote: 'Methods and results' };
+  fs.writeFileSync(claimsPath, JSON.stringify({ schema_version: 1, claims: [claim] }));
+  const result = prepareCoverLetterPacket(data.run, 'cover-letter-claims.json');
+  const packet = JSON.parse(fs.readFileSync(result.path, 'utf8'));
+  assert.equal(packet.status, 'pending_author_review');
+  assert.deepEqual(packet.claims[0], { ...claim, manuscript_sha256: manifestFor(data).manuscript.sha256 });
+  assert.equal(packet.target_journal.issn, data.profile.issn);
+  assert.equal(JSON.stringify(packet).includes('Introduction'), false);
+  assert.throws(() => prepareCoverLetterPacket(data.run, 'cover-letter-claims.json'), /EEXIST/);
+  fs.rmSync(result.path);
+  fs.writeFileSync(claimsPath, JSON.stringify({ schema_version: 1, claims: [
+    { ...claim, quote: 'An unsupported result' }
+  ] }));
+  assert.throws(() => prepareCoverLetterPacket(data.run, 'cover-letter-claims.json'), /quote is not on/);
+  assert.equal(fs.existsSync(result.path), false);
+  fs.writeFileSync(claimsPath, JSON.stringify({ schema_version: 1, claims: [
+    { ...claim, path: 'sources/guideline.txt' }
+  ] }));
+  assert.throws(() => prepareCoverLetterPacket(data.run, 'cover-letter-claims.json'), /not a supplied manuscript file/);
+  fs.writeFileSync(claimsPath, JSON.stringify({ schema_version: 1, claims: [claim] }));
+  fs.appendFileSync(path.join(data.run, 'manuscript.md'), 'Changed text.\n');
+  assert.throws(() => prepareCoverLetterPacket(data.run, 'cover-letter-claims.json'), /Run validation failed/);
 });
