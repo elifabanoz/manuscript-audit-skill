@@ -8,6 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from rank_embeddings import create_baseline
 from score import private_file, score_manifest
 
 
@@ -29,13 +30,16 @@ class VenueScoreTests(unittest.TestCase):
                 {"source_id": "S3", "issns": ["1532-4435"], "evidence": ["openalex_grouped_works"]},
             ],
         }), encoding="utf-8")
-        self.baseline = self.root / "embedding.json"
-        self.baseline.write_text(json.dumps({
-            "schema_version": 1, "method": "embedding_only",
+        self.vectors = self.root / "vectors.json"
+        self.vectors.write_text(json.dumps({
+            "schema_version": 1, "model_id": "synthetic-vectors",
             "preprint_sha256": self.hash(self.preprint),
             "discovery_record_sha256": self.hash(self.discovery),
-            "ranked_keys": ["S3", "S1", "S2"],
+            "preprint_vector": [1, 0],
+            "candidate_vectors": {"S1": [0.5, 0.5], "S2": [-1, 0], "S3": [1, 0]},
         }), encoding="utf-8")
+        self.baseline = self.root / "embedding.json"
+        create_baseline(self.preprint, self.discovery, self.vectors, self.baseline)
         self.manifest = self.root / "cases.json"
         self.save_manifest()
 
@@ -83,6 +87,28 @@ class VenueScoreTests(unittest.TestCase):
         self.baseline.write_text(json.dumps(baseline), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "pinned candidate pool"):
             score_manifest(self.manifest)
+
+    def test_rejects_tampered_or_invalid_embedding_vectors(self):
+        vectors = json.loads(self.vectors.read_text(encoding="utf-8"))
+        vectors["candidate_vectors"]["S3"] = [0, 0]
+        self.vectors.write_text(json.dumps(vectors), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "pinned candidate pool"):
+            score_manifest(self.manifest)
+        with self.assertRaisesRegex(ValueError, "nonzero"):
+            create_baseline(self.preprint, self.discovery, self.vectors, self.root / "other-baseline.json")
+
+    def test_recomputes_cosine_order_even_with_updated_vector_hash(self):
+        vectors = json.loads(self.vectors.read_text(encoding="utf-8"))
+        vectors["candidate_vectors"]["S3"] = [-1, 0]
+        vectors["candidate_vectors"]["S2"] = [1, 0]
+        self.vectors.write_text(json.dumps(vectors), encoding="utf-8")
+        baseline = json.loads(self.baseline.read_text(encoding="utf-8"))
+        baseline["vectors_sha256"] = self.hash(self.vectors)
+        self.baseline.write_text(json.dumps(baseline), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "pinned candidate pool"):
+            score_manifest(self.manifest)
+        with self.assertRaises(FileExistsError):
+            create_baseline(self.preprint, self.discovery, self.vectors, self.baseline)
 
     def test_rejects_missing_or_wrong_target_exclusion(self):
         discovery = json.loads(self.discovery.read_text(encoding="utf-8"))
@@ -139,10 +165,12 @@ class VenueScoreTests(unittest.TestCase):
         discovery["openalex_work_filter"] = discovery["openalex_work_filter"].replace("W123", "W456")
         other_discovery.write_text(json.dumps(discovery), encoding="utf-8")
         other_baseline = self.root / "other-embedding.json"
-        baseline = json.loads(self.baseline.read_text(encoding="utf-8"))
-        baseline["preprint_sha256"] = self.hash(other_preprint)
-        baseline["discovery_record_sha256"] = self.hash(other_discovery)
-        other_baseline.write_text(json.dumps(baseline), encoding="utf-8")
+        other_vectors = self.root / "other-vectors.json"
+        vectors = json.loads(self.vectors.read_text(encoding="utf-8"))
+        vectors["preprint_sha256"] = self.hash(other_preprint)
+        vectors["discovery_record_sha256"] = self.hash(other_discovery)
+        other_vectors.write_text(json.dumps(vectors), encoding="utf-8")
+        create_baseline(other_preprint, other_discovery, other_vectors, other_baseline)
         manifest = json.loads(self.manifest.read_text(encoding="utf-8"))
         manifest["cases"].append({"case_id": "paper-2", "field": "Physics",
                                   "published_issn": "0000-0000", "target_work_id": "W456",

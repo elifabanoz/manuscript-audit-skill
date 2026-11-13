@@ -5,6 +5,7 @@ import argparse
 from datetime import date
 import hashlib
 import json
+import math
 from pathlib import Path
 import re
 
@@ -67,6 +68,37 @@ def candidate_pool(record):
 def rank_for(target, keys, issn_sets, order):
     return next((position for position, key in enumerate(order, start=1)
                  if target in issn_sets[keys.index(key)]), None)
+
+
+def embedding_order(record, keys, preprint_hash, discovery_hash):
+    if (not isinstance(record, dict) or set(record) != {
+            "schema_version", "model_id", "preprint_sha256", "discovery_record_sha256",
+            "preprint_vector", "candidate_vectors"}
+            or record["schema_version"] != 1
+            or not isinstance(record["model_id"], str) or not record["model_id"].strip()
+            or record["preprint_sha256"] != preprint_hash
+            or record["discovery_record_sha256"] != discovery_hash
+            or not isinstance(record["candidate_vectors"], dict)
+            or set(record["candidate_vectors"]) != set(keys)):
+        raise ValueError("Embedding vectors do not match the pinned preprint and candidate pool")
+
+    def normalized(values, dimension=None):
+        if (not isinstance(values, list) or not 2 <= len(values) <= 2048
+                or dimension is not None and len(values) != dimension
+                or any(type(value) not in (int, float) or not math.isfinite(value)
+                       or abs(value) > 1_000_000 for value in values)):
+            raise ValueError("Embedding vectors need equal, finite dimensions")
+        norm = math.sqrt(math.fsum(value * value for value in values))
+        if not math.isfinite(norm) or norm == 0:
+            raise ValueError("Embedding vectors must be nonzero")
+        return [value / norm for value in values]
+
+    preprint_vector = normalized(record["preprint_vector"])
+    scores = {}
+    for key in keys:
+        vector = normalized(record["candidate_vectors"][key], len(preprint_vector))
+        scores[key] = math.fsum(left * right for left, right in zip(preprint_vector, vector))
+    return sorted(keys, key=lambda key: (-scores[key], key))
 
 
 def metrics(ranks):
@@ -135,14 +167,20 @@ def score_manifest(manifest_path):
             raise ValueError(f"{case_id}: discovery must exclude its target work and use OpenAlex grouped evidence only")
         baseline = read_json(baseline_path)
         if not isinstance(baseline, dict) or set(baseline) != {
-                "schema_version", "method", "preprint_sha256", "discovery_record_sha256", "ranked_keys"} \
-                or baseline["schema_version"] != 1 or baseline["method"] != "embedding_only" \
+                "schema_version", "method", "model_id", "preprint_sha256", "discovery_record_sha256",
+                "vector_file", "vectors_sha256", "ranked_keys"} \
+                or baseline["schema_version"] != 2 or baseline["method"] != "embedding_only" \
                 or baseline["preprint_sha256"] != preprint_hash \
                 or baseline["discovery_record_sha256"] != discovery_hash \
-                or not isinstance(baseline["ranked_keys"], list) \
-                or any(not isinstance(key, str) for key in baseline["ranked_keys"]) \
-                or len(baseline["ranked_keys"]) != len(keys) \
-                or set(baseline["ranked_keys"]) != set(keys):
+                or not isinstance(baseline["ranked_keys"], list):
+            raise ValueError(f"{case_id}: baseline does not rank the pinned candidate pool")
+        vector_path = private_file(baseline["vector_file"])
+        vectors = read_json(vector_path)
+        if (digest(vector_path) != baseline["vectors_sha256"]
+                or not isinstance(vectors, dict)
+                or baseline["model_id"] != vectors.get("model_id")
+                or baseline["ranked_keys"] != embedding_order(
+                    vectors, keys, preprint_hash, discovery_hash)):
             raise ValueError(f"{case_id}: baseline does not rank the pinned candidate pool")
         rows.append({"case_id": case_id, "field": field, "published_issn": target,
                      "target_work_id": work_id,
