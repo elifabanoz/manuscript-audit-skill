@@ -56,6 +56,9 @@ function validateAgreedProfile(run) {
         if (hash(bytes) !== item.sha256) throw new Error('Profile draft hash changed');
         const draft = JSON.parse(bytes.toString('utf8'));
         if (validateProfile(draft).length || verify(run, draft, []).length) throw new Error('Profile draft is invalid');
+        if (item.path === 'composed-profile.json') {
+          require('./compose-publisher-rules.cjs').validateComposition(run);
+        }
         return draft;
       });
       const actualDifferences = differences(...drafts);

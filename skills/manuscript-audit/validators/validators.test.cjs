@@ -1125,7 +1125,9 @@ test('publisher rule composition requires explicit, source-backed journal overri
   fs.writeFileSync(result.profile, `${JSON.stringify(composed, null, 2)}\n`);
   fs.writeFileSync(path.join(data.run, 'independent-draft.json'), JSON.stringify(composed));
   assert.equal(compareProfiles(data.run, 'composed-profile.json', 'independent-draft.json', true).promoted, true);
+  assert.equal(validateAgreedProfile(data.run).issn, data.profile.issn);
   fs.writeFileSync(result.record, JSON.stringify({ ...record, inherited_rule_ids: [] }));
   assert.throws(() => validateDraft(data.run, 'composed-profile.json'), /stale or changed/);
+  assert.throws(() => validateAgreedProfile(data.run), /No current, agreed two-draft profile comparison/);
   assert.throws(() => composePublisherRules(data.run, 'publisher-rules.json', 'journal-draft.json', 'overrides.json'), /already exists/);
 });
