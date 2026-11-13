@@ -227,6 +227,8 @@ class DiscoveryTests(unittest.TestCase):
         doaj = {"total": 1, "results": [
             {"id": "doaj-match", "bibjson": {"title": "Matching Journal", "eissn": "2345-678X"}}]}
         citation = {"schema_version": 1, "provider": "OpenAlex", "reference_input_sha256": "a" * 64,
+                    "excluded_work_id": "W9", "citing_filter":
+                    "cites:W1,type:article,primary_location.source.type:journal,ids.openalex:!W9",
                     "candidates": [
                         {"source_id": "https://openalex.org/S10", "display_name": "Matching Journal",
                          "issn_l": "1234-567X", "issns": ["1234-567X"], "reference_works": 1,
@@ -247,9 +249,11 @@ class DiscoveryTests(unittest.TestCase):
             citation_path = root / "citation-candidates.json"
             citation_path.write_text(json.dumps(citation), encoding="utf-8")
             output = discover("synthetic topic", root / "results", limit=3, opener=opener,
-                              doaj_subject="Computer Science", citation_record=citation_path)
+                              doaj_subject="Computer Science", citation_record=citation_path,
+                              exclude_work_id="W9")
             record = json.loads(output.read_text(encoding="utf-8"))
         self.assertEqual(record["citation_reference_input_sha256"], "a" * 64)
+        self.assertEqual(record["citation_excluded_work_id"], "W9")
         self.assertEqual(len(record["candidates"]), 2)
         primary, supplemental = record["candidates"]
         self.assertEqual(primary["evidence"], ["openalex_grouped_works", "doaj_subject", "citation_graph"])
@@ -266,6 +270,25 @@ class DiscoveryTests(unittest.TestCase):
                          opener=lambda *_args, **_kwargs: self.fail("Unexpected network request"))
             with self.assertRaisesRegex(ValueError, "outside a Git checkout"):
                 discover("synthetic topic", root, citation_record=Path(__file__).resolve(),
+                         opener=lambda *_args, **_kwargs: self.fail("Unexpected network request"))
+
+    def test_citation_exclusion_must_match_before_network(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            citation_path = root / "citation-candidates.json"
+            citation = {"schema_version": 1, "provider": "OpenAlex",
+                        "reference_input_sha256": "a" * 64, "candidates": [],
+                        "excluded_work_id": "W8", "citing_filter": "ids.openalex:!W8"}
+            citation_path.write_text(json.dumps(citation), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "same target work"):
+                discover("synthetic topic", root / "results", citation_record=citation_path,
+                         exclude_work_id="W9",
+                         opener=lambda *_args, **_kwargs: self.fail("Unexpected network request"))
+            citation["excluded_work_id"] = "W9"
+            citation_path.write_text(json.dumps(citation), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "same target work"):
+                discover("synthetic topic", root / "results", citation_record=citation_path,
+                         exclude_work_id="W9",
                          opener=lambda *_args, **_kwargs: self.fail("Unexpected network request"))
 
     def test_web_candidates_require_registry_issn_and_keep_web_url_unverified(self):

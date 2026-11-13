@@ -409,7 +409,7 @@ def merge_doaj(openalex_candidates, doaj_candidates, limit):
     return combined
 
 
-def read_citation_record(path):
+def read_citation_record(path, expected_excluded_work_id=None):
     path = path.expanduser().resolve()
     outside_git(path)
     raw = path.read_bytes()
@@ -424,6 +424,13 @@ def read_citation_record(path):
             or not isinstance(record.get("reference_input_sha256"), str)
             or not re.fullmatch(r"[0-9a-f]{64}", record["reference_input_sha256"])):
         raise ValueError("Citation record has an unexpected format")
+    citation_excluded_work_id = record.get("excluded_work_id")
+    citing_filter = record.get("citing_filter")
+    if expected_excluded_work_id is not None and (
+            citation_excluded_work_id != expected_excluded_work_id
+            or not isinstance(citing_filter, str)
+            or f"ids.openalex:!{expected_excluded_work_id}" not in citing_filter.split(",")):
+        raise ValueError("Citation record must exclude the same target work from citing articles")
     cleaned = []
     seen_ids = set()
     for item in record["candidates"]:
@@ -454,7 +461,8 @@ def read_citation_record(path):
                         "citing_share": round(counts[1] / total, 8),
                         "citation_signal_details": [name for name in ("reference_venues", "citing_venues")
                                                     if name in evidence]})
-    return cleaned, hashlib.sha256(raw).hexdigest(), record.get("reference_input_sha256")
+    return (cleaned, hashlib.sha256(raw).hexdigest(), record["reference_input_sha256"],
+            citation_excluded_work_id)
 
 
 def merge_citation(candidates, citation_candidates, limit):
@@ -628,9 +636,10 @@ def discover(query, output_root, per_page=50, limit=50, opener=urlopen, field_id
     root = output_root.expanduser()
     outside_git(root)
     if citation_record is not None:
-        citation_candidates, citation_hash, reference_input_hash = read_citation_record(citation_record)
+        citation_candidates, citation_hash, reference_input_hash, citation_excluded_work_id = (
+            read_citation_record(citation_record, exclude_work_id))
     else:
-        citation_candidates, citation_hash, reference_input_hash = None, None, None
+        citation_candidates, citation_hash, reference_input_hash, citation_excluded_work_id = None, None, None, None
     if web_candidates is not None:
         web_entries, web_input_hash = read_web_candidates(web_candidates)
     else:
@@ -720,6 +729,7 @@ def discover(query, output_root, per_page=50, limit=50, opener=urlopen, field_id
         "doaj_response_sha256": doaj_hash,
         "citation_record_sha256": citation_hash,
         "citation_reference_input_sha256": reference_input_hash,
+        "citation_excluded_work_id": citation_excluded_work_id,
         "web_input_sha256": web_input_hash,
         "web_submitted_count": len(web_entries) if web_entries is not None else None,
         "web_verified_count": len(verified_web) if verified_web is not None else None,
