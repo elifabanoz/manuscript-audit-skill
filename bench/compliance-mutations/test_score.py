@@ -21,6 +21,7 @@ HASH_FINDING = ROOT / "skills" / "manuscript-audit" / "validators" / "hash-findi
 HASH_COVERAGE = ROOT / "skills" / "manuscript-audit" / "validators" / "hash-coverage.cjs"
 BUILD_COVERAGE = ROOT / "skills" / "manuscript-audit" / "tools" / "build_coverage.py"
 CHECK_DETERMINISTIC = ROOT / "skills" / "manuscript-audit" / "tools" / "check_deterministic.py"
+CAPTURE_DEFENSE = Path(__file__).with_name("capture_defense_stage.cjs")
 
 
 class ComplianceMutationScoreTests(unittest.TestCase):
@@ -32,6 +33,35 @@ class ComplianceMutationScoreTests(unittest.TestCase):
         self.guideline.write_text(
             "A data availability statement is required. An ethics statement is required.", encoding="utf-8"
         )
+
+    def test_defense_stage_requires_pending_verifier_and_raw_candidate(self):
+        run = self.make_run("defense-stage", "# Title\nNo availability section.\n",
+                            raw_rules=("data_availability",), confirmed=True)
+        command = ["node", str(CAPTURE_DEFENSE), str(run)]
+        present = subprocess.run(command, capture_output=True, text=True)
+        self.assertNotEqual(present.returncode, 0)
+        self.assertIn("precede record verification", present.stderr)
+
+        (run / "agents" / "verifier.json").unlink()
+        captured = subprocess.run(command, capture_output=True, text=True)
+        self.assertEqual(captured.returncode, 0, captured.stderr)
+        snapshot_path = run / "defense-stage.json"
+        snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+        self.assertEqual(captured.stdout.strip(), str(snapshot_path))
+        self.assertEqual(snapshot["confirmed_rule_ids"], ["data_availability"])
+        self.assertEqual(snapshot["raw_rule_ids"], ["data_availability"])
+        self.assertEqual(snapshot["phase4_findings_sha256"], sha256(run / "findings.json"))
+        self.assertEqual(snapshot["decisions"][0]["decision"], "confirmed")
+        repeated = subprocess.run(command, capture_output=True, text=True)
+        self.assertNotEqual(repeated.returncode, 0)
+
+        missing = self.make_run("missing-raw", "# Title\nNo availability section.\n",
+                                confirmed=True)
+        (missing / "agents" / "verifier.json").unlink()
+        refused = subprocess.run(["node", str(CAPTURE_DEFENSE), str(missing)],
+                                 capture_output=True, text=True)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn("absent from raw candidates", refused.stderr)
 
     def make_run(self, name, manuscript, raw_rules=(), confirmed=False, freeze="2026-10-19",
                  unresolved_ethics=False, supplementary=None):
