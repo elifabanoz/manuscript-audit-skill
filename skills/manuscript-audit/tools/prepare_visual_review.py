@@ -44,7 +44,7 @@ def line_number(value):
 
 def exact_quote(value, text):
     if (not isinstance(value, str) or not 8 <= len(value) <= 800
-            or value.strip() != value or text.count(value) != 1):
+            or "\n" in value or "\r" in value or value.strip() != value or text.count(value) != 1):
         raise ValueError("Visual item quote must occur exactly once in its selected line or span")
 
 

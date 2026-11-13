@@ -71,6 +71,8 @@ function validate(findings, profile) {
     let referenceMetadata = false;
     let citationClaims = 0;
     let reviewedCitationClaims = 0;
+    let visualItems = 0;
+    let reviewedVisualItems = 0;
     for (const [eIndex, evidence] of finding.evidence.entries()) {
       const ea = `${at}.evidence[${eIndex}]`;
       if (!isObject(evidence)) { errors.push(`${ea} must be an object`); continue; }
@@ -107,6 +109,16 @@ function validate(findings, profile) {
         if (finding.category !== 'review' || finding.review_class !== 'citation_accuracy') errors.push(`${ea} is only for citation_accuracy review findings`);
         citationClaims += 1;
         if ('review_path' in evidence && 'review_sha256' in evidence) reviewedCitationClaims += 1;
+      } else if (evidence.type === 'visual_review') {
+        if (!allowedKeys(evidence, ['type', 'item_id', 'packet_path', 'packet_sha256', 'review_path', 'review_sha256'], ea, errors)) continue;
+        for (const key of ['item_id', 'packet_path']) requiredString(evidence, key, ea, errors);
+        if (typeof evidence.packet_sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(evidence.packet_sha256)) errors.push(`${ea}.packet_sha256 must be a SHA-256 hex digest`);
+        if (('review_path' in evidence) !== ('review_sha256' in evidence)) errors.push(`${ea} needs both review path and hash`);
+        if ('review_path' in evidence) requiredString(evidence, 'review_path', ea, errors);
+        if ('review_sha256' in evidence && (typeof evidence.review_sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(evidence.review_sha256))) errors.push(`${ea}.review_sha256 must be a SHA-256 hex digest`);
+        if (finding.category !== 'review' || finding.review_class !== 'visual_display') errors.push(`${ea} is only for visual_display review findings`);
+        visualItems += 1;
+        if ('review_path' in evidence && 'review_sha256' in evidence) reviewedVisualItems += 1;
       } else {
         errors.push(`${ea}.type is invalid`);
       }
@@ -123,6 +135,9 @@ function validate(findings, profile) {
       }
       if (finding.review_class === 'citation_accuracy' && (!citationClaims || reviewedCitationClaims !== citationClaims)) {
         errors.push(`${at} needs a reviewed citation claim packet`);
+      }
+      if (finding.review_class === 'visual_display' && (!visualItems || reviewedVisualItems !== visualItems)) {
+        errors.push(`${at} needs a reviewed visual packet`);
       }
     }
   }

@@ -8,6 +8,7 @@ const { validate: validateManifest } = require('./validate-run-manifest.cjs');
 const { validate: validateLedger } = require('./validate-coverage-ledger.cjs');
 const { verify } = require('./verify-quotes.cjs');
 const { checkCitationClaim } = require('./validate-citation-claim.cjs');
+const { checkVisualReview } = require('./validate-visual-review.cjs');
 
 function canonical(value) {
   if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
@@ -305,6 +306,9 @@ function validate(run, manifest, profile, ledger, findings, options = {}) {
         }
         if (evidence?.type === 'citation_claim') {
           checkCitationClaim(run, finding, evidence, manifest, at, errors);
+        }
+        if (evidence?.type === 'visual_review') {
+          checkVisualReview(run, finding, evidence, manifest, at, errors);
         }
       }
     }

@@ -84,6 +84,20 @@
                 "review_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
               },
               "dependentRequired": { "review_path": ["review_sha256"], "review_sha256": ["review_path"] }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type", "item_id", "packet_path", "packet_sha256"],
+              "properties": {
+                "type": { "const": "visual_review" },
+                "item_id": { "type": "string", "minLength": 1 },
+                "packet_path": { "type": "string", "minLength": 1 },
+                "packet_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+                "review_path": { "type": "string", "minLength": 1 },
+                "review_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+              },
+              "dependentRequired": { "review_path": ["review_sha256"], "review_sha256": ["review_path"] }
             }
           ]
         }
@@ -123,6 +137,11 @@
         "if": { "properties": { "verdict": { "const": "confirmed" }, "review_class": { "const": "citation_accuracy" } },
                 "required": ["review_class"] },
         "then": { "properties": { "evidence": { "contains": { "type": "object", "properties": { "type": { "const": "citation_claim" } }, "required": ["type", "review_path", "review_sha256"] } } } }
+      },
+      {
+        "if": { "properties": { "verdict": { "const": "confirmed" }, "review_class": { "const": "visual_display" } },
+                "required": ["review_class"] },
+        "then": { "properties": { "evidence": { "contains": { "type": "object", "properties": { "type": { "const": "visual_review" } }, "required": ["type", "review_path", "review_sha256"] } } } }
       }
     ]
   }

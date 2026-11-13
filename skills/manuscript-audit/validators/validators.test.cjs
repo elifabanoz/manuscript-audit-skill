@@ -631,6 +631,91 @@ test('citation accuracy findings require a current private packet and human revi
   assert.match(validateRun(data.run, manifest, data.profile, data.ledger, [finding]).join('\n'), /lacks a complete human contradiction review/);
 });
 
+test('visual display findings require current image, table, and human review records', t => {
+  const data = fixture(t);
+  const checksum = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
+  fs.appendFileSync(path.join(data.run, 'manuscript.md'),
+    '![plot](plot.png)\nTable 1: Summary\n| A | B |\n| --- | --- |\n| 1 | 2 |\n');
+  const manifest = manifestFor(data);
+  fs.writeFileSync(path.join(data.run, 'run-manifest.json'), JSON.stringify(manifest));
+  const asset = path.join(data.run, 'plot.png');
+  const assetBytes = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3]);
+  fs.writeFileSync(asset, assetBytes);
+  const recipe = { schema_version: 1, items: [
+    { item_id: 'V-1', kind: 'figure', path: 'manuscript.md', line_id: 'L4',
+      quote: '![plot](plot.png)', asset_file: asset },
+    { item_id: 'V-2', kind: 'table', path: 'manuscript.md', start_line: 'L5', end_line: 'L8',
+      quote: 'Table 1: Summary' }
+  ] };
+  const recipePath = path.join(data.run, 'visual-recipe.json');
+  const recipeBytes = Buffer.from(JSON.stringify(recipe));
+  fs.writeFileSync(recipePath, recipeBytes);
+  const tableSpan = 'Table 1: Summary\n| A | B |\n| --- | --- |\n| 1 | 2 |';
+  const packet = { schema_version: 1, status: 'pending_human_visual_review', run_directory: data.run,
+    run_manifest_sha256: checksum(fs.readFileSync(path.join(data.run, 'run-manifest.json'))),
+    recipe_file: recipePath, recipe_sha256: checksum(recipeBytes),
+    items: [
+      { item_id: 'V-1', kind: 'figure', path: 'manuscript.md', line_id: 'L4',
+        quote: '![plot](plot.png)', asset_file: asset, asset_sha256: checksum(assetBytes) },
+      { item_id: 'V-2', kind: 'table', path: 'manuscript.md', start_line: 'L5', end_line: 'L8',
+        quote: 'Table 1: Summary', span_sha256: checksum(Buffer.from(tableSpan)) }
+    ], note: 'Synthetic private marker packet.' };
+  const packetBytes = Buffer.from(JSON.stringify(packet));
+  fs.writeFileSync(path.join(data.run, 'visual-packet.json'), packetBytes);
+  const packetSha = checksum(packetBytes);
+  const claim = 'The figure has a missing axis unit.';
+  const review = { schema_version: 1, packet_sha256: packetSha, item_id: 'V-1',
+    finding_claim_sha256: checksum(Buffer.from(claim)), reviewer: 'Invented reviewer',
+    reviewed_at: '2026-11-13T13:00:00Z', rendered_manuscript_checked: true,
+    object_checked: true, assessment: 'defect_supported', rationale: 'Checked the invented display.' };
+  const reviewBytes = Buffer.from(JSON.stringify(review));
+  fs.writeFileSync(path.join(data.run, 'visual-review.json'), reviewBytes);
+  const finding = { ...data.findings[0], category: 'review', review_class: 'visual_display', claim,
+    suggested_fix: 'Add the axis unit to the figure.',
+    evidence: [
+      { type: 'manuscript_quote', path: 'manuscript.md', line_id: 'L4', quote: '![plot](plot.png)' },
+      { type: 'visual_review', item_id: 'V-1', packet_path: 'visual-packet.json', packet_sha256: packetSha,
+        review_path: 'visual-review.json', review_sha256: checksum(reviewBytes) }
+    ] };
+  delete finding.rule_id;
+  data.ledger[0].kind = 'review';
+  data.ledger[0].review_class = 'visual_display';
+  delete data.ledger[0].rule_id;
+  data.ledger[0].source_hash = corpusHash(manifest);
+  refreshCoverageRecord(data, manifest);
+  for (const file of Object.values(finding.provenance)) {
+    const recordPath = path.join(data.run, file);
+    const record = JSON.parse(fs.readFileSync(recordPath, 'utf8'));
+    record.subject_sha256 = reviewSubjectHash(finding, manifest, data.profile);
+    fs.writeFileSync(recordPath, JSON.stringify(record));
+  }
+  assert.deepEqual(validateRun(data.run, manifest, data.profile, data.ledger, [finding]), []);
+  for (const [name, value] of [
+    ['journal-profile.json', data.profile], ['coverage-ledger.json', data.ledger], ['findings.json', [finding]]
+  ]) fs.writeFileSync(path.join(data.run, name), JSON.stringify(value));
+  render(data.run);
+  assert.match(fs.readFileSync(path.join(data.run, 'REPORT.md'), 'utf8'), /Visual review \(V\\-1\)/);
+  const verifierPath = path.join(data.run, finding.provenance.record_verifier);
+  const verifierBytes = fs.readFileSync(verifierPath);
+  fs.rmSync(verifierPath);
+  const verifierPacket = JSON.parse(fs.readFileSync(
+    prepareReviewPacket(data.run, 'F-1', 'record_verifier').path, 'utf8'));
+  assert.equal(verifierPacket.visual_reviews[0].human_review.assessment, 'defect_supported');
+  fs.writeFileSync(verifierPath, verifierBytes);
+  delete finding.evidence[1].review_path;
+  delete finding.evidence[1].review_sha256;
+  assert.match(validateFindings([finding], data.profile).join('\n'), /needs a reviewed visual packet/);
+  finding.evidence[1].review_path = 'visual-review.json';
+  finding.evidence[1].review_sha256 = checksum(reviewBytes);
+  fs.writeFileSync(asset, Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 9, 9, 9]));
+  assert.match(validateRun(data.run, manifest, data.profile, data.ledger, [finding]).join('\n'), /figure asset has changed/);
+  fs.writeFileSync(asset, assetBytes);
+  review.assessment = 'no_defect';
+  fs.writeFileSync(path.join(data.run, 'visual-review.json'), JSON.stringify(review));
+  finding.evidence[1].review_sha256 = checksum(fs.readFileSync(path.join(data.run, 'visual-review.json')));
+  assert.match(validateRun(data.run, manifest, data.profile, data.ledger, [finding]).join('\n'), /lacks a complete human visual review/);
+});
+
 test('unresolved findings cannot carry a severity', t => {
   const { findings, profile } = fixture(t);
   findings[0].verdict = 'needs_validation';

@@ -93,6 +93,13 @@ function prepare(run, findingId, role) {
       ...(item.review_path ? { human_review: readJson(safeFile(run, item.review_path)) } : {})
     }));
   }
+  if (finding.evidence.some(item => item.type === 'visual_review')) {
+    packet.visual_reviews = finding.evidence.filter(item => item.type === 'visual_review').map(item => ({
+      item_id: item.item_id,
+      packet: readJson(safeFile(run, item.packet_path)),
+      ...(item.review_path ? { human_review: readJson(safeFile(run, item.review_path)) } : {})
+    }));
+  }
   if (role === 'record_verifier') {
     const defense = readJson(safeFile(run, provenance.validator));
     packet.defense_decision = defense.decision;
