@@ -52,11 +52,13 @@ class CitationDiscoveryTests(unittest.TestCase):
             root = Path(temporary)
             reference_file = root / "references.json"
             reference_file.write_text(json.dumps({"schema_version": 1, "dois": ["10.1111/alpha", "10.2222/beta"]}), encoding="utf-8")
-            output = discover(reference_file, root / "results", allow_network=True, opener=opener)
+            output = discover(reference_file, root / "results", allow_network=True, opener=opener,
+                              exclude_work_id="W9")
             record_text = output.read_text(encoding="utf-8")
             record = json.loads(record_text)
         self.assertEqual(record["selected_references"], 2)
         self.assertEqual(record["reference_works_resolved"], 2)
+        self.assertEqual(record["excluded_work_id"], "W9")
         self.assertEqual(record["citing_works_total"], 42)
         self.assertEqual([item["display_name"] for item in record["candidates"]],
                          ["Both", "Reference", "Citing"])
@@ -67,7 +69,39 @@ class CitationDiscoveryTests(unittest.TestCase):
         self.assertEqual(parse_qs(urlsplit(requests[0].full_url).query)["filter"],
                          ["doi:10.1111/alpha|10.2222/beta"])
         self.assertEqual(parse_qs(urlsplit(requests[1].full_url).query)["filter"],
-                         ["cites:W1|W2,type:article,primary_location.source.type:journal"])
+                         ["cites:W1|W2,type:article,primary_location.source.type:journal,ids.openalex:!W9"])
+        self.assertEqual(record["citing_filter"],
+                         parse_qs(urlsplit(requests[1].full_url).query)["filter"][0])
+
+    def test_rejects_target_work_as_a_selected_reference(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            reference_file = root / "references.json"
+            reference_file.write_text(json.dumps({"schema_version": 1, "dois": ["10.1111/alpha"]}),
+                                      encoding="utf-8")
+            calls = []
+
+            def opener(request, timeout):
+                self.assertEqual(timeout, 20)
+                calls.append(request.full_url)
+                return Response({"results": [{"id": "https://openalex.org/W9"}]})
+
+            with self.assertRaisesRegex(ValueError, "target work cannot be included"):
+                discover(reference_file, root / "results", allow_network=True, opener=opener,
+                         exclude_work_id="W9")
+            self.assertEqual(len(calls), 1)
+
+    def test_rejects_invalid_exclusion_before_network(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            reference_file = root / "references.json"
+            reference_file.write_text(json.dumps({"schema_version": 1, "dois": ["10.1111/alpha"]}),
+                                      encoding="utf-8")
+            for value in ("W0", "S9", "W9,doi:other"):
+                with self.subTest(value=value), self.assertRaisesRegex(ValueError, "exclude-work-id"):
+                    discover(reference_file, root / "results", allow_network=True,
+                             opener=lambda *_args: self.fail("Unexpected network request"),
+                             exclude_work_id=value)
 
     def test_network_requires_explicit_opt_in(self):
         with tempfile.TemporaryDirectory() as temporary:

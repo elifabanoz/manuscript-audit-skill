@@ -11,7 +11,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
-from discover_journals import API_URL, ISSN, SOURCE_ID, SOURCE_URL, fetch_json, safe_metadata_url
+from discover_journals import API_URL, ISSN, SOURCE_ID, SOURCE_URL, WORK_ID, fetch_json, safe_metadata_url
 from prepare_run import outside_git
 
 
@@ -38,7 +38,7 @@ def read_references(path):
     return values, hashlib.sha256(raw).hexdigest()
 
 
-def grouped_citation_candidates(dois, limit, opener):
+def grouped_citation_candidates(dois, limit, opener, exclude_work_id=None):
     params = urlencode({"filter": "doi:" + "|".join(dois), "select": "id,doi,primary_location",
                         "per_page": 100})
     works_payload, works_hash = fetch_json(f"{API_URL}?{params}", opener)
@@ -53,6 +53,8 @@ def grouped_citation_candidates(dois, limit, opener):
         work_id = work["id"]
         if not re.fullmatch(r"https://openalex\.org/W\d+", work_id) or work_id in resolved:
             continue
+        if exclude_work_id is not None and work_id == f"https://openalex.org/{exclude_work_id}":
+            raise ValueError("The target work cannot be included among selected reference DOIs")
         resolved[work_id] = work
         location = work.get("primary_location")
         source = location.get("source") if isinstance(location, dict) else None
@@ -64,9 +66,13 @@ def grouped_citation_candidates(dois, limit, opener):
     citing_total = 0
     citing_hash = None
     citing_groups_seen = 0
+    citing_filter = None
     if resolved:
         ids = [work_id.rsplit("/", 1)[1] for work_id in sorted(resolved)]
-        params = urlencode({"filter": "cites:" + "|".join(ids) + ",type:article,primary_location.source.type:journal",
+        citing_filter = "cites:" + "|".join(ids) + ",type:article,primary_location.source.type:journal"
+        if exclude_work_id is not None:
+            citing_filter += f",ids.openalex:!{exclude_work_id}"
+        params = urlencode({"filter": citing_filter,
                             "group_by": "primary_location.source.id", "per_page": 100})
         citing_payload, citing_hash = fetch_json(f"{API_URL}?{params}", opener)
         groups = citing_payload.get("group_by") if isinstance(citing_payload, dict) else None
@@ -123,18 +129,23 @@ def grouped_citation_candidates(dois, limit, opener):
                                       -item["citing_works"], item["display_name"].casefold()))
     return candidates[:limit], {"reference_works_resolved": len(resolved), "reference_response_sha256": works_hash,
                                 "citing_works_total": citing_total, "citing_groups_seen": citing_groups_seen,
-                                "citing_response_sha256": citing_hash, "source_response_sha256": source_hashes}
+                                "citing_response_sha256": citing_hash, "citing_filter": citing_filter,
+                                "source_response_sha256": source_hashes}
 
 
-def discover(reference_file, output_root, limit=50, allow_network=False, opener=urlopen):
+def discover(reference_file, output_root, limit=50, allow_network=False, opener=urlopen,
+             exclude_work_id=None):
     if not allow_network:
         raise ValueError("Citation discovery requires --allow-network; selected DOI values leave this computer")
     if not 1 <= limit <= 100:
         raise ValueError("--limit must be between 1 and 100")
+    if exclude_work_id is not None and (not isinstance(exclude_work_id, str)
+                                        or not WORK_ID.fullmatch(exclude_work_id)):
+        raise ValueError("--exclude-work-id must be a canonical OpenAlex work ID such as W123")
     root = output_root.expanduser()
     outside_git(root)
     dois, reference_hash = read_references(reference_file)
-    candidates, details = grouped_citation_candidates(dois, limit, opener)
+    candidates, details = grouped_citation_candidates(dois, limit, opener, exclude_work_id)
     root.mkdir(parents=True, exist_ok=True)
     for number in range(1, 100000):
         directory = root / f"citation-discovery-{number}"
@@ -149,6 +160,7 @@ def discover(reference_file, output_root, limit=50, allow_network=False, opener=
     record = {"schema_version": 1,
               "retrieved_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
               "provider": "OpenAlex", "selected_references": len(dois),
+              "excluded_work_id": exclude_work_id,
               "reference_input_sha256": reference_hash, **details,
               "coverage_note": "Only manually selected DOI references and the first 100 citing-journal groups were considered; coverage is incomplete",
               "citing_share_denominator": "OpenAlex source works_count across all years; not restricted to citing article type",
@@ -164,9 +176,11 @@ def main():
     parser.add_argument("--output-root", type=Path, default=Path.home() / "manuscript-audit" / "discovery")
     parser.add_argument("--limit", type=int, default=50)
     parser.add_argument("--allow-network", action="store_true", help="Send selected DOI values to OpenAlex")
+    parser.add_argument("--exclude-work-id", help="Exclude one published target work from citing-journal counts")
     args = parser.parse_args()
     try:
-        print(discover(args.references, args.output_root, args.limit, args.allow_network))
+        print(discover(args.references, args.output_root, args.limit, args.allow_network,
+                       exclude_work_id=args.exclude_work_id))
     except (OSError, UnicodeError, ValueError) as error:
         parser.exit(1, f"Error: {error}\n")
 
