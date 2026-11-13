@@ -300,6 +300,7 @@ def load_case(case, freeze, schema_version):
         **case,
         "issn": profile["issn"],
         "sources": {key: source["sha256"] for key, source in manifest["sources"].items()},
+        "supplementary": manifest.get("supplementary", []),
         "manuscript_sha256": manifest["manuscript"]["sha256"],
         "scored_rule_ids": sorted(scored),
         "excluded_rule_ids": sorted(excluded),
@@ -389,6 +390,8 @@ def score(benchmark):
                 raise ValueError(f"{item['case_id']}: paired control has a different article type")
             if item["sources"] != control["sources"]:
                 raise ValueError(f"{item['case_id']}: paired control has a different source snapshot")
+            if item["supplementary"] != control["supplementary"]:
+                raise ValueError(f"{item['case_id']}: paired control has different supplementary files")
             if schema_version >= 5 and item["scored_rule_ids"] != control["scored_rule_ids"]:
                 raise ValueError(f"{item['case_id']}: paired control has a different scoring scope")
             if item["manuscript_sha256"] == control["manuscript_sha256"]:

@@ -33,17 +33,21 @@ class ComplianceMutationScoreTests(unittest.TestCase):
             "A data availability statement is required. An ethics statement is required.", encoding="utf-8"
         )
 
-    def make_run(self, name, manuscript, raw_rules=(), confirmed=False, freeze="2026-10-19", unresolved_ethics=False):
+    def make_run(self, name, manuscript, raw_rules=(), confirmed=False, freeze="2026-10-19",
+                 unresolved_ethics=False, supplementary=None):
         paper = self.root / f"{name}.md"
         paper.write_text(manuscript, encoding="utf-8")
-        result = subprocess.run([
+        command = [
             sys.executable, str(PREPARE), "--manuscript", str(paper),
             "--guideline-text", str(self.guideline),
             "--guideline-url", "https://example.org/guidelines",
             "--retrieved-at", "2026-10-19T09:00:00Z",
             "--data-freeze", freeze,
             "--output-root", str(self.root / "runs")
-        ], check=True, capture_output=True, text=True)
+        ]
+        if supplementary is not None:
+            command.extend(("--supplementary", str(supplementary)))
+        result = subprocess.run(command, check=True, capture_output=True, text=True)
         run = Path(result.stdout.strip())
         manifest = json.loads((run / "run-manifest.json").read_text(encoding="utf-8"))
         source_ref = next(iter(manifest["sources"]))
@@ -239,6 +243,25 @@ class ComplianceMutationScoreTests(unittest.TestCase):
         self.assertEqual(saved["mutations"], result["mutations"])
         self.assertNotEqual(subprocess.run([sys.executable, str(SCORER), str(case_file)],
                                            capture_output=True).returncode, 0)
+
+    def test_rejects_changed_supplement_between_paired_runs(self):
+        control_bib = self.root / "control.bib"
+        mutation_bib = self.root / "mutation.bib"
+        control_bib.write_text("@article{sample, title={Original}}\n", encoding="utf-8")
+        mutation_bib.write_text("@article{sample, title={Changed}}\n", encoding="utf-8")
+        control = self.make_run("control-supp", "# Title\nData availability: on request.\n",
+                                supplementary=control_bib)
+        mutation = self.make_run("mutation-supp", "# Title\nNo statement here.\n",
+                                 supplementary=mutation_bib)
+        cases = [
+            {"case_id": "control", "kind": "control", "article_type": "original_research",
+             "run": str(control), "raw_findings": str(control / "raw-findings.json")},
+            {"case_id": "mutation", "kind": "mutation", "article_type": "original_research",
+             "control_case_id": "control", "expected_rule_id": "data_availability",
+             "run": str(mutation), "raw_findings": str(mutation / "raw-findings.json")},
+        ]
+        with self.assertRaisesRegex(ValueError, "paired control has different supplementary files"):
+            score({"schema_version": 1, "data_freeze": "2026-10-19", "cases": cases})
 
     def test_version_two_reports_each_class_against_its_paired_controls(self):
         structural_control = self.make_run("structural-control", "# Title\nData availability: on request.\n")
