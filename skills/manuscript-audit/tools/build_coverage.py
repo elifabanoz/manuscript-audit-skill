@@ -98,7 +98,7 @@ def main():
     parser.add_argument("run", type=Path)
     parser.add_argument("--article-type", required=True)
     parser.add_argument("--review-section", action="append", default=[], help="Unique Markdown heading to review; repeat as needed")
-    parser.add_argument("--review-class", action="append", default=[], help="Review lens for each selected section; repeat as needed")
+    parser.add_argument("--review-class", action="append", default=[], help="Review lens from REVIEW-CLASSES.md for each selected section; repeat as needed")
     args = parser.parse_args()
     try:
         ledger = build(args.run, args.article_type, args.review_section, args.review_class)
