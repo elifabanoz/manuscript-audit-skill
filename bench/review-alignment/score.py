@@ -71,8 +71,9 @@ def score_manifest(manifest_path):
         confirmed = {item["id"]: item for item in findings
                      if item["category"] == "review" and item["verdict"] == "confirmed"}
         labels = read_json(labels_path)
-        if (not isinstance(labels, dict) or set(labels) != {"schema_version", "peer_report_sha256",
-                "findings_sha256", "reviewer", "reviewed_at", "manuscript_version", "issues"}
+        label_keys = {"schema_version", "peer_report_sha256", "findings_sha256", "reviewer",
+                      "reviewed_at", "manuscript_version", "issues"}
+        if (not isinstance(labels, dict) or set(labels) not in (label_keys, label_keys | {"unmentioned_findings"})
                 or labels["schema_version"] != 1 or labels["peer_report_sha256"] != digest(report)
                 or labels["findings_sha256"] != digest(findings_path)
                 or not isinstance(labels["reviewer"], str) or not labels["reviewer"].strip()
@@ -107,10 +108,32 @@ def score_manifest(manifest_path):
                 matched += bool(issue["matched_finding_ids"])
         if not in_scope:
             raise ValueError("At least one peer issue must be in scope")
+        unmentioned = set(confirmed) - matched_findings
+        assessment_supplied = "unmentioned_findings" in labels
+        assessments = labels.get("unmentioned_findings")
+        assessment_counts = {"supported": 0, "unsupported": 0, "unclear": 0}
+        if assessment_supplied:
+            if not isinstance(assessments, list):
+                raise ValueError("Unmentioned finding assessments must be an array")
+            assessed_ids = set()
+            for item in assessments:
+                if (not isinstance(item, dict) or set(item) != {"finding_id", "assessment", "rationale"}
+                        or not isinstance(item["finding_id"], str) or item["finding_id"] in assessed_ids
+                        or item["finding_id"] not in unmentioned
+                        or not isinstance(item["assessment"], str) or item["assessment"] not in assessment_counts
+                        or not isinstance(item["rationale"], str) or not item["rationale"].strip()):
+                    raise ValueError("Unmentioned finding assessment is invalid")
+                assessed_ids.add(item["finding_id"])
+                assessment_counts[item["assessment"]] += 1
+            if assessed_ids != unmentioned:
+                raise ValueError("Every unmentioned confirmed review finding needs an assessment")
+        assessment_status = "complete" if assessment_supplied or not unmentioned else "pending"
         rows.append({"case_id": case_id, "peer_issues_in_scope": in_scope,
                      "peer_issues_matched": matched, "peer_issue_recall": matched / in_scope,
                      "confirmed_review_findings": len(confirmed),
-                     "confirmed_findings_unmentioned": len(set(confirmed) - matched_findings),
+                     "confirmed_findings_unmentioned": len(unmentioned),
+                     "unmentioned_assessment_status": assessment_status,
+                     "unmentioned_assessments": assessment_counts,
                      "peer_report_sha256": digest(report), "findings_sha256": digest(findings_path),
                      "labels_sha256": digest(labels_path)})
     total = sum(row["peer_issues_in_scope"] for row in rows)
@@ -120,7 +143,11 @@ def score_manifest(manifest_path):
             "manifest_sha256": digest(manifest_path), "cases": rows,
             "overall": {"peer_issues_in_scope": total, "peer_issues_matched": found,
                         "peer_issue_recall": found / total,
-                        "confirmed_findings_unmentioned": sum(row["confirmed_findings_unmentioned"] for row in rows)}}
+                        "confirmed_findings_unmentioned": sum(row["confirmed_findings_unmentioned"] for row in rows),
+                        "unmentioned_assessment_status": "complete" if all(
+                            row["unmentioned_assessment_status"] == "complete" for row in rows) else "pending",
+                        "unmentioned_assessments": {key: sum(row["unmentioned_assessments"][key] for row in rows)
+                                                     for key in ("supported", "unsupported", "unclear")}}}
 
 
 def main():

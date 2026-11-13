@@ -91,7 +91,23 @@ class ReviewAlignmentTests(unittest.TestCase):
             result = score_manifest(self.manifest)
         self.assertEqual(result["overall"]["peer_issue_recall"], 1)
         self.assertEqual(result["overall"]["confirmed_findings_unmentioned"], 1)
+        self.assertEqual(result["overall"]["unmentioned_assessment_status"], "pending")
         self.assertIn("not false positives", result["note"])
+        self.label_record["unmentioned_findings"] = [
+            {"finding_id": "F-2", "assessment": "supported", "rationale": "Checked against the manuscript."}]
+        self.write_labels()
+        with patch("score.validate_run"):
+            assessed = score_manifest(self.manifest)
+        self.assertEqual(assessed["overall"]["unmentioned_assessment_status"], "complete")
+        self.assertEqual(assessed["overall"]["unmentioned_assessments"]["supported"], 1)
+        self.label_record["unmentioned_findings"] = []
+        self.write_labels()
+        with patch("score.validate_run"), self.assertRaisesRegex(ValueError, "Every unmentioned"):
+            score_manifest(self.manifest)
+        self.label_record["unmentioned_findings"] = None
+        self.write_labels()
+        with patch("score.validate_run"), self.assertRaisesRegex(ValueError, "must be an array"):
+            score_manifest(self.manifest)
 
 
 if __name__ == "__main__":
