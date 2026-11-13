@@ -1,0 +1,9 @@
+# Local structural repeatability
+
+This private harness compares finding anchors across three to ten already completed audit runs. It does not launch agents, repeat a hunt, select findings for the product, or estimate confidence, precision, or scientific correctness. Keep every run, manuscript, guideline snapshot, role record, suite manifest, and result outside Git.
+
+Create a private `suite.json` with `schema_version: 1` and `run_directories`, an array of three to ten distinct absolute private run paths. Every run must pass the full run validator. The manuscript and supplements, guideline snapshots, journal profile, host and model declarations, skill and prompt hashes, configuration, and coverage-unit scope must match. Every assigned unit must be covered. A difference rejects the suite instead of treating a revision or changed prompt as a repeat.
+
+Run `python bench/stability/score.py /absolute/private/suite.json`. It writes `stability-results.json` beside the suite without overwriting an existing result. A provisional anchor combines finding category, rule or review class, target journal, and exactly one manuscript quote location (`path` and physical `line_id`). Findings with zero or multiple manuscript quotes are excluded and counted. Two confirmed findings at the same anchor in one run make the suite ambiguous and are rejected. The output contains anchor hashes and per-run counts, not claims or manuscript text. An anchor is retained when present in at least half of the runs; the minimum suite size is three so this threshold requires at least two appearances.
+
+This measure can repeat a systematic mistake. Local validators check record structure, not whether actual independent hunts occurred or the findings are correct. Human reviewers must inspect anchor equivalence and run provenance before using the counts. No real repeated-run set or human-reviewed stability result is included.

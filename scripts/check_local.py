@@ -18,6 +18,7 @@ PYTHON_TEST_DIRS = (
     "bench/venue-rec",
     "bench/review-alignment",
     "bench/editor-decisions",
+    "bench/stability",
 )
 
 
