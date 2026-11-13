@@ -4,7 +4,7 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
-const { readJson, safeFile } = require('../../skills/manuscript-audit/validators/common.cjs');
+const { safeFile } = require('../../skills/manuscript-audit/validators/common.cjs');
 const { validate } = require('../../skills/manuscript-audit/validators/validate-run.cjs');
 const { outsideGit } = require('../../skills/manuscript-audit/validators/render-report.cjs');
 
@@ -43,6 +43,7 @@ function capture(run) {
     rawRules.add(item.rule_id);
   }
   const decisions = [];
+  const reviewRecords = [];
   for (const finding of findings) {
     const provenance = finding.provenance;
     if (!provenance || !provenance.hunter || !provenance.validator || !provenance.record_verifier) {
@@ -60,21 +61,25 @@ function capture(run) {
     const errors = validate(run, manifest, profile, ledger, [finding],
       { pendingVerifierFindingId: finding.id });
     if (errors.length) throw new Error(`${finding.id}: ${errors.join('; ')}`);
+    const hunterBytes = input(provenance.hunter);
+    const defenseBytes = input(provenance.validator);
     decisions.push({
       finding_id: finding.id,
       category: finding.category,
       ...(finding.category === 'compliance' ? { rule_id: finding.rule_id } : {}),
       decision: finding.verdict,
-      hunter_record_sha256: digest(input(provenance.hunter)),
-      defense_record_sha256: digest(input(provenance.validator))
+      hunter_record_sha256: digest(hunterBytes),
+      defense_record_sha256: digest(defenseBytes)
     });
+    reviewRecords.push({ finding_id: finding.id,
+      hunter_json: hunterBytes.toString('utf8'), defense_json: defenseBytes.toString('utf8') });
   }
   if (!findings.length) {
     const errors = validate(run, manifest, profile, ledger, []);
     if (errors.length) throw new Error(errors.join('; '));
   }
   const snapshot = {
-    schema_version: 1,
+    schema_version: 2,
     run_manifest_sha256: digest(manifestBytes),
     journal_profile_sha256: digest(profileBytes),
     coverage_ledger_sha256: digest(ledgerBytes),
@@ -83,7 +88,9 @@ function capture(run) {
     raw_rule_ids: [...rawRules].sort(),
     confirmed_rule_ids: [...new Set(decisions.filter(item => item.category === 'compliance'
       && item.decision === 'confirmed').map(item => item.rule_id))].sort(),
-    decisions
+    decisions,
+    phase4_findings_json: findingsBytes.toString('utf8'),
+    review_records: reviewRecords
   };
   for (const [name, bytes] of [
     ['run-manifest.json', manifestBytes], ['journal-profile.json', profileBytes],

@@ -22,6 +22,7 @@ HASH_COVERAGE = ROOT / "skills" / "manuscript-audit" / "validators" / "hash-cove
 BUILD_COVERAGE = ROOT / "skills" / "manuscript-audit" / "tools" / "build_coverage.py"
 CHECK_DETERMINISTIC = ROOT / "skills" / "manuscript-audit" / "tools" / "check_deterministic.py"
 CAPTURE_DEFENSE = Path(__file__).with_name("capture_defense_stage.cjs")
+VERIFY_DEFENSE = Path(__file__).with_name("verify_defense_stage.cjs")
 
 
 class ComplianceMutationScoreTests(unittest.TestCase):
@@ -42,7 +43,9 @@ class ComplianceMutationScoreTests(unittest.TestCase):
         self.assertNotEqual(present.returncode, 0)
         self.assertIn("precede record verification", present.stderr)
 
-        (run / "agents" / "verifier.json").unlink()
+        verifier_path = run / "agents" / "verifier.json"
+        verifier_record = verifier_path.read_text(encoding="utf-8")
+        verifier_path.unlink()
         captured = subprocess.run(command, capture_output=True, text=True)
         self.assertEqual(captured.returncode, 0, captured.stderr)
         snapshot_path = run / "defense-stage.json"
@@ -52,8 +55,20 @@ class ComplianceMutationScoreTests(unittest.TestCase):
         self.assertEqual(snapshot["raw_rule_ids"], ["data_availability"])
         self.assertEqual(snapshot["phase4_findings_sha256"], sha256(run / "findings.json"))
         self.assertEqual(snapshot["decisions"][0]["decision"], "confirmed")
+        self.assertEqual(snapshot["schema_version"], 2)
         repeated = subprocess.run(command, capture_output=True, text=True)
         self.assertNotEqual(repeated.returncode, 0)
+        verifier_path.write_text(verifier_record, encoding="utf-8")
+        checked = subprocess.run(["node", str(VERIFY_DEFENSE), str(run)],
+                                 capture_output=True, text=True)
+        self.assertEqual(checked.returncode, 0, checked.stderr)
+        self.assertEqual(json.loads(checked.stdout)["confirmed_rule_ids"], ["data_availability"])
+        snapshot["review_records"][0]["defense_json"] = "{}"
+        snapshot_path.write_text(json.dumps(snapshot), encoding="utf-8")
+        tampered = subprocess.run(["node", str(VERIFY_DEFENSE), str(run)],
+                                 capture_output=True, text=True)
+        self.assertNotEqual(tampered.returncode, 0)
+        self.assertIn("reviewer records differ", tampered.stderr)
 
         missing = self.make_run("missing-raw", "# Title\nNo availability section.\n",
                                 confirmed=True)
