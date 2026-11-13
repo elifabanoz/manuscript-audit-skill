@@ -67,17 +67,19 @@ class DiscoveryTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temporary, patch.dict("os.environ", {"OPENALEX_API_KEY": "test-key"}):
             output = discover("synthetic topic", Path(temporary), opener=opener, field_id=17,
-                              published_after="2024-01-01", strategy="sample")
+                              published_after="2024-01-01", strategy="sample", exclude_work_id="W123")
             record = json.loads(output.read_text(encoding="utf-8"))
             self.assertEqual(record["query"], "synthetic topic")
             self.assertEqual(record["field_id"], 17)
             self.assertEqual(record["published_after"], "2024-01-01")
+            self.assertEqual(record["excluded_work_id"], "W123")
             self.assertEqual(record["candidates"][0]["display_name"], "Example Journal")
             self.assertNotIn("Unused title", output.read_text(encoding="utf-8"))
             params = parse_qs(urlsplit(requests[0].full_url).query)
             self.assertEqual(params["search.title_abstract_keywords"], ["synthetic topic"])
             self.assertEqual(params["filter"],
-                             ["type:article,primary_topic.field.id:17,from_publication_date:2024-01-01"])
+                             ["type:article,primary_topic.field.id:17,from_publication_date:2024-01-01,ids.openalex:!W123"])
+            self.assertEqual(record["openalex_work_filter"], params["filter"][0])
             self.assertEqual(requests[0].get_header("Authorization"), "Bearer test-key")
             self.assertNotIn("test-key", requests[0].full_url)
 
@@ -102,7 +104,7 @@ class DiscoveryTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temporary:
             output = discover("synthetic topic", Path(temporary), limit=2, opener=opener,
-                              field_id=17, published_after="2024-01-01")
+                              field_id=17, published_after="2024-01-01", exclude_work_id="W456")
             record = json.loads(output.read_text(encoding="utf-8"))
         self.assertEqual(record["strategy"], "grouped")
         self.assertEqual(record["matching_works_total"], 246)
@@ -113,7 +115,9 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual(record["candidates"][0]["evidence"], ["openalex_grouped_works"])
         first = parse_qs(urlsplit(requests[0].full_url).query)
         self.assertEqual(first["group_by"], ["primary_location.source.id"])
-        self.assertEqual(first["filter"], ["type:article,primary_topic.field.id:17,from_publication_date:2024-01-01,primary_location.source.type:journal"])
+        self.assertEqual(first["filter"], ["type:article,primary_topic.field.id:17,from_publication_date:2024-01-01,ids.openalex:!W456,primary_location.source.type:journal"])
+        self.assertEqual(record["excluded_work_id"], "W456")
+        self.assertEqual(record["openalex_work_filter"], first["filter"][0])
         second = parse_qs(urlsplit(requests[1].full_url).query)
         self.assertEqual(second["filter"], ["ids.openalex:S30|S10|S20"])
         self.assertNotIn("Unused title", json.dumps(record))
@@ -404,6 +408,13 @@ class DiscoveryTests(unittest.TestCase):
             for value in ("2024-02-30", "2024", "yesterday"):
                 with self.subTest(value=value), self.assertRaisesRegex(ValueError, "published-after"):
                     discover("synthetic topic", Path(temporary), published_after=value,
+                             opener=lambda *_args, **_kwargs: self.fail("Unexpected network request"))
+
+    def test_rejects_invalid_excluded_work_before_network_request(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            for value in ("", "123", "S123", "W0", "W123,doi:other", "https://openalex.org/W123"):
+                with self.subTest(value=value), self.assertRaisesRegex(ValueError, "exclude-work-id"):
+                    discover("synthetic topic", Path(temporary), exclude_work_id=value,
                              opener=lambda *_args, **_kwargs: self.fail("Unexpected network request"))
 
 

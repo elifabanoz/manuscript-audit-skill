@@ -26,6 +26,7 @@ CROSSREF_JOURNAL_URL = "https://api.crossref.org/journals/"
 MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 ISSN = re.compile(r"^\d{4}-\d{3}[\dX]$")
 SOURCE_ID = re.compile(r"^https://openalex\.org/S\d+$")
+WORK_ID = re.compile(r"^W[1-9]\d*$")
 
 
 def shortlist(payload, limit):
@@ -80,24 +81,30 @@ def fetch_json(url, opener, provider="OpenAlex"):
     return payload, hashlib.sha256(data).hexdigest()
 
 
-def work_filters(field_id, published_after):
+def work_filters(field_id, published_after, exclude_work_id=None):
     filters = ["type:article"]
     if field_id is not None:
         filters.append(f"primary_topic.field.id:{field_id}")
     if published_after is not None:
         filters.append(f"from_publication_date:{published_after}")
+    if exclude_work_id is not None:
+        filters.append(f"ids.openalex:!{exclude_work_id}")
     return ",".join(filters)
 
 
-def fetch_works(query, per_page, opener=urlopen, field_id=None, published_after=None):
-    params = urlencode({"search.title_abstract_keywords": query, "filter": work_filters(field_id, published_after),
+def fetch_works(query, per_page, opener=urlopen, field_id=None, published_after=None,
+                exclude_work_id=None):
+    params = urlencode({"search.title_abstract_keywords": query,
+                        "filter": work_filters(field_id, published_after, exclude_work_id),
                         "per_page": per_page, "select": "id,primary_location"})
     return fetch_json(f"{API_URL}?{params}", opener)
 
 
-def grouped_shortlist(query, limit, opener, field_id, published_after, max_pages):
+def grouped_shortlist(query, limit, opener, field_id, published_after, max_pages,
+                      exclude_work_id=None):
     base = {"search.title_abstract_keywords": query,
-            "filter": work_filters(field_id, published_after) + ",primary_location.source.type:journal",
+            "filter": work_filters(field_id, published_after, exclude_work_id)
+            + ",primary_location.source.type:journal",
             "group_by": "primary_location.source.id", "per_page": 100}
     cursor = "*" if max_pages > 1 else None
     seen_cursors = set()
@@ -583,7 +590,7 @@ def merge_web(candidates, web_candidates, limit):
 
 def discover(query, output_root, per_page=50, limit=50, opener=urlopen, field_id=None,
              published_after=None, strategy="grouped", doaj_subject=None, citation_record=None,
-             web_candidates=None, group_pages=1):
+             web_candidates=None, group_pages=1, exclude_work_id=None):
     query = query.strip()
     if not query or len(query) > 200 or any(character in query for character in "\r\n\x00"):
         raise ValueError("--query must be a single topic phrase of 1 to 200 characters")
@@ -615,6 +622,9 @@ def discover(query, output_root, per_page=50, limit=50, opener=urlopen, field_id
             date.fromisoformat(published_after)
         except ValueError as error:
             raise ValueError("--published-after is not a valid date") from error
+    if exclude_work_id is not None and (not isinstance(exclude_work_id, str)
+                                        or not WORK_ID.fullmatch(exclude_work_id)):
+        raise ValueError("--exclude-work-id must be a canonical OpenAlex work ID such as W123")
     root = output_root.expanduser()
     outside_git(root)
     if citation_record is not None:
@@ -628,7 +638,7 @@ def discover(query, output_root, per_page=50, limit=50, opener=urlopen, field_id
     if strategy == "grouped":
         candidates, group_audit = grouped_shortlist(
             query, 100 if doaj_subject or citation_record or web_entries else limit,
-            opener, field_id, published_after, group_pages)
+            opener, field_id, published_after, group_pages, exclude_work_id)
         response_hash = group_audit["response_sha256"]
         if doaj_subject:
             doaj_candidates, doaj_hash, doaj_total, doaj_seen = fetch_doaj_subject(doaj_subject, opener)
@@ -650,7 +660,8 @@ def discover(query, output_root, per_page=50, limit=50, opener=urlopen, field_id
             web_checks = None
             web_providers = []
     else:
-        payload, response_hash = fetch_works(query, per_page, opener, field_id, published_after)
+        payload, response_hash = fetch_works(query, per_page, opener, field_id, published_after,
+                                             exclude_work_id)
         candidates = shortlist(payload, limit)
         doaj_hash = doaj_total = doaj_seen = None
         verified_web = rejected_web = None
@@ -687,6 +698,9 @@ def discover(query, output_root, per_page=50, limit=50, opener=urlopen, field_id
         "query": query,
         "field_id": field_id,
         "published_after": published_after,
+        "excluded_work_id": exclude_work_id,
+        "openalex_work_filter": work_filters(field_id, published_after, exclude_work_id)
+        + (",primary_location.source.type:journal" if strategy == "grouped" else ""),
         "work_filter": work_filter,
         "strategy": strategy,
         "works_requested": per_page if strategy == "sample" else None,
@@ -731,13 +745,14 @@ def main():
     parser.add_argument("--web-candidates", type=Path, help="Optional private ISSN and web-result URL pairs for registry verification")
     parser.add_argument("--field-id", type=int, help="Optional OpenAlex primary field ID")
     parser.add_argument("--published-after", help="Keep only works published on or after this YYYY-MM-DD date")
+    parser.add_argument("--exclude-work-id", help="Exclude one OpenAlex work ID, for example W123")
     args = parser.parse_args()
     try:
         print(discover(args.query, args.output_root, args.works, args.limit,
                        field_id=args.field_id, published_after=args.published_after,
                        strategy=args.strategy, doaj_subject=args.doaj_subject,
                        citation_record=args.citation_record, web_candidates=args.web_candidates,
-                       group_pages=args.group_pages))
+                       group_pages=args.group_pages, exclude_work_id=args.exclude_work_id))
     except (OSError, ValueError) as error:
         parser.exit(1, f"Error: {error}\n")
 

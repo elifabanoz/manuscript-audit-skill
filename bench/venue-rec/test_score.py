@@ -20,11 +20,13 @@ class VenueScoreTests(unittest.TestCase):
         self.preprint.write_text("# Masked preprint\n", encoding="utf-8")
         self.discovery = self.root / "candidates.json"
         self.discovery.write_text(json.dumps({
-            "schema_version": 4, "query": "invented topic",
+            "schema_version": 4, "query": "invented topic", "strategy": "grouped",
+            "excluded_work_id": "W123", "openalex_work_filter":
+            "type:article,ids.openalex:!W123,primary_location.source.type:journal",
             "candidates": [
                 {"source_id": "S1", "issns": ["0010-485X"], "evidence": ["openalex_grouped_works"]},
-                {"source_id": "S2", "issns": ["2475-9066"], "evidence": ["citation_graph"]},
-                {"source_id": "S3", "issns": ["1532-4435"], "evidence": ["doaj_subject"]},
+                {"source_id": "S2", "issns": ["2475-9066"], "evidence": ["openalex_grouped_works"]},
+                {"source_id": "S3", "issns": ["1532-4435"], "evidence": ["openalex_grouped_works"]},
             ],
         }), encoding="utf-8")
         self.baseline = self.root / "embedding.json"
@@ -43,9 +45,10 @@ class VenueScoreTests(unittest.TestCase):
 
     def save_manifest(self):
         self.manifest.write_text(json.dumps({
-            "schema_version": 1, "data_freeze": "2026-11-13",
+            "schema_version": 2, "data_freeze": "2026-11-13",
             "cases": [{"case_id": "paper-1", "field": "Computer Science",
-                       "published_issn": "2475-9066", "preprint_file": str(self.preprint),
+                       "published_issn": "2475-9066", "target_work_id": "W123",
+                       "preprint_file": str(self.preprint),
                        "discovery_record": str(self.discovery),
                        "embedding_baseline": str(self.baseline)}],
         }), encoding="utf-8")
@@ -81,6 +84,34 @@ class VenueScoreTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "pinned candidate pool"):
             score_manifest(self.manifest)
 
+    def test_rejects_missing_or_wrong_target_exclusion(self):
+        discovery = json.loads(self.discovery.read_text(encoding="utf-8"))
+        for excluded_id, query_filter in ((None, "type:article"),
+                                          ("W999", "type:article,ids.openalex:!W999"),
+                                          ("W123", "type:article")):
+            discovery["excluded_work_id"] = excluded_id
+            discovery["openalex_work_filter"] = query_filter
+            self.discovery.write_text(json.dumps(discovery), encoding="utf-8")
+            with self.subTest(excluded_id=excluded_id, query_filter=query_filter):
+                with self.assertRaisesRegex(ValueError, "exclude its target work"):
+                    score_manifest(self.manifest)
+
+    def test_rejects_supplemental_sources_without_target_exclusion(self):
+        discovery = json.loads(self.discovery.read_text(encoding="utf-8"))
+        for field, value in (("citation_record_sha256", "a" * 64),
+                             ("doaj_subject", "Computer Science"),
+                             ("web_input_sha256", "b" * 64)):
+            discovery[field] = value
+            self.discovery.write_text(json.dumps(discovery), encoding="utf-8")
+            with self.subTest(field=field):
+                with self.assertRaisesRegex(ValueError, "OpenAlex grouped evidence only"):
+                    score_manifest(self.manifest)
+            discovery.pop(field)
+        discovery["candidates"][0]["evidence"].append("citation_graph")
+        self.discovery.write_text(json.dumps(discovery), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "OpenAlex grouped evidence only"):
+            score_manifest(self.manifest)
+
     def test_rejects_ambiguous_journal_identity_and_git_inputs(self):
         discovery = json.loads(self.discovery.read_text(encoding="utf-8"))
         discovery["candidates"][2]["issns"] = ["2475-9066"]
@@ -102,15 +133,21 @@ class VenueScoreTests(unittest.TestCase):
     def test_reports_missing_published_venue_separately_by_field(self):
         other_preprint = self.root / "other-preprint.md"
         other_preprint.write_text("# Another masked preprint\n", encoding="utf-8")
+        other_discovery = self.root / "other-candidates.json"
+        discovery = json.loads(self.discovery.read_text(encoding="utf-8"))
+        discovery["excluded_work_id"] = "W456"
+        discovery["openalex_work_filter"] = discovery["openalex_work_filter"].replace("W123", "W456")
+        other_discovery.write_text(json.dumps(discovery), encoding="utf-8")
         other_baseline = self.root / "other-embedding.json"
         baseline = json.loads(self.baseline.read_text(encoding="utf-8"))
         baseline["preprint_sha256"] = self.hash(other_preprint)
+        baseline["discovery_record_sha256"] = self.hash(other_discovery)
         other_baseline.write_text(json.dumps(baseline), encoding="utf-8")
         manifest = json.loads(self.manifest.read_text(encoding="utf-8"))
         manifest["cases"].append({"case_id": "paper-2", "field": "Physics",
-                                  "published_issn": "0000-0000",
+                                  "published_issn": "0000-0000", "target_work_id": "W456",
                                   "preprint_file": str(other_preprint),
-                                  "discovery_record": str(self.discovery),
+                                  "discovery_record": str(other_discovery),
                                   "embedding_baseline": str(other_baseline)})
         self.manifest.write_text(json.dumps(manifest), encoding="utf-8")
         result = score_manifest(self.manifest)

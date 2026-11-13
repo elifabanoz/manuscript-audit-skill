@@ -10,6 +10,7 @@ import re
 
 
 ISSN = re.compile(r"^[0-9]{4}-[0-9]{3}[0-9X]$")
+WORK_ID = re.compile(r"^W[1-9][0-9]*$")
 
 
 def private_file(value):
@@ -81,7 +82,7 @@ def score_manifest(manifest_path):
     manifest_path = private_file(manifest_path)
     manifest = read_json(manifest_path)
     if not isinstance(manifest, dict) or set(manifest) != {"schema_version", "data_freeze", "cases"} \
-            or manifest["schema_version"] != 1:
+            or manifest["schema_version"] != 2:
         raise ValueError("Unsupported venue benchmark manifest")
     if not isinstance(manifest["data_freeze"], str) or not re.fullmatch(
             r"[0-9]{4}-[0-9]{2}-[0-9]{2}", manifest["data_freeze"]):
@@ -93,9 +94,9 @@ def score_manifest(manifest_path):
     cases = manifest["cases"]
     if not isinstance(cases, list) or not cases:
         raise ValueError("Venue benchmark needs cases")
-    rows, seen_ids, seen_preprints = [], set(), set()
+    rows, seen_ids, seen_preprints, seen_works = [], set(), set(), set()
     for case in cases:
-        required = {"case_id", "field", "published_issn", "preprint_file",
+        required = {"case_id", "field", "published_issn", "target_work_id", "preprint_file",
                     "discovery_record", "embedding_baseline"}
         if not isinstance(case, dict) or set(case) != required:
             raise ValueError("Venue case has unexpected fields")
@@ -106,6 +107,9 @@ def score_manifest(manifest_path):
         if not isinstance(field, str) or not field.strip() or not isinstance(target, str) \
                 or not ISSN.fullmatch(target):
             raise ValueError(f"{case_id}: invalid field or published ISSN")
+        work_id = case["target_work_id"]
+        if not isinstance(work_id, str) or not WORK_ID.fullmatch(work_id):
+            raise ValueError(f"{case_id}: invalid target OpenAlex work ID")
         preprint = private_file(case["preprint_file"])
         discovery = private_file(case["discovery_record"])
         baseline_path = private_file(case["embedding_baseline"])
@@ -113,8 +117,22 @@ def score_manifest(manifest_path):
         if preprint_hash in seen_preprints:
             raise ValueError(f"{case_id}: duplicate preprint in benchmark")
         seen_preprints.add(preprint_hash)
+        if work_id in seen_works:
+            raise ValueError(f"{case_id}: duplicate target work in benchmark")
+        seen_works.add(work_id)
         discovery_hash = digest(discovery)
-        keys, issn_sets = candidate_pool(read_json(discovery))
+        discovery_record = read_json(discovery)
+        keys, issn_sets = candidate_pool(discovery_record)
+        if (discovery_record.get("strategy") != "grouped"
+                or discovery_record.get("excluded_work_id") != work_id
+                or not isinstance(discovery_record.get("openalex_work_filter"), str)
+                or f"ids.openalex:!{work_id}" not in
+                discovery_record.get("openalex_work_filter", "").split(",")
+                or any(discovery_record.get(key) is not None for key in
+                       ("citation_record_sha256", "doaj_subject", "web_input_sha256"))
+                or any(candidate.get("evidence") != ["openalex_grouped_works"]
+                       for candidate in discovery_record["candidates"])):
+            raise ValueError(f"{case_id}: discovery must exclude its target work and use OpenAlex grouped evidence only")
         baseline = read_json(baseline_path)
         if not isinstance(baseline, dict) or set(baseline) != {
                 "schema_version", "method", "preprint_sha256", "discovery_record_sha256", "ranked_keys"} \
@@ -127,6 +145,7 @@ def score_manifest(manifest_path):
                 or set(baseline["ranked_keys"]) != set(keys):
             raise ValueError(f"{case_id}: baseline does not rank the pinned candidate pool")
         rows.append({"case_id": case_id, "field": field, "published_issn": target,
+                     "target_work_id": work_id,
                      "discovery_rank": rank_for(target, keys, issn_sets, keys),
                      "embedding_baseline_rank": rank_for(target, keys, issn_sets, baseline["ranked_keys"]),
                      "preprint_sha256": preprint_hash,
@@ -137,8 +156,8 @@ def score_manifest(manifest_path):
         selected = [row for row in rows if row["field"] == field]
         by_field[field] = {name: metrics([row[key] for row in selected]) for name, key in (
             ("discovery", "discovery_rank"), ("embedding_baseline", "embedding_baseline_rank"))}
-    return {"schema_version": 1, "status": "provisional_unreviewed",
-            "note": "Published venue is one known match, not the only suitable journal. Leakage and venue labels require independent review before reporting these rates.",
+    return {"schema_version": 2, "status": "provisional_unreviewed",
+            "note": "The target OpenAlex work was excluded from grouped discovery. Duplicate records, preprint clues, labels and the baseline still need independent review. Published venue is one known match, not the only suitable journal.",
             "benchmark_manifest_sha256": digest(manifest_path), "cases": rows,
             "overall": {name: metrics([row[key] for row in rows]) for name, key in (
                 ("discovery", "discovery_rank"), ("embedding_baseline", "embedding_baseline_rank"))},
