@@ -56,3 +56,27 @@ Example private manifest:
 ```
 
 Run `python bench/venue-rec/score_citation_variant.py /absolute/private/citation-variant-cases.json`. It writes `citation-variant-scores.json` beside the manifest without overwriting an existing result. This is a provisional comparison of two bounded candidate-generation strategies, not a validated causal estimate of citation signal value. Reference selection, labels, duplicate works, journal suitability, and preprint clues still need independent review. DOAJ and web strategies are outside this comparison.
+
+## Grouped versus DOAJ-augmented comparison
+
+`score_doaj_variant.py` compares a grouped OpenAlex shortlist with a second shortlist created using the same query, target exclusion, field, date filter, group-page count, and candidate cap plus `--doaj-subject`. It requires identical OpenAlex group and source response hashes. DOAJ evidence must retain its journal identifier, subject, and response hash; the scorer cannot replay the discarded raw DOAJ response.
+
+Example private manifest:
+
+```json
+{
+  "schema_version": 1,
+  "data_freeze": "2026-11-13",
+  "cases": [{
+    "case_id": "example-1",
+    "field": "Computer Science",
+    "published_issn": "2475-9066",
+    "target_work_id": "W123456789",
+    "preprint_file": "/absolute/private/masked-preprint.md",
+    "grouped_record": "/absolute/private/grouped/candidates.json",
+    "doaj_record": "/absolute/private/doaj/candidates.json"
+  }]
+}
+```
+
+Run `python bench/venue-rec/score_doaj_variant.py /absolute/private/doaj-variant-cases.json`. It writes `doaj-variant-scores.json` beside the manifest without overwriting it. The result remains `provisional_unreviewed`: the subject choice may reveal the target field or journal, and the preprint, label, duplicate works, and live journal scope need independent review. This does not measure acceptance probability. Web leads remain outside these paired comparisons.
