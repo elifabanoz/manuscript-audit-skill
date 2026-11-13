@@ -17,6 +17,7 @@ const { escapeMarkdown, render } = require('./render-report.cjs');
 const { prepare: prepareReviewPacket } = require('./prepare-review-packet.cjs');
 const { prepare: prepareCompliancePacket } = require('./prepare-compliance-packet.cjs');
 const { compare } = require('./compare-runs.cjs');
+const { summarize: summarizeRevisionSeries } = require('./summarize-revision-series.cjs');
 const { compare: compareProfiles, validateDraft } = require('./compare-profiles.cjs');
 const { validateAgreedProfile } = require('./validate-cached-profile.cjs');
 const { adjudicate } = require('./adjudicate-profiles.cjs');
@@ -977,4 +978,36 @@ test('revision comparison shows record and coverage changes without inferring re
   assert.throws(() => compare(previous.run, current.run), /already exists/);
   fs.writeFileSync(path.join(current.run, 'findings.json'), '{invalid');
   assert.throws(() => compare(previous.run, current.run, true));
+});
+
+test('revision series records a bounded coverage curve without claiming resolution', t => {
+  const previous = fixture(t);
+  const current = fixture(t);
+  fs.appendFileSync(path.join(current.run, 'manuscript.md'), 'Additional background.\n');
+  const previousManifest = manifestFor(previous);
+  const currentManifest = manifestFor(current);
+  currentManifest.created_at = '2026-10-20T09:12:00Z';
+  const pending = [{ ...current.ledger[0], status: 'pending', checked_by: [],
+    source_hash: corpusHash(currentManifest) }];
+  for (const [data, manifest, ledger, findings] of [
+    [previous, previousManifest, previous.ledger, previous.findings],
+    [current, currentManifest, pending, []]
+  ]) {
+    fs.writeFileSync(path.join(data.run, 'run-manifest.json'), JSON.stringify(manifest));
+    fs.writeFileSync(path.join(data.run, 'journal-profile.json'), JSON.stringify(data.profile));
+    fs.writeFileSync(path.join(data.run, 'coverage-ledger.json'), JSON.stringify(ledger));
+    fs.writeFileSync(path.join(data.run, 'findings.json'), JSON.stringify(findings));
+  }
+  const result = summarizeRevisionSeries([previous.run, current.run]);
+  assert.equal(result.status, 'local_records_only');
+  assert.deepEqual(result.runs.map(row => row.coverage_fraction), [1, 0]);
+  assert.deepEqual(result.runs.map(row => row.confirmed_findings), [1, 0]);
+  assert.equal(result.runs[1].manuscript_changed_since_previous, true);
+  assert.equal(result.runs[1].coverage_scope_changed_since_previous, false);
+  assert.match(result.note, /do not prove resolution/);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(current.run, 'REVISION-SERIES.json'), 'utf8')), result);
+  assert.throws(() => summarizeRevisionSeries([previous.run, current.run]), /already exists/);
+  assert.throws(() => summarizeRevisionSeries([previous.run, previous.run]), /distinct/);
+  assert.throws(() => summarizeRevisionSeries([previous.run, current.run, previous.run, current.run]), /one to three/);
+  assert.throws(() => summarizeRevisionSeries([current.run, previous.run], true), /ordered by creation time/);
 });
