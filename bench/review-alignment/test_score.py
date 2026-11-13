@@ -9,6 +9,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from prepare_label_review import prepare
 from score import score_manifest
 
 
@@ -56,6 +57,46 @@ class ReviewAlignmentTests(unittest.TestCase):
 
     def write_labels(self):
         self.labels.write_text(json.dumps(self.label_record), encoding="utf-8")
+
+    def test_prepares_private_hash_bound_human_label_packet(self):
+        packet_path = self.root / "label-packet.json"
+        self.assertEqual(prepare(self.run, self.report, packet_path), packet_path)
+        packet = json.loads(packet_path.read_text(encoding="utf-8"))
+        self.assertEqual(packet["status"], "pending_human_labels")
+        self.assertEqual(packet["run_manifest_sha256"], digest(self.run / "run-manifest.json"))
+        self.assertEqual(packet["peer_report_sha256"], digest(self.report))
+        self.assertEqual(packet["findings_sha256"], digest(self.run / "findings.json"))
+        self.assertEqual(packet["confirmed_review_findings"], [])
+        self.assertEqual(packet["label_template"]["issues"], [])
+        self.assertEqual(packet["label_template"]["reviewer"], "")
+        self.assertNotIn("Private peer issue text", packet_path.read_text(encoding="utf-8"))
+        with self.assertRaises(FileExistsError):
+            prepare(self.run, self.report, packet_path)
+        self.labels.write_text(json.dumps(packet["label_template"]), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "Human labels are missing or stale"):
+            score_manifest(self.manifest)
+
+    def test_rejects_stale_run_before_preparing_packet(self):
+        (self.run / "manuscript.md").write_text("# Changed manuscript\n", encoding="utf-8")
+        packet_path = self.root / "stale-packet.json"
+        with self.assertRaisesRegex(ValueError, "failed validation"):
+            prepare(self.run, self.report, packet_path)
+        self.assertFalse(packet_path.exists())
+
+    def test_packet_lists_review_findings_without_report_text(self):
+        findings = [{"id": "F-1", "category": "review", "verdict": "confirmed",
+                     "review_class": "methodology"},
+                    {"id": "F-2", "category": "review", "verdict": "needs_validation"},
+                    {"id": "F-3", "category": "compliance", "verdict": "confirmed"}]
+        (self.run / "findings.json").write_text(json.dumps(findings), encoding="utf-8")
+        packet_path = self.root / "finding-packet.json"
+        with patch("prepare_label_review.validate_run"):
+            prepare(self.run, self.report, packet_path)
+        packet = json.loads(packet_path.read_text(encoding="utf-8"))
+        self.assertEqual(packet["confirmed_review_findings"],
+                         [{"finding_id": "F-1", "review_class": "methodology"}])
+        self.assertEqual(packet["pending_review_findings"], ["F-2"])
+        self.assertNotIn("Private peer issue text", packet_path.read_text(encoding="utf-8"))
 
     def test_scores_only_complete_human_labels_from_validated_private_run(self):
         result = score_manifest(self.manifest)
