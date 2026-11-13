@@ -16,6 +16,7 @@ PYTHON_TEST_DIRS = (
     "bench/compliance-mutations",
     "bench/parsing",
     "bench/venue-rec",
+    "bench/review-alignment",
 )
 
 
