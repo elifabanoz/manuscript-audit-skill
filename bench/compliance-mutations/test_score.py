@@ -225,6 +225,10 @@ class ComplianceMutationScoreTests(unittest.TestCase):
         self.assertEqual(result["validation_false_positive_rate_reduction"], 0.5)
         self.assertEqual(len(result["cases"]), 3)
         self.assertNotIn("No statement here", json.dumps(result))
+        duplicated_control = {**cases[0], "case_id": "duplicate-control"}
+        with self.assertRaisesRegex(ValueError, "run paths must be unique"):
+            score({"schema_version": 1, "data_freeze": "2026-10-19",
+                   "cases": [*cases, duplicated_control]})
         case_file = self.root / "cases.json"
         case_file.write_text(json.dumps({"schema_version": 1, "data_freeze": "2026-10-19", "cases": cases}), encoding="utf-8")
         scored = subprocess.run([sys.executable, str(SCORER), str(case_file)], check=True,

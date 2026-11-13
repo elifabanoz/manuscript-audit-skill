@@ -369,6 +369,9 @@ def score(benchmark):
     ids = [item["case_id"] for item in cases]
     if len(set(ids)) != len(ids):
         raise ValueError("Benchmark case IDs must be unique")
+    run_paths = [Path(item["run"]).resolve() for item in cases]
+    if len(set(run_paths)) != len(run_paths):
+        raise ValueError("Benchmark run paths must be unique")
     by_id = {item["case_id"]: item for item in cases}
     controls = [item for item in cases if item["kind"] == "control"]
     mutations = [item for item in cases if item["kind"] == "mutation"]
