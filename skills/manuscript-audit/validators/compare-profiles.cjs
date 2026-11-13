@@ -133,6 +133,8 @@ function compare(run, firstPath, secondPath, promote = false) {
   return { ...record, output, promoted: shouldPromote };
 }
 
+module.exports = { compare, differences, validateDraft };
+
 if (require.main === module) {
   if (process.argv.length < 5 || process.argv.length > 6 || (process.argv[5] && !['--promote', '--promote-partial'].includes(process.argv[5]))) {
     process.stderr.write('Usage: node compare-profiles.cjs <run-directory> <first-profile.json> <second-profile.json> [--promote|--promote-partial]\n');
@@ -149,5 +151,3 @@ if (require.main === module) {
     }
   }
 }
-
-module.exports = { compare, differences, validateDraft };

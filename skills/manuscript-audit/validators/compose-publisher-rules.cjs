@@ -6,7 +6,6 @@ const path = require('node:path');
 const { isDeepStrictEqual } = require('node:util');
 const { allowedKeys, isObject, nonempty, readJson, safeFile } = require('./common.cjs');
 const { validate: validateProfile } = require('./validate-journal-profile.cjs');
-const { validateDraft } = require('./compare-profiles.cjs');
 const { verify } = require('./verify-quotes.cjs');
 const { outsideGit } = require('./render-report.cjs');
 
@@ -17,6 +16,7 @@ function buildComposition(run, publisherPath, journalPath, overridesPath) {
   outsideGit(run);
   const journalFile = safeFile(run, journalPath);
   if (journalFile === path.join(run, 'composed-profile.json')) throw new Error('Journal draft cannot be the composed profile');
+  const { validateDraft } = require('./compare-profiles.cjs');
   const { profile: journal } = validateDraft(run, journalPath);
   const manifest = readJson(path.join(run, 'run-manifest.json'));
   const publisherFile = safeFile(run, publisherPath);
