@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+from audit import check as check_audit, prepare as prepare_audit
 from validate import digest, validate
 
 
@@ -75,6 +76,50 @@ class DecisionContractTests(unittest.TestCase):
         with patch("validate.subprocess.run", return_value=SimpleNamespace(returncode=1)):
             with self.assertRaisesRegex(ValueError, "run failed validation"):
                 validate(self.manifest)
+
+    def test_independent_audit_rechecks_blind_category_and_lock(self):
+        packet_file = self.root / "audit-packet.json"
+        with patch("validate.subprocess.run", return_value=SimpleNamespace(returncode=0)):
+            prepare_audit(self.manifest, packet_file)
+        packet = json.loads(packet_file.read_text(encoding="utf-8"))
+        self.assertEqual(packet["status"], "pending_independent_review")
+        self.assertNotIn("minor_revision", json.dumps(packet))
+        self.assertNotIn("Private invented decision text", json.dumps(packet))
+        audit = packet["audit_template"]
+        audit_file = self.root / "audit.json"
+        audit_file.write_text(json.dumps(audit), encoding="utf-8")
+        with patch("validate.subprocess.run", return_value=SimpleNamespace(returncode=0)):
+            with self.assertRaisesRegex(ValueError, "incomplete"):
+                check_audit(self.manifest, audit_file)
+        audit["auditor"] = "Second Human"
+        audit["reviewed_at"] = "2026-02-03T10:00:00Z"
+        audit["cases"][0].update({"stage": "first_editorial_decision", "category": "minor_revision",
+                                  "prediction_lock_verified": True, "rationale": "Checked the private records."})
+        audit_file.write_text(json.dumps(audit), encoding="utf-8")
+        with patch("validate.subprocess.run", return_value=SimpleNamespace(returncode=0)):
+            self.assertEqual(check_audit(self.manifest, audit_file)["status"], "recorded_agreement")
+        audit["cases"][0]["category"] = "major_revision"
+        audit_file.write_text(json.dumps(audit), encoding="utf-8")
+        with patch("validate.subprocess.run", return_value=SimpleNamespace(returncode=0)):
+            self.assertEqual(check_audit(self.manifest, audit_file)["status"], "needs_adjudication")
+        audit["auditor"] = "Invented Human"
+        audit_file.write_text(json.dumps(audit), encoding="utf-8")
+        with patch("validate.subprocess.run", return_value=SimpleNamespace(returncode=0)):
+            with self.assertRaisesRegex(ValueError, "incomplete"):
+                check_audit(self.manifest, audit_file)
+        audit["auditor"] = "Second Human"
+        audit["reviewed_at"] = "2026-02-01T10:00:00Z"
+        audit_file.write_text(json.dumps(audit), encoding="utf-8")
+        with patch("validate.subprocess.run", return_value=SimpleNamespace(returncode=0)):
+            with self.assertRaisesRegex(ValueError, "must follow primary labels"):
+                check_audit(self.manifest, audit_file)
+        audit["reviewed_at"] = "2026-02-03T10:00:00Z"
+        audit_file.write_text(json.dumps(audit), encoding="utf-8")
+        self.outcome["labeler"] = "Changed Primary Labeler"
+        self.write_records()
+        with patch("validate.subprocess.run", return_value=SimpleNamespace(returncode=0)):
+            with self.assertRaisesRegex(ValueError, "stale"):
+                check_audit(self.manifest, audit_file)
 
 
 if __name__ == "__main__":
