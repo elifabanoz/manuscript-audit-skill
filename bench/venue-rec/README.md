@@ -79,4 +79,10 @@ Example private manifest:
 }
 ```
 
-Run `python bench/venue-rec/score_doaj_variant.py /absolute/private/doaj-variant-cases.json`. It writes `doaj-variant-scores.json` beside the manifest without overwriting it. The result remains `provisional_unreviewed`: the subject choice may reveal the target field or journal, and the preprint, label, duplicate works, and live journal scope need independent review. This does not measure acceptance probability. Web leads remain outside these paired comparisons.
+Run `python bench/venue-rec/score_doaj_variant.py /absolute/private/doaj-variant-cases.json`. It writes `doaj-variant-scores.json` beside the manifest without overwriting it. The result remains `provisional_unreviewed`: the subject choice may reveal the target field or journal, and the preprint, label, duplicate works, and live journal scope need independent review. This does not measure acceptance probability. Web leads are scored separately below.
+
+## Grouped versus web-augmented comparison
+
+`score_web_variant.py` compares a grouped shortlist with a second shortlist from the same hashed OpenAlex responses and target-work exclusion, augmented by a private, manually selected ISSN/URL list passed through `--web-candidates`. Its manifest uses the same case fields as the DOAJ variant, replacing `doaj_record` with `web_input_file` and `web_record`. The scorer checks the input file hash, each retained registry match's provider and response hash, and its exact input URL. Registry response bodies are not retained for replay.
+
+Run `python bench/venue-rec/score_web_variant.py /absolute/private/web-variant-cases.json` to write private `web-variant-scores.json`. The result remains `provisional_unreviewed`. Manually selecting a known target journal as a web lead can directly leak the answer; an independent reviewer must audit lead selection, preprint clues, venue labels, duplicate works, and journal fit before any empirical claim. The tool never sends preprint text to a provider.
