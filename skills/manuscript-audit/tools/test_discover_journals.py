@@ -107,6 +107,7 @@ class DiscoveryTests(unittest.TestCase):
                               field_id=17, published_after="2024-01-01", exclude_work_id="W456")
             record = json.loads(output.read_text(encoding="utf-8"))
         self.assertEqual(record["strategy"], "grouped")
+        self.assertEqual(record["candidate_limit"], 2)
         self.assertEqual(record["matching_works_total"], 246)
         self.assertEqual(record["grouped_sources_seen"], 3)
         self.assertEqual([item["display_name"] for item in record["candidates"]],

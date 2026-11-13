@@ -712,6 +712,7 @@ def discover(query, output_root, per_page=50, limit=50, opener=urlopen, field_id
         + (",primary_location.source.type:journal" if strategy == "grouped" else ""),
         "work_filter": work_filter,
         "strategy": strategy,
+        "candidate_limit": limit,
         "works_requested": per_page if strategy == "sample" else None,
         "grouped_sources_seen": group_audit["grouped_sources_seen"] if strategy == "grouped" else None,
         "matching_works_total": group_audit["matching_works_total"] if strategy == "grouped" else None,

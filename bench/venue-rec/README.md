@@ -29,3 +29,28 @@ Generate each discovery record with `python skills/manuscript-audit/tools/discov
 Run `python bench/venue-rec/score.py /absolute/private/cases.json`. It writes `venue-rec-scores.json` beside the manifest and refuses to overwrite it. On Windows, use absolute Windows paths with escaped JSON backslashes.
 
 Every output is labeled `provisional_unreviewed`. Excluding one OpenAlex work ID does not establish that duplicate records, source-level counts, or manuscript clues are leakage-free. Before reporting empirical rates, independently inspect the preprint for journal/DOI/template leakage, check for duplicate target records in discovery data, verify the published-venue label and embedding baseline, and use multiple fields. No real venue benchmark result is included here.
+
+## Grouped versus citation-augmented comparison
+
+`score_citation_variant.py` compares two private shortlists for each preprint. Generate the first with grouped OpenAlex discovery and `--exclude-work-id W...`. Generate a separate citation record with manually checked reference DOIs, `--allow-network`, and the same `--exclude-work-id`; pass it to a second grouped discovery call with `--citation-record` and that same target exclusion. Use the same query, field, date filter, group-page count, and candidate cap. The scorer requires identical hashed OpenAlex group and source responses across both discovery calls, a pinned citation record, and evidence traceable to the respective sources. If the provider responses changed, create a new pair; do not treat the two runs as a controlled comparison.
+
+Example private manifest:
+
+```json
+{
+  "schema_version": 1,
+  "data_freeze": "2026-11-13",
+  "cases": [{
+    "case_id": "example-1",
+    "field": "Computer Science",
+    "published_issn": "2475-9066",
+    "target_work_id": "W123456789",
+    "preprint_file": "/absolute/private/masked-preprint.md",
+    "grouped_record": "/absolute/private/grouped/candidates.json",
+    "citation_record": "/absolute/private/citation/citation-candidates.json",
+    "combined_record": "/absolute/private/combined/candidates.json"
+  }]
+}
+```
+
+Run `python bench/venue-rec/score_citation_variant.py /absolute/private/citation-variant-cases.json`. It writes `citation-variant-scores.json` beside the manifest without overwriting an existing result. This is a provisional comparison of two bounded candidate-generation strategies, not a validated causal estimate of citation signal value. Reference selection, labels, duplicate works, journal suitability, and preprint clues still need independent review. DOAJ and web strategies are outside this comparison.
