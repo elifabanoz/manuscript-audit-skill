@@ -9,6 +9,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from audit_labels import check as check_audit, prepare as prepare_audit
 from prepare_label_review import prepare
 from score import score_manifest
 
@@ -97,6 +98,37 @@ class ReviewAlignmentTests(unittest.TestCase):
                          [{"finding_id": "F-1", "review_class": "methodology"}])
         self.assertEqual(packet["pending_review_findings"], ["F-2"])
         self.assertNotIn("Private peer issue text", packet_path.read_text(encoding="utf-8"))
+
+    def test_independent_audit_requires_complete_fresh_checks(self):
+        packet_path = self.root / "audit-packet.json"
+        prepare_audit(self.manifest, packet_path)
+        packet = json.loads(packet_path.read_text(encoding="utf-8"))
+        self.assertEqual(packet["status"], "pending_independent_review")
+        self.assertNotIn("Private peer issue text", packet_path.read_text(encoding="utf-8"))
+        audit = packet["audit_template"]
+        audit_path = self.root / "audit.json"
+        audit_path.write_text(json.dumps(audit), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "incomplete"):
+            check_audit(self.manifest, audit_path)
+        audit["auditor"] = "Second Human Reviewer"
+        audit["reviewed_at"] = "2026-11-13T12:00:00Z"
+        audit["cases"][0]["issue_checks"] = [
+            {"issue_id": "P-1", "assessment": "agree", "rationale": "Checked the source documents."}]
+        audit_path.write_text(json.dumps(audit), encoding="utf-8")
+        self.assertEqual(check_audit(self.manifest, audit_path)["status"], "recorded_agreement")
+        audit["cases"][0]["issue_checks"][0]["assessment"] = "disagree"
+        audit_path.write_text(json.dumps(audit), encoding="utf-8")
+        self.assertEqual(check_audit(self.manifest, audit_path)["status"], "needs_adjudication")
+        audit["auditor"] = "Human Reviewer"
+        audit_path.write_text(json.dumps(audit), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "incomplete"):
+            check_audit(self.manifest, audit_path)
+        audit["auditor"] = "Second Human Reviewer"
+        audit_path.write_text(json.dumps(audit), encoding="utf-8")
+        self.label_record["issues"][0]["rationale"] = "Updated primary rationale."
+        self.write_labels()
+        with self.assertRaisesRegex(ValueError, "stale"):
+            check_audit(self.manifest, audit_path)
 
     def test_scores_only_complete_human_labels_from_validated_private_run(self):
         result = score_manifest(self.manifest)
