@@ -19,6 +19,7 @@ const { prepare: prepareCompliancePacket } = require('./prepare-compliance-packe
 const { compare } = require('./compare-runs.cjs');
 const { summarize: summarizeRevisionSeries } = require('./summarize-revision-series.cjs');
 const { prepare: prepareCoverLetterPacket } = require('./prepare-cover-letter-packet.cjs');
+const { render: renderCoverLetterDraft } = require('./render-cover-letter-draft.cjs');
 const { compare: compareProfiles, validateDraft } = require('./compare-profiles.cjs');
 const { validateAgreedProfile } = require('./validate-cached-profile.cjs');
 const { adjudicate } = require('./adjudicate-profiles.cjs');
@@ -1029,6 +1030,31 @@ test('cover letter packet binds author claims to current manuscript lines withou
   assert.deepEqual(packet.claims[0], { ...claim, manuscript_sha256: manifestFor(data).manuscript.sha256 });
   assert.equal(packet.target_journal.issn, data.profile.issn);
   assert.equal(JSON.stringify(packet).includes('Introduction'), false);
+  const reviewPath = path.join(data.run, 'cover-letter-review.json');
+  const review = {
+    schema_version: 1,
+    packet_sha256: crypto.createHash('sha256').update(fs.readFileSync(result.path)).digest('hex'),
+    reviewer: 'Example Author',
+    reviewed_at: '2026-10-19T10:00:00Z',
+    approved_claim_indexes: [],
+    acknowledgement: 'I reviewed each claim against its cited manuscript line and approved this wording.'
+  };
+  fs.writeFileSync(reviewPath, JSON.stringify(review));
+  assert.throws(() => renderCoverLetterDraft(data.run, 'cover-letter-claims.json', 'cover-letter-review.json'), /every claim/);
+  assert.equal(fs.existsSync(path.join(data.run, 'COVER-LETTER-DRAFT.txt')), false);
+  review.approved_claim_indexes = [0];
+  fs.writeFileSync(reviewPath, JSON.stringify(review));
+  const draft = renderCoverLetterDraft(data.run, 'cover-letter-claims.json', 'cover-letter-review.json');
+  const draftText = fs.readFileSync(draft.path, 'utf8');
+  assert.match(draftText, /The manuscript describes methods and results\./);
+  assert.match(draftText, /Evidence 1: manuscript\.md:L3/);
+  assert.doesNotMatch(draftText, /Introduction/);
+  assert.throws(() => renderCoverLetterDraft(data.run, 'cover-letter-claims.json', 'cover-letter-review.json'), /EEXIST/);
+  fs.rmSync(draft.path);
+  const packetBytes = fs.readFileSync(result.path);
+  fs.writeFileSync(result.path, JSON.stringify({ ...packet, note: 'Changed after review' }));
+  assert.throws(() => renderCoverLetterDraft(data.run, 'cover-letter-claims.json', 'cover-letter-review.json'), /stale or changed/);
+  fs.writeFileSync(result.path, packetBytes);
   assert.throws(() => prepareCoverLetterPacket(data.run, 'cover-letter-claims.json'), /EEXIST/);
   fs.rmSync(result.path);
   fs.writeFileSync(claimsPath, JSON.stringify({ schema_version: 1, claims: [
@@ -1036,6 +1062,7 @@ test('cover letter packet binds author claims to current manuscript lines withou
   ] }));
   assert.throws(() => prepareCoverLetterPacket(data.run, 'cover-letter-claims.json'), /quote is not on/);
   assert.equal(fs.existsSync(result.path), false);
+  assert.throws(() => renderCoverLetterDraft(data.run, 'cover-letter-claims.json', 'cover-letter-review.json'), /quote is not on/);
   fs.writeFileSync(claimsPath, JSON.stringify({ schema_version: 1, claims: [
     { ...claim, path: 'sources/guideline.txt' }
   ] }));

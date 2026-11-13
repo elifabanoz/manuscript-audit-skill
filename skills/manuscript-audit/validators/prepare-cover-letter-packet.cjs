@@ -10,7 +10,7 @@ const { outsideGit } = require('./render-report.cjs');
 const hash = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 const normalize = value => value.replace(/\s+/g, ' ').trim();
 
-function prepare(run, claimsPath) {
+function buildPacket(run, claimsPath) {
   run = path.resolve(run);
   outsideGit(run);
   const { manifest, profile } = loadRun(run);
@@ -60,6 +60,12 @@ function prepare(run, claimsPath) {
       manuscript_sha256: allowedPaths.get(claim.path)
     }))
   };
+  return packet;
+}
+
+function prepare(run, claimsPath) {
+  run = path.resolve(run);
+  const packet = buildPacket(run, claimsPath);
   const output = path.join(run, 'COVER-LETTER-PACKET.json');
   fs.writeFileSync(output, `${JSON.stringify(packet, null, 2)}\n`, { encoding: 'utf8', flag: 'wx' });
   return { path: output, status: packet.status, claims: packet.claims.length };
@@ -75,4 +81,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { prepare };
+module.exports = { buildPacket, prepare };
