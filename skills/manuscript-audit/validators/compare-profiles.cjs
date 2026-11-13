@@ -67,13 +67,22 @@ function validateDraftContent(run, file, manifest) {
   return { bytes, profile };
 }
 
+function validateCompositionIfNeeded(run, file) {
+  if (file === path.join(run, 'composed-profile.json')) {
+    require('./compose-publisher-rules.cjs').validateComposition(run);
+  }
+}
+
 function validateDraft(run, draftPath) {
   run = path.resolve(run);
   outsideGit(run);
   const manifest = readJson(path.join(run, 'run-manifest.json'));
   const manifestErrors = validateManifest(run, manifest);
   if (manifestErrors.length) throw new Error(`Invalid manifest:\n${manifestErrors.join('\n')}`);
-  return validateDraftContent(run, safeFile(run, draftPath), manifest);
+  const file = safeFile(run, draftPath);
+  const draft = validateDraftContent(run, file, manifest);
+  validateCompositionIfNeeded(run, file);
+  return draft;
 }
 
 function compare(run, firstPath, secondPath, promote = false) {
@@ -86,7 +95,11 @@ function compare(run, firstPath, secondPath, promote = false) {
   const files = [safeFile(run, firstPath), safeFile(run, secondPath)];
   if (files[0] === files[1]) throw new Error('Profiles resolve to the same file');
   const drafts = files.map((file, index) => {
-    try { return validateDraftContent(run, file, manifest); }
+    try {
+      const draft = validateDraftContent(run, file, manifest);
+      validateCompositionIfNeeded(run, file);
+      return draft;
+    }
     catch (error) { throw new Error(`Invalid profile ${index + 1}:\n${error.message}`); }
   });
   const bytes = drafts.map(draft => draft.bytes);
