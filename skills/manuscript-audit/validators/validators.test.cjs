@@ -21,6 +21,7 @@ const { summarize: summarizeRevisionSeries } = require('./summarize-revision-ser
 const { prepare: prepareCoverLetterPacket } = require('./prepare-cover-letter-packet.cjs');
 const { render: renderCoverLetterDraft } = require('./render-cover-letter-draft.cjs');
 const { compose: composePublisherRules, validateComposition } = require('./compose-publisher-rules.cjs');
+const { validatePublisherCache } = require('./validate-publisher-cache.cjs');
 const { compare: compareProfiles, validateDraft } = require('./compare-profiles.cjs');
 const { validateAgreedProfile } = require('./validate-cached-profile.cjs');
 const { adjudicate } = require('./adjudicate-profiles.cjs');
@@ -1126,8 +1127,14 @@ test('publisher rule composition requires explicit, source-backed journal overri
   fs.writeFileSync(path.join(data.run, 'independent-draft.json'), JSON.stringify(composed));
   assert.equal(compareProfiles(data.run, 'composed-profile.json', 'independent-draft.json', true).promoted, true);
   assert.equal(validateAgreedProfile(data.run).issn, data.profile.issn);
+  const cachedPublisher = validatePublisherCache(data.run, data.profile.publisher, 30, Date.parse('2026-10-20T00:00:00Z'));
+  assert.deepEqual(cachedPublisher.sources, data.profile.sources);
+  assert.equal(cachedPublisher.publisher_rules_sha256, record.publisher_rules_sha256);
+  assert.throws(() => validatePublisherCache(data.run, 'Different Publisher', 30, Date.parse('2026-10-20T00:00:00Z')), /identity differs/);
+  assert.throws(() => validatePublisherCache(data.run, data.profile.publisher, 1, Date.parse('2026-10-22T00:00:00Z')), /cache TTL/);
   fs.writeFileSync(result.record, JSON.stringify({ ...record, inherited_rule_ids: [] }));
   assert.throws(() => validateDraft(data.run, 'composed-profile.json'), /stale or changed/);
   assert.throws(() => validateAgreedProfile(data.run), /No current, agreed two-draft profile comparison/);
+  assert.throws(() => validatePublisherCache(data.run, data.profile.publisher, 30, Date.parse('2026-10-20T00:00:00Z')), /not reusable/);
   assert.throws(() => composePublisherRules(data.run, 'publisher-rules.json', 'journal-draft.json', 'overrides.json'), /already exists/);
 });
