@@ -20,6 +20,7 @@ const { compare } = require('./compare-runs.cjs');
 const { summarize: summarizeRevisionSeries } = require('./summarize-revision-series.cjs');
 const { prepare: prepareCoverLetterPacket } = require('./prepare-cover-letter-packet.cjs');
 const { render: renderCoverLetterDraft } = require('./render-cover-letter-draft.cjs');
+const { compose: composePublisherRules } = require('./compose-publisher-rules.cjs');
 const { compare: compareProfiles, validateDraft } = require('./compare-profiles.cjs');
 const { validateAgreedProfile } = require('./validate-cached-profile.cjs');
 const { adjudicate } = require('./adjudicate-profiles.cjs');
@@ -1070,4 +1071,43 @@ test('cover letter packet binds author claims to current manuscript lines withou
   fs.writeFileSync(claimsPath, JSON.stringify({ schema_version: 1, claims: [claim] }));
   fs.appendFileSync(path.join(data.run, 'manuscript.md'), 'Changed text.\n');
   assert.throws(() => prepareCoverLetterPacket(data.run, 'cover-letter-claims.json'), /Run validation failed/);
+});
+
+test('publisher rule composition requires explicit, source-backed journal overrides', t => {
+  const data = fixture(t);
+  fs.writeFileSync(path.join(data.run, 'run-manifest.json'), JSON.stringify(manifestFor(data)));
+  fs.writeFileSync(path.join(data.run, 'journal-draft.json'), JSON.stringify(data.profile));
+  const publisher = {
+    schema_version: 1,
+    publisher: data.profile.publisher,
+    sources: structuredClone(data.profile.sources),
+    rules: [
+      { ...data.profile.rules[0], requirement: 'Provide a data statement.' },
+      { rule_id: 'publisher_general', kind: 'semantic', requirement: 'Follow the journal guidelines.',
+        quote: 'Example Journal guidelines.', source_ref: 'src_guideline' }
+    ]
+  };
+  fs.writeFileSync(path.join(data.run, 'publisher-rules.json'), JSON.stringify(publisher));
+  const overridePath = path.join(data.run, 'overrides.json');
+  fs.writeFileSync(overridePath, JSON.stringify({ schema_version: 1, overrides: [] }));
+  assert.throws(() => composePublisherRules(data.run, 'publisher-rules.json', 'journal-draft.json', 'overrides.json'), /explicit journal override/);
+  assert.equal(fs.existsSync(path.join(data.run, 'composed-profile.json')), false);
+  fs.writeFileSync(overridePath, JSON.stringify({ schema_version: 1, overrides: [
+    { rule_id: 'data_availability', reason: 'The journal rule uses its own wording.' }
+  ] }));
+  publisher.sources.src_guideline.sha256 = '0'.repeat(64);
+  fs.writeFileSync(path.join(data.run, 'publisher-rules.json'), JSON.stringify(publisher));
+  assert.throws(() => composePublisherRules(data.run, 'publisher-rules.json', 'journal-draft.json', 'overrides.json'), /differs from the run manifest/);
+  publisher.sources = structuredClone(data.profile.sources);
+  fs.writeFileSync(path.join(data.run, 'publisher-rules.json'), JSON.stringify(publisher));
+  const result = composePublisherRules(data.run, 'publisher-rules.json', 'journal-draft.json', 'overrides.json');
+  const composed = JSON.parse(fs.readFileSync(result.profile, 'utf8'));
+  const record = JSON.parse(fs.readFileSync(result.record, 'utf8'));
+  assert.equal(composed.rules.length, 2);
+  assert.equal(composed.rules[0].requirement, data.profile.rules[0].requirement);
+  assert.equal(composed.rules[1].rule_id, 'publisher_general');
+  assert.deepEqual(record.overridden_rule_ids, ['data_availability']);
+  assert.equal(record.status, 'pending_independent_profile_review');
+  assert.deepEqual(validateDraft(data.run, 'composed-profile.json').profile, composed);
+  assert.throws(() => composePublisherRules(data.run, 'publisher-rules.json', 'journal-draft.json', 'overrides.json'), /already exists/);
 });
