@@ -1,6 +1,6 @@
 # Manuscript Audit Skill
 
-An early-stage skill for checking a manuscript against a selected journal's guidelines. See the [architecture](docs/ARCHITECTURE.md) for the evidence flow and current limits.
+An early-stage skill for checking a manuscript against a selected journal's guidelines. See the [architecture](docs/ARCHITECTURE.md) for the evidence flow and current limits, and [CONTRIBUTING.md](CONTRIBUTING.md) for repository changes.
 
 The current implementation provides [skill instructions](skills/manuscript-audit/SKILL.md), [review role contracts](skills/manuscript-audit/roles/REVIEW-ROLES.md), JSON contracts, local validators, private report rendering, and a [run preparation tool](skills/manuscript-audit/tools/prepare_run.py) for UTF-8 text or Markdown. It can fetch public HTML or plain-text guideline pages and convert DOCX, standalone LaTeX, or text-based PDF content locally. Private run files are created outside any Git checkout.
 
@@ -143,7 +143,7 @@ Run the full validation gate locally with Node.js, Python 3.11 or newer, Pandoc,
 python scripts/check_local.py
 ```
 
-The script runs the generated-agent check, Node validators, four Python test suites, and JSON schema parsing. It does not install dependencies or invoke GitHub. The GitHub workflow is manual-only; normal pushes do not start a runner. Run the local gate before committing or pushing.
+The script runs the generated-agent check, Node validators, five Python test suites, and JSON schema parsing. It does not install dependencies or invoke GitHub. The GitHub workflow is manual-only; normal pushes do not start a runner. Run the local gate before committing or pushing.
 
 Before committing, install gitleaks and enable the secret scan hook:
 
