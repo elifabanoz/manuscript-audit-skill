@@ -478,6 +478,20 @@ class ComplianceMutationScoreTests(unittest.TestCase):
         self.assertEqual(off_target["mutations"]["off_target_validated_rule_flags"], 0)
         self.assertEqual(off_target["cases"][1]["off_target_raw_rule_ids"], ["ethics_statement"])
         self.assertEqual(off_target["by_mutation_class"]["semantic"]["mutations"]["off_target_raw_cases"], 1)
+        for run in (control, mutation):
+            scope_path = run / "scope-review.json"
+            scope = json.loads(scope_path.read_text(encoding="utf-8"))
+            scope["rules"][0]["decision"] = "exclude"
+            scope["rules"][0]["reason"] = "The injected target is deliberately excluded from this test scope."
+            scope_path.write_text(json.dumps(scope), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "target rule is excluded from scoring scope"):
+            score({"schema_version": 5, "data_freeze": "2026-10-19", "cases": cases})
+        for run in (control, mutation):
+            scope_path = run / "scope-review.json"
+            scope = json.loads(scope_path.read_text(encoding="utf-8"))
+            scope["rules"][0]["decision"] = "score"
+            scope["rules"][0]["reason"] = "The manuscript can show the data availability statement."
+            scope_path.write_text(json.dumps(scope), encoding="utf-8")
         changed = json.loads((control / "scope-review.json").read_text(encoding="utf-8"))
         changed["manifest_sha256"] = "0" * 64
         (control / "scope-review.json").write_text(json.dumps(changed), encoding="utf-8")

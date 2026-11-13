@@ -281,6 +281,8 @@ def load_case(case, freeze, schema_version):
     if case["kind"] == "mutation" and (not isinstance(case["expected_rule_id"], str)
                                        or case["expected_rule_id"] not in known):
         raise ValueError(f"{case['case_id']}: expected_rule_id is absent from the profile")
+    if case["kind"] == "mutation" and case["expected_rule_id"] not in scored:
+        raise ValueError(f"{case['case_id']}: target rule is excluded from scoring scope")
     if case["kind"] == "control":
         check_control_deterministic(run, manifest, profile, case["article_type"], scored, case["case_id"])
     input_files = {
