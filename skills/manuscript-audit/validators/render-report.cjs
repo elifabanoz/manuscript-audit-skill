@@ -36,6 +36,9 @@ function sourceLines(finding, profile) {
     if (item.type === 'reference_metadata') {
       return `  - Reference metadata lead: DOI ${escapeMarkdown(item.doi)}, private check ${escapeMarkdown(item.checks_sha256)}`;
     }
+    if (item.type === 'citation_claim') {
+      return `  - Citation claim review: private packet ${escapeMarkdown(item.packet_sha256)}${item.review_sha256 ? `, review ${escapeMarkdown(item.review_sha256)}` : ''}`;
+    }
     return `  - Absence check: searched ${item.searched.map(escapeMarkdown).join(', ')} for ${item.patterns.map(escapeMarkdown).join(', ')}`;
   });
 }

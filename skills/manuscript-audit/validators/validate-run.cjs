@@ -7,6 +7,7 @@ const { isObject, nonempty, printResult, readJson, safeFile } = require('./commo
 const { validate: validateManifest } = require('./validate-run-manifest.cjs');
 const { validate: validateLedger } = require('./validate-coverage-ledger.cjs');
 const { verify } = require('./verify-quotes.cjs');
+const { checkCitationClaim } = require('./validate-citation-claim.cjs');
 
 function canonical(value) {
   if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
@@ -301,6 +302,9 @@ function validate(run, manifest, profile, ledger, findings, options = {}) {
         }
         if (evidence?.type === 'reference_metadata') {
           checkReferenceMetadata(run, finding, evidence, at, manifest, suppliedPaths, errors);
+        }
+        if (evidence?.type === 'citation_claim') {
+          checkCitationClaim(run, finding, evidence, manifest, at, errors);
         }
       }
     }

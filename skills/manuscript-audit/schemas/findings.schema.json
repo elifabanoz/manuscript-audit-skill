@@ -71,6 +71,19 @@
                 "result_index": { "type": "integer", "minimum": 0 },
                 "checks_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
               }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type", "packet_path", "packet_sha256"],
+              "properties": {
+                "type": { "const": "citation_claim" },
+                "packet_path": { "type": "string", "minLength": 1 },
+                "packet_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+                "review_path": { "type": "string", "minLength": 1 },
+                "review_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+              },
+              "dependentRequired": { "review_path": ["review_sha256"], "review_sha256": ["review_path"] }
             }
           ]
         }
@@ -105,6 +118,11 @@
       {
         "if": { "properties": { "verdict": { "const": "rejected" } } },
         "then": { "required": ["rejection_reason"], "not": { "anyOf": [{ "required": ["severity"] }, { "required": ["unresolved_fact"] }] } }
+      },
+      {
+        "if": { "properties": { "verdict": { "const": "confirmed" }, "review_class": { "const": "citation_accuracy" } },
+                "required": ["review_class"] },
+        "then": { "properties": { "evidence": { "contains": { "type": "object", "properties": { "type": { "const": "citation_claim" } }, "required": ["type", "review_path", "review_sha256"] } } } }
       }
     ]
   }

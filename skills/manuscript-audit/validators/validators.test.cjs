@@ -559,6 +559,78 @@ test('confirmed reference leads bind a private check, registry record, and manus
     /lacks a Crossref post-publication update signal/);
 });
 
+test('citation accuracy findings require a current private packet and human review', t => {
+  const data = fixture(t);
+  const checksum = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
+  fs.appendFileSync(path.join(data.run, 'manuscript.md'),
+    'The cited study proves every case improves [1].\n[1] doi:10.1234/alpha\n');
+  const manifest = manifestFor(data);
+  fs.writeFileSync(path.join(data.run, 'run-manifest.json'), JSON.stringify(manifest));
+  const sourcePath = path.join(data.run, 'cited-source.txt');
+  fs.writeFileSync(sourcePath, 'The sample included only six cases.\n');
+  const sourceQuote = 'The sample included only six cases.';
+  const claimQuote = 'The cited study proves every case improves [1].';
+  const packet = { schema_version: 1, status: 'pending_human_citation_review',
+    cited_doi: '10.1234/alpha', run_manifest_sha256: checksum(fs.readFileSync(path.join(data.run, 'run-manifest.json'))),
+    claim: { path: 'manuscript.md', line_id: 'L4', quote: claimQuote,
+      quote_sha256: checksum(Buffer.from(claimQuote)) },
+    source: { file: sourcePath, file_sha256: checksum(fs.readFileSync(sourcePath)), quote: sourceQuote,
+      quote_sha256: checksum(Buffer.from(sourceQuote)) } };
+  const packetBytes = Buffer.from(JSON.stringify(packet));
+  fs.writeFileSync(path.join(data.run, 'citation-packet.json'), packetBytes);
+  const packetSha = checksum(packetBytes);
+  const review = { schema_version: 1, packet_sha256: packetSha, reviewer: 'Invented reviewer',
+    reviewed_at: '2026-11-13T12:00:00Z', source_identity_verified: true,
+    citation_link_verified: true, assessment: 'overstates_source', rationale: 'Checked the invented full source.' };
+  const reviewBytes = Buffer.from(JSON.stringify(review));
+  fs.writeFileSync(path.join(data.run, 'citation-review.json'), reviewBytes);
+  const finding = { ...data.findings[0], category: 'review', review_class: 'citation_accuracy',
+    claim: 'The citation overstates the cited source.',
+    evidence: [
+      { type: 'manuscript_quote', path: 'manuscript.md', line_id: 'L4', quote: claimQuote },
+      { type: 'citation_claim', packet_path: 'citation-packet.json', packet_sha256: packetSha,
+        review_path: 'citation-review.json', review_sha256: checksum(reviewBytes) }
+    ] };
+  delete finding.rule_id;
+  data.ledger[0].kind = 'review';
+  data.ledger[0].review_class = 'citation_accuracy';
+  delete data.ledger[0].rule_id;
+  data.ledger[0].source_hash = corpusHash(manifest);
+  refreshCoverageRecord(data, manifest);
+  for (const file of Object.values(finding.provenance)) {
+    const recordPath = path.join(data.run, file);
+    const record = JSON.parse(fs.readFileSync(recordPath, 'utf8'));
+    record.subject_sha256 = reviewSubjectHash(finding, manifest, data.profile);
+    fs.writeFileSync(recordPath, JSON.stringify(record));
+  }
+  assert.deepEqual(validateRun(data.run, manifest, data.profile, data.ledger, [finding]), []);
+  for (const [name, value] of [
+    ['journal-profile.json', data.profile], ['coverage-ledger.json', data.ledger], ['findings.json', [finding]]
+  ]) fs.writeFileSync(path.join(data.run, name), JSON.stringify(value));
+  render(data.run);
+  assert.match(fs.readFileSync(path.join(data.run, 'REPORT.md'), 'utf8'), /Citation claim review/);
+  const verifierPath = path.join(data.run, finding.provenance.record_verifier);
+  const verifierBytes = fs.readFileSync(verifierPath);
+  fs.rmSync(verifierPath);
+  const verifierPacket = JSON.parse(fs.readFileSync(
+    prepareReviewPacket(data.run, 'F-1', 'record_verifier').path, 'utf8'));
+  assert.equal(verifierPacket.citation_claims[0].packet.cited_doi, '10.1234/alpha');
+  assert.equal(verifierPacket.citation_claims[0].human_review.assessment, 'overstates_source');
+  fs.writeFileSync(verifierPath, verifierBytes);
+  delete finding.evidence[1].review_path;
+  delete finding.evidence[1].review_sha256;
+  assert.match(validateFindings([finding], data.profile).join('\n'), /needs a reviewed citation claim packet/);
+  finding.evidence[1].review_path = 'citation-review.json';
+  finding.evidence[1].review_sha256 = checksum(reviewBytes);
+  fs.writeFileSync(sourcePath, 'Changed cited source.\n');
+  assert.match(validateRun(data.run, manifest, data.profile, data.ledger, [finding]).join('\n'), /cited source has changed/);
+  fs.writeFileSync(sourcePath, 'The sample included only six cases.\n');
+  review.assessment = 'supports_claim';
+  fs.writeFileSync(path.join(data.run, 'citation-review.json'), JSON.stringify(review));
+  finding.evidence[1].review_sha256 = checksum(fs.readFileSync(path.join(data.run, 'citation-review.json')));
+  assert.match(validateRun(data.run, manifest, data.profile, data.ledger, [finding]).join('\n'), /lacks a complete human contradiction review/);
+});
+
 test('unresolved findings cannot carry a severity', t => {
   const { findings, profile } = fixture(t);
   findings[0].verdict = 'needs_validation';

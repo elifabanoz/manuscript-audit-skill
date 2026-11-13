@@ -87,6 +87,12 @@ function prepare(run, findingId, role) {
           record: JSON.parse(bytes.toString('utf8')) }];
       }));
   }
+  if (finding.evidence.some(item => item.type === 'citation_claim')) {
+    packet.citation_claims = finding.evidence.filter(item => item.type === 'citation_claim').map(item => ({
+      packet: readJson(safeFile(run, item.packet_path)),
+      ...(item.review_path ? { human_review: readJson(safeFile(run, item.review_path)) } : {})
+    }));
+  }
   if (role === 'record_verifier') {
     const defense = readJson(safeFile(run, provenance.validator));
     packet.defense_decision = defense.decision;
